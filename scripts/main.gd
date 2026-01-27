@@ -302,9 +302,16 @@ func _handle_building_placement_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			_place_building()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			GameManager.cancel_building_placement()
-			building_ghost = null  # Clear local reference since GameManager freed it
-			current_building_type = BuildingType.NONE
+			_cancel_building_placement()
+
+	elif event is InputEventKey:
+		if event.keycode == KEY_ESCAPE and event.pressed:
+			_cancel_building_placement()
+
+func _cancel_building_placement() -> void:
+	GameManager.cancel_building_placement()
+	building_ghost = null
+	current_building_type = BuildingType.NONE
 
 func _place_building() -> void:
 	if not GameManager.building_to_place:

@@ -1,10 +1,13 @@
-[gd_scene load_steps=4 format=3 uid="uid://cwolf0001"]
+[gd_scene load_steps=5 format=3 uid="uid://cwolf0001"]
 
 [ext_resource type="Script" path="res://scripts/units/wolf.gd" id="1_wolf"]
 [ext_resource type="Texture2D" path="res://assets/sprites/units/wolf.svg" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wolf"]
 size = Vector2(24, 18)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_selection"]
+size = Vector2(32, 6)
 
 [node name="Wolf" type="CharacterBody2D"]
 collision_layer = 1
@@ -25,4 +28,4 @@ target_desired_distance = 4.0
 [node name="SelectionIndicator" type="Sprite2D" parent="."]
 modulate = Color(0, 1, 0, 0.7)
 position = Vector2(0, 13)
-scale = Vector2(24, 3)
+texture = SubResource("PlaceholderTexture2D_selection")
