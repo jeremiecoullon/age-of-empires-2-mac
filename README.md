@@ -2,8 +2,6 @@
 
 A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reproduce the original game as defined by the AoE2 manual.
 
-**Current status:** MVP complete. Player vs AI combat works with basic economy (wood, food), militia units, and conquest victory. See `docs/roadmap.md` for the full implementation plan.
-
 ## Quick Start
 
 1. Open project in Godot 4.x
