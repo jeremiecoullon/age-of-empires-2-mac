@@ -1,8 +1,8 @@
 # Age of Empires 2 Clone
 
-A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reproduce the original game as defined by the AoE2 manual - all units, buildings, ages, and mechanics.
+A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reproduce the original game as defined by the AoE2 manual.
 
-**Current status:** MVP complete. Player vs AI combat works with basic economy (wood, food), militia units, and conquest victory. See `docs/roadmap.md` for the full 10-phase plan.
+**Current status:** MVP complete. Player vs AI combat works with basic economy (wood, food), militia units, and conquest victory. See `docs/roadmap.md` for the full implementation plan.
 
 ## Quick Start
 
@@ -18,32 +18,11 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 - **Right-click**: Move units / Attack enemy / Gather resource
 - **Build buttons**: Enter placement mode, left-click to place, right-click to cancel
 
-## Development
-
-### AI Workflow
-
-This project uses an orchestrator + sub-agent pattern with Claude Code.
-
-**Orchestrator** (main session): Does not write game code directly. Coordinates sub-agents, verifies work, writes documentation.
-
-**Sub-agents**: Implement specific features, return summaries.
-
-### Phase Workflow
-
-1. **Pre-flight** - Read `docs/gotchas.md`, verify game runs
-2. **Plan** - Break phase into sub-tasks, create task files in `docs/tasks/phaseN/`
-3. **Build** - Sub-agents implement tasks
-4. **Review** - Code review
-5. **Verify** - Compare implementation against spec
-6. **Checkpoint** - Write summary to `docs/phase_checkpoints/`, update gotchas
-7. **Clear context** - Artifacts persist for next session
-
-### Key Files
+## Key Files
 
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Instructions for Claude (read automatically) |
+| `CLAUDE.md` | Instructions for Claude |
+| `docs/roadmap.md` | Architecture and implementation plan |
 | `docs/gotchas.md` | Accumulated learnings |
-| `docs/phase_checkpoints/` | Phase summaries |
-| `docs/tasks/` | Sub-task files per phase |
-| `docs/roadmap.md` | Full implementation plan |
+| `docs/design_decisions.md` | Key design choices |
