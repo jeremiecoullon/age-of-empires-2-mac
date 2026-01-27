@@ -26,3 +26,13 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 | `docs/roadmap.md` | Architecture and implementation plan |
 | `docs/gotchas.md` | Accumulated learnings |
 | `docs/design_decisions.md` | Key design choices |
+
+## Development
+
+**Before starting work:**
+
+1. Check `docs/phase_checkpoints/` to see what's been done. Each completed phase has a checkpoint doc summarizing what was built, files changed, and context for the next phase.
+
+2. Read `docs/roadmap.md` to understand the next phase. Follow the Phase Workflow section (refactor check → build → post-phase).
+
+3. Read `docs/gotchas.md` to avoid known pitfalls.

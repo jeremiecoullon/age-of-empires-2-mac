@@ -78,7 +78,6 @@ Before starting each phase, follow this process:
 - **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
 - Update `docs/gotchas.md` with new learnings
 - **Write a checkpoint doc** in `docs/phase_checkpoints/` using the template. This is required for both DIRECT and ORCHESTRATOR modes - it's how future sessions know what was built.
-- Create a git tag: `git tag phase-N-complete`
 - Verify game still launches and plays correctly
 
 ---

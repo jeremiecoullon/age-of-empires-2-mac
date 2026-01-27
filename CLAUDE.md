@@ -77,7 +77,7 @@ You are the **orchestrator**. You do not write game code directly. You coordinat
 2. Break the phase into sub-tasks
 3. Create task files in `docs/tasks/phaseN/`
 4. For each sub-task: spawn a sub-agent, verify results, commit
-5. After phase completion: checkpoint doc + git tag
+5. After phase completion: write checkpoint doc
 
 ### Sub-Agent Briefing
 
