@@ -1,0 +1,888 @@
+# AoE2 Clone - Roadmap
+
+**Last updated:** 2026-01-27
+
+## Goal
+
+Faithfully reproduce Age of Empires 2 as defined by the AoE2 manual (`docs/AoE_manual/`). We aim to implement all core systems, units, buildings, and mechanics from the original game.
+
+We're happy to stop earlier if we reach diminishing returns (e.g., obscure features, excessive complexity). But the target is full reproduction, not a "lite" version.
+
+## Design Principles
+
+1. **Each phase = playable game** - Never break what works
+2. **Gameplay before polish** - Colored rectangles are fine until Phase 9
+3. **AI reproduces original behavior** - Match AoE2's AI as closely as possible
+4. **All 4 ages** - Dark, Feudal, Castle, Imperial (added incrementally)
+
+---
+
+## Current State (MVP Complete)
+
+Tiers 1-3 are complete. The game is playable with Player vs AI combat.
+
+| Category | Implemented |
+|----------|-------------|
+| Resources | 2 (wood, food) |
+| Units | 2 (villager, militia) |
+| Buildings | 4 (Town Center, House, Barracks, Farm) |
+| Ages | 0 (no progression) |
+| Victory conditions | 1 (conquest - destroy enemy TC) |
+| Map size | 60x60 tiles (1920x1920 pixels) |
+
+### Completed Features
+
+**Tier 1: Foundation**
+- [x] Map: 60x60 tiles, green grass ColorRect
+- [x] Camera: WASD/arrow keys + edge scrolling, clamped to map bounds
+- [x] Resources: Trees (100 wood), Berry bushes (75 food), shrink as depleted
+- [x] Units: Villager with states (IDLE, MOVING, GATHERING, RETURNING)
+- [x] Buildings: Town Center (trains villagers), House (+5 pop cap)
+- [x] Selection: Click select, box select, right-click commands
+- [x] HUD: Resource display, population, Build buttons, TC panel, Info panel
+- [x] Visual Feedback: Villagers change color when carrying resources
+
+**Tier 2: Gameplay (Combat & Economy)**
+- [x] Barracks building (100 wood, 3x3, trains militia)
+- [x] Militia unit (60 food + 20 wood, 50 HP, 5 damage, attack states)
+- [x] Combat system (HP, take_damage, die, attack command)
+- [x] Farm building (50 wood, 2x2, infinite food at 0.5/sec)
+- [x] Team system (`@export var team: int = 0` on Unit)
+- [x] Building collision detection
+- [x] Militia uses NavigationAgent2D for pathfinding
+
+**Tier 3: Game Loop (AI & Win Condition)**
+- [x] AI resource tracking (separate from player)
+- [x] AI Controller spawns base at (1700, 1700)
+- [x] AI villagers auto-gather and deposit to AI TC
+- [x] AI builds houses when pop capped
+- [x] AI builds barracks when wood > 100
+- [x] AI trains militia
+- [x] AI attacks when military >= 3
+- [x] Building HP (200 default, 500 for TC)
+- [x] Buildings have team property
+- [x] Militia can attack buildings
+- [x] Win condition: Enemy TC destroyed
+- [x] Lose condition: Player TC destroyed
+- [x] Victory/Defeat overlay with restart button
+- [x] Team colors: Player = Blue, AI = Red
+
+> **Note:** MVP values differ from AoE2 spec for simplicity. See `docs/spec_mismatches.md` for details. Key differences:
+> - Militia: MVP uses 60F+20W, 50 HP, 5 attack. Spec: 60F+20G, 40 HP, 4 attack
+> - Buildings use placeholder HP values. Spec: TC=2400, Barracks=1200, House=900
+> - These will be corrected as we move past MVP.
+
+---
+
+## Phases Overview
+
+| Phase | Name | Core Focus |
+|-------|------|------------|
+| 1 | Complete Economy | 4 resources, drop-off buildings, trading |
+| 2 | Military Foundation | Combat triangle, fog of war, counter-units |
+| 3 | Age System | Dark → Feudal → Castle progression |
+| 4 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
+| 5 | Monks & Relics | Conversion, healing, relic victory |
+| 6 | Walls & Basic Defense | Walls, gates, basic towers, garrison |
+| 7 | Advanced Defense & Siege | University, siege units, advanced towers |
+| 8 | Imperial Age | 4th age, late-game units, Wonder victory |
+| 9 | Polish & UX | Minimap, control groups, formations, audio |
+| 10 | Naval Economy | Dock, fishing, transport (Optional) |
+| 11 | Naval Combat | Warships, water maps (Optional) |
+| 12 | Civilizations | 13 civs, unique units, tech trees (Optional) |
+| 13 | Multiplayer | Networking, lobbies, diplomacy (Optional) |
+
+---
+
+## Phase 1: Complete Economy
+**Goal:** Establish full 4-resource economy with trading
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Stone resource | Resource | New resource nodes on map |
+| Gold resource | Resource | New resource nodes on map |
+| Mining Camp | Building | Drop-off for stone/gold |
+| Lumber Camp | Building | Drop-off for wood |
+| Mill | Building | Drop-off for food, farms built around mills |
+| Fish Trap | Building | Renewable water food source (built by Fishing Ship later, placeholder for now) |
+| Market | Building | Commodity trading (buy/sell resources) |
+| Trade Cart | Unit | Generate passive gold via trade routes |
+| Tribute system | Mechanic | Send resources to other players (30% fee) |
+
+**Food Sources (from manual):**
+| Source | Type | Notes |
+|--------|------|-------|
+| Sheep | Herdable | Neutral until seen; can be stolen; villagers herd to drop-off then kill |
+| Deer | Huntable | Food source, villagers must hunt |
+| Wild Boar | Huntable | High food, but attacks back - use multiple villagers |
+| Shore Fish | Gatherable | Villagers can fish from shore (requires water terrain - Phase 10) |
+| Wolves | Hazard | Attack units, yield no food - environmental danger |
+
+**AI updates:** AI gathers all 4 resources, builds camps near resource clusters, uses market, herds sheep.
+
+**Done when:** Player and AI both manage 4-resource economy with drop-off optimization and trading.
+
+---
+
+## Phase 2: Military Foundation + Fog of War
+**Goal:** Rock-paper-scissors combat with counter-units and information warfare
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Archer | Unit | Ranged, beats infantry at distance |
+| Archery Range | Building | Trains archers, skirmishers |
+| Skirmisher | Unit | Anti-archer unit, cheap, bonus vs archers |
+| Spearman | Unit | At Barracks, cheap counter to cavalry |
+| Scout Cavalry | Unit | Fast, good LOS, resistant to conversion |
+| Stable | Building | Trains cavalry units |
+| Cavalry Archer | Unit | Mobile ranged, hit-and-run |
+| Fog of War | System | Unexplored = black, explored but unseen = fog, visible = clear |
+| Basic stances | Mechanic | Aggressive, Defensive, Stand Ground, No Attack |
+| Terrain bonuses | Mechanic | Elevation/cliff attack modifiers |
+
+**Combat triangle:**
+```
+Infantry (Militia) -> baseline, good vs buildings
+Archers -> shred infantry, die to skirmishers and cavalry
+Skirmishers -> counter archers, weak to infantry
+Spearmen -> destroy cavalry, die to archers
+Cavalry -> fast, crush archers, die to spears
+Cavalry Archers -> mobile ranged, weak to skirmishers
+```
+
+**AI updates:** AI builds mixed army, scouts the map, attempts to counter player composition.
+
+**Done when:** Battles feel tactical - unit composition matters. Scouting matters.
+
+---
+
+## Phase 3: Age System
+**Goal:** Implement age progression infrastructure (Dark → Feudal → Castle)
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Age state machine | System | Track current age per player |
+| Dark Age | Age | Starting age, basic units/buildings |
+| Feudal Age | Age | Cost: 500 food, requires 2 Dark Age buildings |
+| Castle Age | Age | Cost: 800 food + 200 gold, requires 2 Feudal Age buildings |
+| Age advancement UI | UI | Button at TC, progress bar, notification |
+| Age-gating | System | Buildings/units locked until specific age |
+| Building visual changes | Visual | Buildings update appearance per age |
+
+**Age-gated content:**
+- **Dark Age:** Villager, Militia, Barracks, House, Mill, Mining Camp, Lumber Camp, Farm, Outpost, Palisade Wall
+- **Feudal Age:** Archery Range, Stable, Market, Blacksmith, Watch Tower, Stone Wall, Gate; Scout Cavalry, Archer, Skirmisher, Spearman
+- **Castle Age:** Siege Workshop, Monastery, University, Castle, Town Center (additional); Knight, Cavalry Archer, Crossbowman, Pikeman, siege units
+
+**AI updates:** AI researches age advancement when economically ready.
+
+**Done when:** Games have distinct early-game (Dark Age eco), mid-game (Feudal military), late-game (Castle power).
+
+---
+
+## Phase 4: Tech Research & Upgrades
+**Goal:** Full technology and unit upgrade system
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Blacksmith | Building | Attack/armor upgrades |
+| Tech research system | System | Buildings research technologies, queue, progress bar |
+| Unit upgrade lines | System | Upgrade all existing units of type |
+| Loom | Tech | +15 villager HP, +1/+1 armor (TC, Dark Age) |
+
+**Unit Upgrades (Infantry):**
+| Upgrade | Age | Cost | Building |
+|---------|-----|------|----------|
+| Man-at-Arms | Feudal | 100F, 40G | Barracks |
+| Long Swordsman | Castle | 200F, 65G | Barracks |
+| Two-Handed Swordsman | Imperial | 300F, 100G | Barracks |
+| Champion | Imperial | 750F, 350G | Barracks |
+| Pikeman | Castle | 215F, 90G | Barracks |
+
+**Unit Upgrades (Archers):**
+| Upgrade | Age | Cost | Building |
+|---------|-----|------|----------|
+| Crossbowman | Castle | 125F, 75G | Archery Range |
+| Arbalester | Imperial | 350F, 300G | Archery Range |
+| Elite Skirmisher | Castle | 200W, 100G | Archery Range |
+| Heavy Cavalry Archer | Castle | 900F, 500G | Archery Range |
+
+**Unit Upgrades (Cavalry):**
+| Upgrade | Age | Cost | Building |
+|---------|-----|------|----------|
+| Light Cavalry | Castle | 150F, 50G | Stable |
+| Knight | Castle | - | Stable (new unit) |
+| Cavalier | Imperial | 300F, 300G | Stable |
+| Paladin | Imperial | 1300F, 750G | Stable |
+
+**Blacksmith Techs:** See Technology Appendix
+
+**AI updates:** AI researches upgrades based on army composition.
+
+**Done when:** Tech tree is functional, upgrades affect gameplay significantly.
+
+---
+
+## Phase 5: Monks, Relics & Monastery
+**Goal:** Add conversion mechanics and alternative victory/income
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Monastery | Building | Trains monks, stores relics, Castle Age |
+| Monk | Unit | Slow, heals friendly units, converts enemies |
+| Conversion mechanic | Mechanic | Range 9, random success chance, rejuvenation time |
+| Healing mechanic | Mechanic | Auto-heal nearby wounded friendlies |
+| Relics | Object | Spawn on map (5 per game), only monks can carry |
+| Relic garrisoning | Mechanic | Garrison in Monastery for +0.5 gold/sec |
+| Relic victory | Victory | Control all relics for 200 years (game time) |
+| Monk technologies | Tech | See Technology Appendix |
+
+**AI updates:** AI trains monks, collects relics, attempts conversions on high-value targets.
+
+**Done when:** Monks are viable tactical option. Relic control is strategic goal.
+
+---
+
+## Phase 6: Walls & Basic Defense
+**Goal:** Positional play with walls and basic static defenses
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Palisade Wall | Building | 2 wood, 250 HP, Dark Age |
+| Stone Wall | Building | 5 stone, 1800 HP, Feudal Age |
+| Gate | Building | 30 stone, passable wall segment, lockable |
+| Outpost | Building | 25W + 25S, 500 HP, long LOS, no attack |
+| Watch Tower | Building | 125S + 25W, 1020 HP, 5 attack, range 8 |
+| Garrison (basic) | Mechanic | Units inside TC/towers for protection + arrow bonus |
+| Garrison healing | Mechanic | Garrisoned units heal automatically over time |
+| Allied garrison | Mechanic | Allies can garrison in each other's buildings |
+| Allied gates | Mechanic | Allies can open/close each other's gates |
+| Town Bell | Mechanic | Garrison all villagers in nearest buildings |
+
+**Garrison capacity:**
+- Town Center: 15 foot units
+- Watch Tower: 5 foot units
+- Castle: 20 units (Phase 8)
+
+**AI updates:** AI builds walls around base, uses towers at chokepoints.
+
+**Done when:** Defensive play is viable. Walls create meaningful map control.
+
+---
+
+## Phase 7: Advanced Defense & Siege
+**Goal:** Siege warfare breaks defensive positions
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| University | Building | Building/tower/siege techs, Castle Age |
+| Guard Tower | Building | Watch Tower upgrade, 1500 HP, 6 attack |
+| Fortified Wall | Building | Stone Wall upgrade, 3000 HP |
+| Siege Workshop | Building | Builds siege units, Castle Age |
+| Battering Ram | Unit | 175 HP, bonus vs buildings, weak to infantry |
+| Capped Ram | Unit | Ram upgrade, 200 HP |
+| Mangonel | Unit | Area damage, 50 HP, counters massed units |
+| Onager | Unit | Mangonel upgrade, 60 HP, more damage |
+| Scorpion | Unit | Bolt damage, hits all units in line |
+| Heavy Scorpion | Unit | Scorpion upgrade |
+| Garrison (advanced) | Mechanic | Siege units garrison in rams for protection |
+
+**University Techs:** See Technology Appendix
+
+**AI updates:** AI builds siege to break player walls, protects siege with infantry.
+
+**Done when:** Turtling is viable but counterable. Siege breaks stalemates.
+
+---
+
+## Phase 8: Imperial Age & Advanced
+**Goal:** Complete age system with late-game power units
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Imperial Age | Age | Cost: 1000F + 800G, requires 2 Castle Age buildings |
+| Castle | Building | 650 stone, unique units, Trebuchets, 4800 HP |
+| Trebuchet | Unit | Long-range (16), pack/unpack, anti-building |
+| Bombard Cannon | Unit | 225W + 225G, requires Chemistry |
+| Siege Ram | Unit | Capped Ram upgrade, 270 HP |
+| Siege Onager | Unit | Onager upgrade, 75 damage, cuts forests |
+| Keep | Building | Guard Tower upgrade, 2250 HP, 7 attack |
+| Bombard Tower | Building | 125S + 100G, requires Chemistry, 120 attack |
+| Wonder | Building | 1000W + 1000S + 1000G, 4800 HP |
+| Wonder victory | Victory | Wonder stands for 200 years |
+| Chemistry | Tech | Enables gunpowder units, +1 missile attack |
+| Camel | Unit | Anti-cavalry cavalry, 100 HP, bonus vs mounted |
+| Heavy Camel | Unit | Camel upgrade, 120 HP |
+| Hand Cannoneer | Unit | Gunpowder archer, 17 attack, inaccurate |
+
+**AI updates:** AI advances to Imperial, builds Castle, uses Trebuchets, builds Wonder if ahead.
+
+**Done when:** Full 4-age progression. Late-game feels powerful and distinct.
+
+---
+
+## Phase 9: Polish & UX
+**Goal:** Quality of life improvements for playability
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Minimap | UI | Click to move camera, show units/buildings/resources |
+| Minimap modes | UI | Normal, Combat (military), Economic (resources) |
+| Control groups | Input | Ctrl+1-9 to save, 1-9 to recall selections |
+| Unit queuing | Mechanic | Shift+click for waypoints |
+| Rally points | Mechanic | Set gather point for trained units |
+| Formations | Mechanic | Line, Box, Staggered, Flank |
+| Patrol command | Mechanic | Units patrol between points, attack enemies in sight |
+| Guard command | Mechanic | Units follow and protect target |
+| Follow command | Mechanic | Units follow allied or enemy unit |
+| Idle villager button | UI | Cycle through idle villagers |
+| Idle military button | UI | Cycle through idle military |
+| Visual upgrade | Art | Sprites, animations |
+| Sound effects | Audio | Feedback for actions, combat, UI |
+| Larger maps | Map | 120x120, 200x200 options |
+| Multiple map types | Map | Arabia, Black Forest, etc. |
+
+**Done when:** Game feels responsive and professional.
+
+---
+
+## Phase 10: Naval Economy (Optional)
+**Goal:** Water-based economic gameplay
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Dock | Building | 150W, trains ships, drop-off for fish |
+| Fishing Ship | Unit | 75W, gathers fish, builds Fish Traps |
+| Fish (deep water) | Resource | Food source, requires Fishing Ship |
+| Fish Trap | Building | 100W, renewable food, built by Fishing Ship |
+| Trade Cog | Unit | 100W + 50G, sea trade route |
+| Transport Ship | Unit | 125W, carries land units across water |
+| Water terrain | Map | Shallow (passable), deep water |
+| Shore fishing | Mechanic | Villagers fish from shore |
+
+**AI updates:** AI builds Dock on water maps, uses fishing economy.
+
+**Done when:** Water maps have economic viability.
+
+---
+
+## Phase 11: Naval Combat (Optional)
+**Goal:** Naval warfare for water map control
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Galley | Unit | 90W + 30G, basic warship, 6 attack |
+| War Galley | Unit | Galley upgrade, 7 attack |
+| Galleon | Unit | War Galley upgrade, 8 attack |
+| Fire Ship | Unit | 75W + 45G, anti-ship, 2 attack |
+| Fast Fire Ship | Unit | Fire Ship upgrade |
+| Demolition Ship | Unit | 70W + 50G, suicide attack, 110 damage |
+| Heavy Demolition Ship | Unit | Demo Ship upgrade, 140 damage |
+| Cannon Galleon | Unit | 200W + 150G, long range, anti-building |
+| Elite Cannon Galleon | Unit | Cannon Galleon upgrade |
+| Water maps | Map | Islands, Archipelago, Coastal, Baltic, etc. |
+
+**Ship Techs:** Careening, Dry Dock, Shipwright (see Appendix)
+
+**AI updates:** AI builds navy on water maps, controls sea.
+
+**Done when:** Naval combat is balanced and fun.
+
+---
+
+## Phase 12: Civilizations (Optional)
+**Goal:** Asymmetric gameplay through civilization bonuses
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Civilization selection | UI | Pre-game civ picker |
+| 13 civilizations | Content | Britons, Byzantines, Celts, Chinese, Franks, Goths, Japanese, Mongols, Persians, Saracens, Teutons, Turks, Vikings |
+| Civ bonuses | Balance | 2-4 unique bonuses per civ |
+| Unique units | Units | One per civ, trained at Castle |
+| Tech tree variations | System | Some civs lack certain techs |
+| Team bonuses | Balance | Shared bonus with allies |
+
+**Unique Units:**
+| Civ | Unit | Type | Special |
+|-----|------|------|---------|
+| Britons | Longbowman | Archer | +1 range |
+| Byzantines | Cataphract | Cavalry | Bonus vs infantry |
+| Celts | Woad Raider | Infantry | Very fast |
+| Chinese | Chu Ko Nu | Archer | Fires multiple bolts |
+| Franks | Throwing Axeman | Infantry | Ranged attack |
+| Goths | Huskarl | Infantry | High pierce armor |
+| Japanese | Samurai | Infantry | Bonus vs unique units |
+| Mongols | Mangudai | Cav Archer | Bonus vs siege |
+| Persians | War Elephant | Cavalry | Massive HP, slow |
+| Saracens | Mameluke | Cavalry | Ranged, anti-cavalry |
+| Teutons | Teutonic Knight | Infantry | Massive armor, slow |
+| Turks | Janissary | Gunpowder | Long range Hand Cannoneer |
+| Vikings | Berserk | Infantry | Regenerates HP |
+| Vikings | Longboat | Ship | Fires multiple arrows |
+
+**Done when:** Each civ feels distinct. Matchups create strategic variety.
+
+---
+
+## Phase 13: Multiplayer (Optional)
+**Goal:** Human vs human gameplay
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Networking layer | System | Godot High-Level Multiplayer or ENet |
+| Lobby system | UI | Create/join games, player list |
+| Player slots | System | 2-8 players |
+| Team configuration | UI | Set teams, colors, starting positions |
+| Diplomacy | System | Ally/Neutral/Enemy stances, changeable mid-game |
+| Allied victory | Mechanic | Team wins together |
+| Chat | UI | In-game text communication |
+| Replay system | System | Record and playback games |
+| Game speed lock | Setting | Sync speed across all players |
+
+**Game Modes:**
+- Random Map (standard)
+- Regicide (protect your King unit)
+- Death Match (start with large stockpiles)
+
+**Done when:** Stable multiplayer matches with 2-8 players.
+
+---
+
+## Architecture
+
+### File Structure
+```
+scripts/
+  main.gd              # Selection, commands, building placement, collision detection
+  game_manager.gd      # Autoload singleton - resources, population, selection, victory
+  camera.gd            # Camera panning
+  ai/
+    ai_controller.gd   # AI opponent logic
+  units/
+    unit.gd            # Base unit - HP, team, movement, death, team colors
+    villager.gd        # Gathering, carrying resources, team-based TC
+    militia.gd         # Combat, attack states, can attack buildings
+  buildings/
+    building.gd        # Base building - HP, team, destruction, team colors
+    town_center.gd     # Trains villagers, 500 HP, victory check on destroy
+    house.gd           # +5 pop cap (team-aware)
+    barracks.gd        # Trains militia (team-aware)
+    farm.gd            # Infinite food resource
+  resources/
+    resource_node.gd   # Tree/berry bush
+  ui/
+    hud.gd             # All UI logic, game over panel
+scenes/
+  main.tscn, map.tscn
+  units/    villager.tscn, militia.tscn
+  buildings/ town_center.tscn, house.tscn, barracks.tscn, farm.tscn
+  resources/ tree.tscn, berry_bush.tscn
+  ui/       hud.tscn
+```
+
+### Key Classes
+
+**Unit (unit.gd)**
+```gdscript
+const PLAYER_COLOR = Color(0.3, 0.5, 0.9, 1)  # Blue
+const AI_COLOR = Color(0.9, 0.2, 0.2, 1)  # Red
+
+@export var move_speed: float = 100.0
+@export var max_hp: int = 100
+@export var team: int = 0  # 0 = player, 1 = AI
+
+var current_hp: int
+var is_selected: bool = false
+var is_dead: bool = false
+
+signal died
+
+func move_to(target_position)  # Uses NavigationAgent2D
+func take_damage(amount)
+func die()  # Team-aware population removal
+func _apply_team_color()  # Sets sprite color based on team
+```
+
+**Building (building.gd)**
+```gdscript
+const PLAYER_COLOR = Color(0.3, 0.5, 0.9, 1)  # Blue
+const AI_COLOR = Color(0.9, 0.2, 0.2, 1)  # Red
+
+@export var team: int = 0
+@export var max_hp: int = 200
+
+var current_hp: int
+var is_destroyed: bool = false
+
+signal destroyed
+
+func take_damage(amount)
+func _destroy()
+func _apply_team_color()
+```
+
+**Militia (militia.gd)**
+```gdscript
+enum State { IDLE, MOVING, ATTACKING }
+@export var attack_damage: int = 5
+@export var attack_range: float = 30.0
+@export var attack_cooldown: float = 1.0
+# max_hp = 50 (set in _ready)
+
+var attack_target: Node2D  # Can be Unit or Building
+
+func command_attack(target: Node2D)
+# Uses nav_agent for pathfinding during chase
+# Attack timer only increments when in range
+```
+
+**AIController (ai_controller.gd)**
+```gdscript
+const AI_BASE_POSITION = Vector2(1700, 1700)
+const DECISION_INTERVAL = 1.5
+const ATTACK_THRESHOLD = 3
+
+# Decision loop every 1.5 seconds:
+# 1. Send idle villagers to gather nearest resource
+# 2. Build house if pop capped and wood >= 25
+# 3. Build barracks if none and wood >= 100
+# 4. Train militia if affordable
+# 5. Attack player TC when military >= 3
+```
+
+**GameManager (game_manager.gd)**
+```gdscript
+# Player resources
+var wood: int = 200
+var food: int = 200
+var population: int = 3
+var population_cap: int = 5
+
+# AI resources (separate tracking)
+var ai_wood: int = 200
+var ai_food: int = 200
+var ai_population: int = 0
+var ai_population_cap: int = 5
+
+signal game_over(winner: int)  # 0 = player, 1 = AI
+var game_ended: bool = false
+
+func check_victory()  # Called when TC destroyed
+func reset()  # Reset all state for restart
+```
+
+### Groups
+- `"units"`, `"villagers"`, `"military"`
+- `"buildings"`, `"town_centers"`, `"houses"`, `"barracks"`, `"farms"`
+- `"resources"` (includes farms for gathering)
+
+### Collision Layers
+- Layer 1: Units
+- Layer 2: Buildings
+- Layer 4: Resources
+
+### Key Values (MVP - will be corrected to AoE2 spec)
+
+| Item | MVP Value | AoE2 Spec |
+|------|-----------|-----------|
+| Map size | 1920x1920 px (60x60 tiles) | - |
+| Tile size | 32 pixels | - |
+| Player start | (480, 480) | - |
+| AI start | (1700, 1700) | - |
+| Villager cost | 50 food | 50 food ✓ |
+| House cost | 25 wood | 30 wood |
+| Barracks cost | 100 wood | 175 wood |
+| Farm cost | 50 wood | 60 wood |
+| Militia cost | 60F + 20W | 60F + 20G (gold!) |
+| Militia HP | 50 | 40 |
+| Militia attack | 5 | 4 |
+| Militia range | 30 pixels | melee (0) |
+| Attack cooldown | 1.0 sec | ~2 sec |
+| TC HP | 500 | 2400 |
+| House HP | 200 | 900 |
+| Barracks HP | 200 | 1200 |
+| Gather rate | 1/sec (0.5 farm) | - |
+| Carry capacity | 10 | - |
+| AI decision interval | 1.5 seconds | - |
+| AI attack threshold | 3 militia | - |
+
+### Team Colors
+| Team | Color | RGB |
+|------|-------|-----|
+| Player (0) | Blue | (0.3, 0.5, 0.9) |
+| AI (1) | Red | (0.9, 0.2, 0.2) |
+
+---
+
+## Adding New Content
+
+### New Building
+1. Create `scripts/buildings/X.gd` extending Building
+2. Create `scenes/buildings/X.tscn` (StaticBody2D, Sprite2D, CollisionShape2D)
+3. Set collision_layer = 2
+4. Add to group in _ready()
+5. Add build button to hud.tscn and hud.gd
+6. Add placement logic to main.gd
+7. Update `_show_building_info()` in hud.gd
+
+### New Unit
+1. Create `scripts/units/X.gd` extending Unit
+2. Create `scenes/units/X.tscn` (CharacterBody2D, Sprite2D, CollisionShape2D, NavigationAgent2D, SelectionIndicator)
+3. Set collision_layer = 1
+4. Add to group
+5. Add training logic to building
+6. Update info panel in hud.gd
+
+---
+
+## Technology Appendix
+
+All technologies organized by building and phase.
+
+### Town Center Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Loom | Dark | 50G | +15 villager HP, +1/+1 armor | 4 |
+| Town Watch | Feudal | 75F | +4 building LOS | 4 |
+| Town Patrol | Castle | 300F, 200G | +4 building LOS | 7 |
+| Wheelbarrow | Feudal | 175F, 50W | +10% villager speed, +25% carry | 4 |
+| Hand Cart | Castle | 300F, 200W | +10% villager speed, +50% carry | 7 |
+
+### Mill Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Horse Collar | Feudal | 75F, 75W | Farm +75 food | 4 |
+| Heavy Plow | Castle | 125F, 125W | Farm +125 food, +1 carry | 7 |
+| Crop Rotation | Imperial | 250F, 250W | Farm +175 food | 8 |
+
+### Lumber Camp Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Double-Bit Axe | Feudal | 100F, 50W | +20% wood chopping | 4 |
+| Bow Saw | Castle | 150F, 100W | +20% wood chopping | 7 |
+| Two-Man Saw | Imperial | 300F, 200W | +10% wood chopping | 8 |
+
+### Mining Camp Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Gold Mining | Feudal | 100F, 75W | +15% gold mining | 4 |
+| Stone Mining | Feudal | 100F, 75W | +15% stone mining | 4 |
+| Gold Shaft Mining | Castle | 200F, 150W | +15% gold mining | 7 |
+| Stone Shaft Mining | Castle | 200F, 150W | +15% stone mining | 7 |
+
+### Market Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Coinage | Feudal | 150F, 50G | Tribute fee 30% → 20% | 4 |
+| Banking | Castle | 200F, 100G | No tribute fee | 7 |
+| Guilds | Imperial | 300F, 200G | Trading fee → 15% | 8 |
+| Cartography | Feudal | 100F, 100G | Share ally exploration | 4 |
+
+### Blacksmith Technologies (Infantry)
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Forging | Feudal | 150F | +1 infantry/cavalry attack | 4 |
+| Iron Casting | Castle | 220F, 120G | +1 infantry/cavalry attack | 7 |
+| Blast Furnace | Imperial | 275F, 225G | +2 infantry/cavalry attack | 8 |
+| Scale Mail Armor | Feudal | 100F | +1/+1P infantry armor | 4 |
+| Chain Mail Armor | Castle | 200F, 100G | +1/+1P infantry armor | 7 |
+| Plate Mail Armor | Imperial | 300F, 150G | +1/+2P infantry armor | 8 |
+
+### Blacksmith Technologies (Archers)
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Fletching | Feudal | 100F, 50G | +1 attack/range for archers, towers | 4 |
+| Bodkin Arrow | Castle | 200F, 100G | +1 attack/range for archers, towers | 7 |
+| Bracer | Imperial | 300F, 200G | +1 attack/range for archers, towers | 8 |
+| Padded Archer Armor | Feudal | 100F | +1/+1P archer armor | 4 |
+| Leather Archer Armor | Castle | 150F, 150G | +1/+1P archer armor | 7 |
+| Ring Archer Armor | Imperial | 250F, 250G | +1/+2P archer armor | 8 |
+
+### Blacksmith Technologies (Cavalry)
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Scale Barding Armor | Feudal | 150F | +1/+1P cavalry armor | 4 |
+| Chain Barding Armor | Castle | 250F, 150G | +1/+1P cavalry armor | 7 |
+| Plate Barding Armor | Imperial | 350F, 200G | +1/+2P cavalry armor | 8 |
+
+### Barracks Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Tracking | Feudal | 75F | +2 infantry LOS | 4 |
+| Squires | Castle | 200F | +10% infantry speed | 7 |
+
+### Stable Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Husbandry | Castle | 250F | +10% cavalry speed | 7 |
+
+### University Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Masonry | Castle | 175W, 150S | Building HP/armor + | 7 |
+| Architecture | Imperial | 200W, 300S | Building HP/armor ++ | 8 |
+| Ballistics | Castle | 300W, 175G | Archers/towers track moving targets | 7 |
+| Murder Holes | Castle | 200F, 200S | No minimum tower/Castle range | 7 |
+| Heated Shot | Castle | 350F, 100G | +50% tower attack vs ships | 10 |
+| Chemistry | Imperial | 300F, 200G | +1 missile attack, enables gunpowder | 8 |
+| Siege Engineers | Imperial | 500F, 600W | +1 siege range, +20% vs buildings | 8 |
+| Treadmill Crane | Castle | 200W, 300S | +20% villager build speed | 7 |
+| Guard Tower | Castle | 100F, 250S | Upgrade Watch Tower | 7 |
+| Keep | Imperial | 500F, 350S | Upgrade Guard Tower | 8 |
+| Fortified Wall | Castle | 200F, 100S | Upgrade Stone Wall | 7 |
+| Bombard Tower | Imperial | 800F, 400W | Enables Bombard Tower | 8 |
+
+### Monastery Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Redemption | Castle | 475G | Convert buildings, siege | 5 |
+| Atonement | Castle | 325G | Convert enemy Monks | 5 |
+| Fervor | Castle | 140G | +15% Monk speed | 5 |
+| Sanctity | Castle | 120G | +50% Monk HP | 5 |
+| Illumination | Imperial | 120G | +50% rejuvenation speed | 8 |
+| Block Printing | Imperial | 200G | +3 conversion range | 8 |
+| Faith | Imperial | 750F, 1000G | +50% conversion resistance | 8 |
+
+### Castle Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Hoardings | Imperial | 400W, 400S | +1000 Castle HP | 8 |
+| Conscription | Imperial | 150F, 150G | +33% military creation speed | 8 |
+| Sappers | Imperial | 400F, 200G | Villagers +15 attack vs buildings | 8 |
+| Spies/Treason | Imperial | 200G/enemy villager | See enemy LOS | 8 |
+
+### Dock Technologies
+
+| Tech | Age | Cost | Effect | Phase |
+|------|-----|------|--------|-------|
+| Careening | Castle | 250F, 150G | +1P ship armor, +5 Transport capacity | 10 |
+| Dry Dock | Imperial | 600F, 400G | +15% ship speed, +10 Transport capacity | 11 |
+| Shipwright | Imperial | 1000F, 300G | -20% ship wood cost | 11 |
+
+---
+
+## Unit Stats Reference
+
+### Infantry
+
+| Unit | Cost | HP | Attack | Armor | Range | Speed |
+|------|------|-----|--------|-------|-------|-------|
+| Militia | 60F, 20G | 40 | 4 | 0/0 | 0 | Slow |
+| Man-at-Arms | 60F, 20G | 45 | 6 | 0/0 | 0 | Med |
+| Long Swordsman | 60F, 20G | 55 | 9 | 0/0 | 0 | Med |
+| Two-Handed Swordsman | 60F, 20G | 60 | 11 | 0/0 | 0 | Slow |
+| Champion | 60F, 20G | 70 | 13 | 1/0 | 0 | Slow |
+| Spearman | 35F, 25W | 45 | 3 | 0/0 | 0 | Med |
+| Pikeman | 35F, 25W | 55 | 4 | 1/0 | 0 | Med |
+
+### Archers
+
+| Unit | Cost | HP | Attack | Armor | Range | Speed |
+|------|------|-----|--------|-------|-------|-------|
+| Archer | 25W, 45G | 30 | 4 | 0/0 | 4 | Med |
+| Crossbowman | 25W, 45G | 35 | 5 | 0/0 | 5 | Med |
+| Arbalester | 25W, 45G | 40 | 6 | 0/0 | 5 | Med |
+| Skirmisher | 25F, 35W | 30 | 2 | 0/3 | 4 | Med |
+| Elite Skirmisher | 25F, 35W | 35 | 3 | 0/4 | 5 | Med |
+| Cavalry Archer | 40W, 70G | 50 | 6 | 0/0 | 4 | Fast |
+| Heavy Cav Archer | 40W, 70G | 60 | 7 | 1/0 | 4 | Fast |
+| Hand Cannoneer | 45F, 50G | 35 | 17 | 1/0 | 7 | Med |
+
+### Cavalry
+
+| Unit | Cost | HP | Attack | Armor | Range | Speed |
+|------|------|-----|--------|-------|-------|-------|
+| Scout Cavalry | 80F | 45 | 3 | 0/2 | 0 | Med |
+| Light Cavalry | 80F | 60 | 7 | 0/2 | 0 | Fast |
+| Knight | 60F, 75G | 100 | 10 | 2/2 | 0 | Fast |
+| Cavalier | 60F, 75G | 120 | 12 | 2/2 | 0 | Fast |
+| Paladin | 60F, 75G | 160 | 14 | 2/3 | 0 | Fast |
+| Camel | 55F, 60G | 100 | 5 | 0/0 | 0 | Fast |
+| Heavy Camel | 55F, 60G | 120 | 7 | 0/0 | 0 | Fast |
+
+### Siege
+
+| Unit | Cost | HP | Attack | Armor | Range | Speed |
+|------|------|-----|--------|-------|-------|-------|
+| Battering Ram | 160W, 75G | 175 | 2 | 0/180 | 0 | Slow |
+| Capped Ram | 160W, 75G | 200 | 3 | 0/190 | 0 | Slow |
+| Siege Ram | 160W, 75G | 270 | 4 | 0/195 | 0 | Slow |
+| Mangonel | 160W, 135G | 50 | 40 | 0/6 | 7 | Slow |
+| Onager | 160W, 135G | 60 | 50 | 0/7 | 8 | Slow |
+| Siege Onager | 160W, 135G | 70 | 75 | 0/8 | 8 | Slow |
+| Scorpion | 75W, 75G | 40 | 12 | 0/6 | 5 | Slow |
+| Heavy Scorpion | 75W, 75G | 50 | 16 | 0/7 | 5 | Slow |
+| Bombard Cannon | 225W, 225G | 50 | 40 | 2/5 | 12 | Slow |
+| Trebuchet | 200W, 200G | 150 | 200 | 1/150 | 16 | Slow |
+
+### Other
+
+| Unit | Cost | HP | Attack | Armor | Range | Speed |
+|------|------|-----|--------|-------|-------|-------|
+| Villager | 50F | 25 | 3 | 0/0 | 0 | Slow |
+| Monk | 100G | 30 | 0 | 0/0 | 9 | Slow |
+| Trade Cart | 100W, 50G | 70 | 0 | 0/0 | 0 | Med |
+
+### Ships
+
+| Unit | Cost | HP | Attack | Armor | Range | Speed |
+|------|------|-----|--------|-------|-------|-------|
+| Fishing Ship | 75W | 60 | 0 | 0/4 | 0 | Med |
+| Trade Cog | 100W, 50G | 80 | 0 | 0/6 | 0 | Fast |
+| Transport Ship | 125W | 100 | 0 | 4/8 | 0 | Fast |
+| Galley | 90W, 30G | 120 | 6 | 0/6 | 5 | Fast |
+| War Galley | 90W, 30G | 135 | 7 | 0/6 | 6 | Fast |
+| Galleon | 90W, 30G | 165 | 8 | 0/8 | 7 | Fast |
+| Fire Ship | 75W, 45G | 100 | 2 | 0/6 | 2 | Fast |
+| Fast Fire Ship | 75W, 45G | 120 | 3 | 0/8 | 2 | Fast |
+| Demolition Ship | 70W, 50G | 50 | 110 | 0/3 | 0 | Fast |
+| Heavy Demo Ship | 70W, 50G | 60 | 140 | 0/5 | 0 | Fast |
+| Cannon Galleon | 200W, 150G | 120 | 35 | 0/6 | 13 | Med |
+| Elite Cannon Galleon | 200W, 150G | 150 | 45 | 0/8 | 15 | Med |
+
+---
+
+## Building Stats Reference
+
+| Building | Age | Cost | HP | Attack | Garrison | Range |
+|----------|-----|------|-----|--------|----------|-------|
+| Town Center | Castle | 275W | 2400 | 5 | 15 | 6 |
+| House | Dark | 30W | 900 | 0 | 0 | 0 |
+| Mill | Dark | 100W | 1000 | 0 | 0 | 0 |
+| Mining Camp | Dark | 100W | 1000 | 0 | 0 | 0 |
+| Lumber Camp | Dark | 100W | 1000 | 0 | 0 | 0 |
+| Farm | Dark | 60W | 480 | 0 | 0 | 0 |
+| Dock | Dark | 150W | 1800 | 0 | 10 | 0 |
+| Fish Trap | Feudal | 100W | 50 | 0 | 0 | 0 |
+| Market | Feudal | 175W | 2100 | 0 | 0 | 0 |
+| Blacksmith | Feudal | 150W | 2100 | 0 | 0 | 0 |
+| Monastery | Castle | 175W | 2100 | 0 | 10 | 0 |
+| University | Castle | 200W | 2100 | 0 | 0 | 0 |
+| Wonder | Imperial | 1000W,S,G | 4800 | 0 | 0 | 0 |
+| Barracks | Dark | 175W | 1200 | 0 | 10 | 0 |
+| Archery Range | Feudal | 175W | 1500 | 0 | 10 | 0 |
+| Stable | Feudal | 175W | 1500 | 0 | 10 | 0 |
+| Siege Workshop | Castle | 200W | 2100 | 0 | 10 | 0 |
+| Castle | Castle | 650S | 4800 | 11 | 20 | 8 |
+| Outpost | Dark | 25W, 25S | 500 | 0 | 0 | 0 |
+| Palisade Wall | Dark | 2W | 250 | 0 | 0 | 0 |
+| Stone Wall | Feudal | 5S | 1800 | 0 | 0 | 0 |
+| Fortified Wall | Castle | 5S | 3000 | 0 | 0 | 0 |
+| Gate | Feudal | 30S | 2750 | 0 | 0 | 0 |
+| Watch Tower | Feudal | 125S, 25W | 1020 | 5 | 5 | 8 |
+| Guard Tower | Castle | 125S, 25W | 1500 | 6 | 5 | 8 |
+| Keep | Imperial | 125S, 25W | 2250 | 7 | 5 | 8 |
+| Bombard Tower | Imperial | 125S, 100G | 2220 | 120 | 5 | 8 |

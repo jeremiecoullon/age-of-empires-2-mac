@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmap0000001"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_map"]
+vertices = PackedVector2Array(0, 0, 1920, 0, 1920, 1920, 0, 1920)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(0, 0, 1920, 0, 1920, 1920, 0, 1920)])
+
+[node name="Map" type="Node2D"]
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_map")
+
+[node name="Ground" type="ColorRect" parent="."]
+mouse_filter = 2
+offset_right = 1920.0
+offset_bottom = 1920.0
+color = Color(0.3, 0.55, 0.25, 1)

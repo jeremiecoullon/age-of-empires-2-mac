@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3 uid="uid://ctowncenter"]
+
+[ext_resource type="Script" path="res://scripts/buildings/town_center.gd" id="1_tc"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_tc"]
+size = Vector2(96, 96)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_tc"]
+size = Vector2(96, 96)
+
+[node name="TownCenter" type="StaticBody2D"]
+collision_layer = 2
+collision_mask = 0
+script = ExtResource("1_tc")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.8, 0.6, 0.3, 1)
+texture = SubResource("PlaceholderTexture2D_tc")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_tc")

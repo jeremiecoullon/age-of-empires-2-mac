@@ -1,0 +1,19 @@
+# Godot
+.godot/
+
+# macOS
+.DS_Store
+
+# Exports
+*.export.cfg
+export_presets.cfg
+*.pck
+*.zip
+
+# IDE
+.vscode/
+*.swp
+*~
+
+
+screenshots

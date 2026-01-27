@@ -1,0 +1,169 @@
+[gd_scene load_steps=2 format=3 uid="uid://chud0000001"]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="TopBar" type="HBoxContainer" parent="."]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 500.0
+offset_bottom = 40.0
+theme_override_constants/separation = 30
+
+[node name="WoodLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
+theme_override_font_sizes/font_size = 20
+text = "Wood: 200"
+
+[node name="FoodLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 20
+text = "Food: 200"
+
+[node name="PopLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Pop: 3/5"
+
+[node name="BuildPanel" type="PanelContainer" parent="."]
+offset_left = 970.0
+offset_top = 10.0
+offset_right = 1270.0
+offset_bottom = 110.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BuildPanel"]
+layout_mode = 2
+
+[node name="BuildHouseButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build House (25 Wood)"
+
+[node name="BuildBarracksButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Barracks (100 Wood)"
+
+[node name="BuildFarmButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Farm (50 Wood)"
+
+[node name="TCPanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 970.0
+offset_top = 120.0
+offset_right = 1270.0
+offset_bottom = 240.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="TCPanel"]
+layout_mode = 2
+
+[node name="TCLabel" type="Label" parent="TCPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Town Center"
+horizontal_alignment = 1
+
+[node name="TrainVillagerButton" type="Button" parent="TCPanel/VBoxContainer"]
+layout_mode = 2
+text = "Train Villager (50 Food)"
+
+[node name="TrainProgress" type="ProgressBar" parent="TCPanel/VBoxContainer"]
+visible = false
+layout_mode = 2
+value = 50.0
+
+[node name="BarracksPanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 970.0
+offset_top = 120.0
+offset_right = 1270.0
+offset_bottom = 240.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BarracksPanel"]
+layout_mode = 2
+
+[node name="BarracksLabel" type="Label" parent="BarracksPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Barracks"
+horizontal_alignment = 1
+
+[node name="TrainMilitiaButton" type="Button" parent="BarracksPanel/VBoxContainer"]
+layout_mode = 2
+text = "Train Militia (60 Food, 20 Wood)"
+
+[node name="BarracksTrainProgress" type="ProgressBar" parent="BarracksPanel/VBoxContainer"]
+visible = false
+layout_mode = 2
+value = 50.0
+
+[node name="InfoPanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 970.0
+offset_top = 290.0
+offset_right = 1270.0
+offset_bottom = 440.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
+layout_mode = 2
+
+[node name="InfoTitle" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Entity Name"
+horizontal_alignment = 1
+
+[node name="InfoDetails" type="Label" parent="InfoPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Details here"
+
+[node name="ErrorLabel" type="Label" parent="."]
+visible = false
+offset_left = 970.0
+offset_top = 250.0
+offset_right = 1270.0
+offset_bottom = 280.0
+theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = "Error message here"
+horizontal_alignment = 1
+
+[node name="GameOverPanel" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -100.0
+offset_right = 150.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="GameOverPanel"]
+layout_mode = 2
+alignment = 1
+
+[node name="GameOverLabel" type="Label" parent="GameOverPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "VICTORY!"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="GameOverPanel/VBoxContainer"]
+layout_mode = 2
+text = "Play Again"
+
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildHouseButton" to="." method="_on_build_house_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildBarracksButton" to="." method="_on_build_barracks_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildFarmButton" to="." method="_on_build_farm_pressed"]
+[connection signal="pressed" from="TCPanel/VBoxContainer/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
+[connection signal="pressed" from="BarracksPanel/VBoxContainer/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
+[connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

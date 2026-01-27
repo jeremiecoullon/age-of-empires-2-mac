@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://cberrybush1"]
+
+[ext_resource type="Script" path="res://scripts/resources/resource_node.gd" id="1_berry"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_berry"]
+size = Vector2(28, 24)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_berry"]
+size = Vector2(28, 24)
+
+[node name="BerryBush" type="StaticBody2D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_berry")
+resource_type = "food"
+total_amount = 75
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.8, 0.2, 0.4, 1)
+texture = SubResource("PlaceholderTexture2D_berry")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_berry")
