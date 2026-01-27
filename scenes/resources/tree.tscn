@@ -1,11 +1,9 @@
 [gd_scene load_steps=4 format=3 uid="uid://ctree00001"]
 
 [ext_resource type="Script" path="res://scripts/resources/resource_node.gd" id="1_tree"]
+[ext_resource type="Texture2D" path="res://assets/sprites/resources/tree.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tree"]
-size = Vector2(32, 48)
-
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_tree"]
 size = Vector2(32, 48)
 
 [node name="Tree" type="StaticBody2D"]
@@ -16,9 +14,11 @@ resource_type = "wood"
 total_amount = 100
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0.2, 0.6, 0.2, 1)
-position = Vector2(0, -8)
-texture = SubResource("PlaceholderTexture2D_tree")
+scale = Vector2(0.25, 0.25)
+position = Vector2(0, -16)
+texture = ExtResource("2_texture")
+region_enabled = true
+region_rect = Rect2(0, 0, 256, 256)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_tree")

@@ -1,11 +1,9 @@
 [gd_scene load_steps=4 format=3 uid="uid://cfoodcarcass1"]
 
 [ext_resource type="Script" path="res://scripts/resources/food_carcass.gd" id="1_carcass"]
+[ext_resource type="Texture2D" path="res://assets/sprites/resources/food_carcass.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_carcass"]
-size = Vector2(24, 20)
-
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_carcass"]
 size = Vector2(24, 20)
 
 [node name="FoodCarcass" type="StaticBody2D"]
@@ -17,8 +15,8 @@ decay_rate = 0.5
 decay_delay = 10.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0.8, 0.5, 0.4, 1)
-texture = SubResource("PlaceholderTexture2D_carcass")
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2_texture")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_carcass")

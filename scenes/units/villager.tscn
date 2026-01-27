@@ -1,11 +1,9 @@
 [gd_scene load_steps=4 format=3 uid="uid://cvillager01"]
 
 [ext_resource type="Script" path="res://scripts/units/villager.gd" id="1_villager"]
+[ext_resource type="Texture2D" path="res://assets/sprites/units/villager.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_villager"]
-size = Vector2(24, 24)
-
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_villager"]
 size = Vector2(24, 24)
 
 [node name="Villager" type="CharacterBody2D"]
@@ -14,8 +12,10 @@ collision_mask = 1
 script = ExtResource("1_villager")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0.2, 0.5, 0.9, 1)
-texture = SubResource("PlaceholderTexture2D_villager")
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("2_texture")
+region_enabled = true
+region_rect = Rect2(0, 0, 192, 192)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_villager")
@@ -27,5 +27,4 @@ target_desired_distance = 4.0
 [node name="SelectionIndicator" type="Sprite2D" parent="."]
 modulate = Color(0, 1, 0, 0.7)
 position = Vector2(0, 16)
-scale = Vector2(1.5, 0.3)
-texture = SubResource("PlaceholderTexture2D_villager")
+scale = Vector2(24, 4)

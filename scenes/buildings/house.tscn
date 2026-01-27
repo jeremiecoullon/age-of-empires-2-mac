@@ -1,11 +1,9 @@
 [gd_scene load_steps=4 format=3 uid="uid://chouse00001"]
 
 [ext_resource type="Script" path="res://scripts/buildings/house.gd" id="1_house"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/house.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_house"]
-size = Vector2(64, 64)
-
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_house"]
 size = Vector2(64, 64)
 
 [node name="House" type="StaticBody2D"]
@@ -14,8 +12,8 @@ collision_mask = 0
 script = ExtResource("1_house")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0.6, 0.4, 0.2, 1)
-texture = SubResource("PlaceholderTexture2D_house")
+scale = Vector2(0.4, 0.4)
+texture = ExtResource("2_texture")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_house")

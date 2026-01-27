@@ -1,11 +1,9 @@
 [gd_scene load_steps=4 format=3 uid="uid://cstonemine1"]
 
 [ext_resource type="Script" path="res://scripts/resources/resource_node.gd" id="1_stone"]
+[ext_resource type="Texture2D" path="res://assets/sprites/resources/stone_mine.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_stone"]
-size = Vector2(40, 40)
-
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_stone"]
 size = Vector2(40, 40)
 
 [node name="StoneMine" type="StaticBody2D"]
@@ -16,8 +14,8 @@ resource_type = "stone"
 total_amount = 350
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-modulate = Color(0.6, 0.6, 0.6, 1)
-texture = SubResource("PlaceholderTexture2D_stone")
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("2_texture")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_stone")
