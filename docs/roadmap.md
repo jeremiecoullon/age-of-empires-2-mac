@@ -192,6 +192,17 @@ Tiers 1-3 are complete. The game is playable with Player vs AI combat.
 
 **Done when:** Player and AI both manage 4-resource economy with drop-off optimization and trading.
 
+**Basic Sprites (end of Phase 1):**
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Asset folder structure | Setup | `assets/sprites/` with units/, buildings/, resources/ subfolders |
+| Basic unit sprites | Art | Placeholder sprites for villager, militia. Distinguishable, not polished. |
+| Basic building sprites | Art | Town Center, House, Barracks, Farm, Mill, Lumber Camp, Mining Camp, Market |
+| Basic resource sprites | Art | Trees, berries, gold, stone |
+
+*This is for testability, not polish. Full art pass remains in Phase 9.*
+
 ---
 
 ## Phase 2: Military Foundation + Fog of War

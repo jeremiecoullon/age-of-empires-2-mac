@@ -27,6 +27,7 @@ func _ready() -> void:
 	GameManager.resources_changed.connect(_update_resources)
 	GameManager.population_changed.connect(_update_population)
 	GameManager.game_over.connect(_on_game_over)
+	GameManager.villager_idle.connect(_on_villager_idle)
 	_update_resources()
 	_update_population()
 	tc_panel.visible = false
@@ -162,11 +163,34 @@ func _show_error(message: String) -> void:
 	await get_tree().create_timer(2.0).timeout
 	error_label.visible = false
 
+func _on_villager_idle(_villager: Node, reason: String) -> void:
+	# Show notification when villager goes idle
+	_show_notification("Villager idle: " + reason)
+
+func _show_notification(message: String) -> void:
+	# Reuse error label for notifications (could be separate label in future)
+	error_label.text = message
+	error_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))  # Yellow for notifications
+	error_label.visible = true
+	await get_tree().create_timer(3.0).timeout
+	error_label.visible = false
+	error_label.remove_theme_color_override("font_color")  # Reset to default
+
 func show_info(entity: Node) -> void:
 	if entity is Villager:
 		_show_villager_info(entity)
 	elif entity is Militia:
 		_show_militia_info(entity)
+	elif entity is Sheep:
+		_show_animal_info(entity, "Sheep", "Herdable. First to spot owns it.\nCan be stolen by enemies.")
+	elif entity is Deer:
+		_show_animal_info(entity, "Deer", "Huntable. Flees when attacked.")
+	elif entity is Boar:
+		_show_animal_info(entity, "Wild Boar", "Dangerous! Fights back.\nLure to TC with villagers.")
+	elif entity is Wolf:
+		_show_animal_info(entity, "Wolf", "Hostile! Attacks on sight.\nNo food yield.")
+	elif entity is Animal:
+		_show_animal_info(entity, "Animal", "")
 	elif entity is Farm:
 		_show_building_info("Farm", "Infinite food source\nGather rate: 0.5/sec")
 	elif entity is ResourceNode:
@@ -200,6 +224,8 @@ func _show_villager_info(villager: Villager) -> void:
 			state_text = "Gathering " + villager.carried_resource_type
 		Villager.State.RETURNING:
 			state_text = "Returning to drop-off"
+		Villager.State.HUNTING:
+			state_text = "Hunting"
 
 	var details = "Status: %s" % state_text
 	if villager.carried_amount > 0:
@@ -224,19 +250,35 @@ func _show_militia_info(militia: Militia) -> void:
 
 func _show_resource_info(resource: ResourceNode) -> void:
 	var type_name: String
-	match resource.resource_type:
-		"wood":
-			type_name = "Tree"
-		"food":
-			type_name = "Berry Bush"
-		"gold":
-			type_name = "Gold Mine"
-		"stone":
-			type_name = "Stone Mine"
-		_:
-			type_name = "Resource"
+	if resource is FoodCarcass:
+		type_name = "Carcass"
+	else:
+		match resource.resource_type:
+			"wood":
+				type_name = "Tree"
+			"food":
+				type_name = "Berry Bush"
+			"gold":
+				type_name = "Gold Mine"
+			"stone":
+				type_name = "Stone Mine"
+			_:
+				type_name = "Resource"
 	info_title.text = type_name
-	info_details.text = "Resource: %s\nRemaining: %d" % [resource.resource_type.capitalize(), resource.current_amount]
+	info_details.text = "Resource: %s\nRemaining: %d" % [resource.resource_type.capitalize(), int(resource.current_amount)]
+	info_panel.visible = true
+
+func _show_animal_info(animal: Animal, title: String, description: String) -> void:
+	info_title.text = title
+	var owner_text = "Wild"
+	if animal.team == 0:
+		owner_text = "Player"
+	elif animal.team == 1:
+		owner_text = "AI"
+	var details = "HP: %d/%d\nFood: %d\nOwner: %s" % [animal.current_hp, animal.max_hp, animal.food_amount, owner_text]
+	if description != "":
+		details += "\n" + description
+	info_details.text = details
 	info_panel.visible = true
 
 func _show_building_info(title: String, details: String) -> void:

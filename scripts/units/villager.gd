@@ -1,17 +1,23 @@
 extends Unit
 class_name Villager
 
-enum State { IDLE, MOVING, GATHERING, RETURNING }
+enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING }
 
 @export var carry_capacity: int = 10
 @export var gather_time: float = 1.0  # seconds per resource unit
+@export var attack_damage: int = 3  # Villager attack for hunting
+@export var attack_range: float = 25.0
+@export var attack_cooldown: float = 1.5
 
 var current_state: State = State.IDLE
 var carried_resource_type: String = ""
 var carried_amount: int = 0
 var target_resource: ResourceNode = null
+var target_animal: Animal = null  # For hunting
+var last_animal_position: Vector2 = Vector2.ZERO  # For finding carcass after animal dies
 var drop_off_building: Building = null
 var gather_timer: float = 0.0
+var attack_timer: float = 0.0
 var move_target: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
@@ -48,6 +54,8 @@ func _physics_process(delta: float) -> void:
 			_process_gathering(delta)
 		State.RETURNING:
 			_process_returning(delta)
+		State.HUNTING:
+			_process_hunting(delta)
 
 func _process_moving(delta: float) -> void:
 	var distance = global_position.distance_to(move_target)
@@ -69,6 +77,9 @@ func _process_gathering(delta: float) -> void:
 			current_state = State.IDLE
 			carried_resource_type = ""
 			target_resource = null
+			# Notify player about idle villager (only for player team)
+			if team == 0:
+				GameManager.villager_idle.emit(self, "Resource depleted")
 		return
 
 	# Check if we're close enough to gather
@@ -122,6 +133,57 @@ func _return_to_drop_off() -> void:
 	drop_off_building = _find_drop_off(carried_resource_type)
 	current_state = State.RETURNING  # Always transition, will wait if no drop-off
 
+func _process_hunting(delta: float) -> void:
+	# Check if animal is still valid and alive
+	if not is_instance_valid(target_animal) or target_animal.is_dead:
+		# Animal died - look for carcass at last known position
+		var carcass = _find_carcass_near(last_animal_position)
+		target_animal = null
+		if carcass:
+			target_resource = carcass
+			carried_resource_type = "food"
+			current_state = State.GATHERING
+		else:
+			current_state = State.IDLE
+		return
+
+	# Store last known position for carcass finding
+	last_animal_position = target_animal.global_position
+
+	var distance = global_position.distance_to(target_animal.global_position)
+
+	if distance > attack_range:
+		# Chase the animal
+		nav_agent.target_position = target_animal.global_position
+		var next_path_position = nav_agent.get_next_path_position()
+		var direction = global_position.direction_to(next_path_position)
+		velocity = direction * move_speed
+		move_and_slide()
+		return
+
+	# In range, attack
+	velocity = Vector2.ZERO
+	attack_timer += delta
+
+	if attack_timer >= attack_cooldown:
+		attack_timer = 0.0
+		target_animal.take_damage(attack_damage)
+
+func _find_carcass_near(pos: Vector2) -> ResourceNode:
+	var carcasses = get_tree().get_nodes_in_group("carcasses")
+	var nearest: ResourceNode = null
+	var nearest_dist: float = 100.0  # Search radius
+
+	for carcass in carcasses:
+		if not carcass.has_resources():
+			continue
+		var dist = pos.distance_to(carcass.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = carcass
+
+	return nearest
+
 func _deposit_resources() -> void:
 	GameManager.add_resource(carried_resource_type, carried_amount, team)
 
@@ -158,5 +220,14 @@ func command_gather(resource: ResourceNode) -> void:
 
 func move_to(target_position: Vector2) -> void:
 	target_resource = null
+	target_animal = null
 	current_state = State.MOVING
 	move_target = target_position
+
+func command_hunt(animal: Animal) -> void:
+	target_animal = animal
+	last_animal_position = animal.global_position
+	target_resource = null
+	carried_resource_type = "food"
+	current_state = State.HUNTING
+	attack_timer = 0.0

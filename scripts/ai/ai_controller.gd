@@ -102,6 +102,13 @@ func _assign_idle_villagers() -> void:
 	var needed_resource = _get_priority_resource()
 
 	for villager in idle_villagers:
+		# First priority: hunt nearby animals for food (if we need food)
+		if needed_resource == "food":
+			var animal = _find_huntable_animal(villager.global_position)
+			if animal:
+				villager.command_hunt(animal)
+				continue
+
 		var resource = _find_resource_of_type(villager.global_position, needed_resource)
 		if resource:
 			villager.command_gather(resource)
@@ -133,6 +140,21 @@ func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> Resourc
 	var resources = get_tree().get_nodes_in_group("resources")
 	var nearest: ResourceNode = null
 	var nearest_dist: float = INF
+
+	# For food, prioritize carcasses (they decay!)
+	if resource_type == "food":
+		var carcasses = get_tree().get_nodes_in_group("carcasses")
+		for carcass in carcasses:
+			if not carcass.has_resources():
+				continue
+			var dist = from_pos.distance_to(carcass.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest = carcass
+		if nearest:
+			return nearest
+		# Reset for regular search
+		nearest_dist = INF
 
 	for resource in resources:
 		if resource is Farm:
@@ -167,6 +189,67 @@ func _find_nearest_resource(from_pos: Vector2) -> ResourceNode:
 			nearest = resource
 
 	return nearest
+
+func _find_huntable_animal(from_pos: Vector2) -> Animal:
+	# Find nearest animal that AI can hunt
+	# Priority: sheep (owned by AI or neutral) > deer > boar (dangerous, avoid unless necessary)
+	var animals = get_tree().get_nodes_in_group("animals")
+
+	# First pass: look for owned or neutral sheep
+	var nearest_sheep: Animal = null
+	var nearest_sheep_dist: float = 800.0  # Max hunt distance
+
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		if animal is Wolf:
+			continue  # Never hunt wolves
+		if animal is Sheep:
+			# Only hunt if we own it or it's neutral
+			if animal.team == AI_TEAM or animal.team == Animal.NEUTRAL_TEAM:
+				var dist = from_pos.distance_to(animal.global_position)
+				if dist < nearest_sheep_dist:
+					nearest_sheep_dist = dist
+					nearest_sheep = animal
+
+	if nearest_sheep:
+		return nearest_sheep
+
+	# Second pass: look for deer
+	var nearest_deer: Animal = null
+	var nearest_deer_dist: float = 600.0
+
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		if animal is Deer:
+			var dist = from_pos.distance_to(animal.global_position)
+			if dist < nearest_deer_dist:
+				nearest_deer_dist = dist
+				nearest_deer = animal
+
+	if nearest_deer:
+		return nearest_deer
+
+	# Third pass: boar (only if close and we really need food)
+	var food = GameManager.get_resource("food", AI_TEAM)
+	if food < 50:  # Desperate for food
+		var nearest_boar: Animal = null
+		var nearest_boar_dist: float = 400.0
+
+		for animal in animals:
+			if animal.is_dead:
+				continue
+			if animal is Boar:
+				var dist = from_pos.distance_to(animal.global_position)
+				if dist < nearest_boar_dist:
+					nearest_boar_dist = dist
+					nearest_boar = animal
+
+		if nearest_boar:
+			return nearest_boar
+
+	return null
 
 func _is_pop_capped() -> bool:
 	return GameManager.get_population(AI_TEAM) >= GameManager.get_population_cap(AI_TEAM)

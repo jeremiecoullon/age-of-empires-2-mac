@@ -14,6 +14,7 @@ var ai_population_cap: int = 5
 signal resources_changed
 signal population_changed
 signal game_over(winner: int)  # 0 = player wins, 1 = AI wins
+signal villager_idle(villager: Node, reason: String)  # Emitted when player villager goes idle
 
 var game_ended: bool = false
 

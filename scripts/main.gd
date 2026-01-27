@@ -153,6 +153,14 @@ func _issue_command(world_pos: Vector2) -> void:
 				unit.command_attack(target_building)
 		return
 
+	# Check if clicking on an animal (for hunting)
+	var animal = _get_animal_at_position(world_pos)
+	if animal:
+		for unit in GameManager.selected_units:
+			if unit is Villager:
+				unit.command_hunt(animal)
+		return
+
 	# Check if clicking on a resource
 	var resource = _get_resource_at_position(world_pos)
 	if resource:
@@ -175,6 +183,21 @@ func _get_resource_at_position(pos: Vector2) -> ResourceNode:
 		if dist < closest_dist:
 			closest_dist = dist
 			closest = resource
+
+	return closest
+
+func _get_animal_at_position(pos: Vector2) -> Animal:
+	var animals = get_tree().get_nodes_in_group("animals")
+	var closest: Animal = null
+	var closest_dist: float = 40.0  # Click detection radius
+
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		var dist = pos.distance_to(animal.global_position)
+		if dist < closest_dist:
+			closest_dist = dist
+			closest = animal
 
 	return closest
 

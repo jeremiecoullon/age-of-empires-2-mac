@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://cmain000001"]
+[gd_scene load_steps=16 format=3 uid="uid://cmain000001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cmap0000001" path="res://scenes/map.tscn" id="2_map"]
@@ -11,6 +11,10 @@
 [ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="9_ai"]
 [ext_resource type="PackedScene" uid="uid://cgoldmine01" path="res://scenes/resources/gold_mine.tscn" id="10_gold"]
 [ext_resource type="PackedScene" uid="uid://cstonemine1" path="res://scenes/resources/stone_mine.tscn" id="11_stone"]
+[ext_resource type="PackedScene" uid="uid://csheep001" path="res://scenes/units/sheep.tscn" id="12_sheep"]
+[ext_resource type="PackedScene" uid="uid://cdeer0001" path="res://scenes/units/deer.tscn" id="13_deer"]
+[ext_resource type="PackedScene" uid="uid://cboar0001" path="res://scenes/units/boar.tscn" id="14_boar"]
+[ext_resource type="PackedScene" uid="uid://cwolf0001" path="res://scenes/units/wolf.tscn" id="15_wolf"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -136,3 +140,53 @@ position = Vector2(1450, 1650)
 
 [node name="AIController" type="Node" parent="."]
 script = ExtResource("9_ai")
+
+[node name="Animals" type="Node2D" parent="."]
+
+[node name="Sheep1" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(600, 400)
+
+[node name="Sheep2" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(640, 420)
+
+[node name="Sheep3" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(580, 440)
+
+[node name="Sheep4" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(620, 460)
+
+[node name="Sheep5" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(1500, 1600)
+
+[node name="Sheep6" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(1540, 1620)
+
+[node name="Sheep7" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(1480, 1640)
+
+[node name="Sheep8" parent="Animals" instance=ExtResource("12_sheep")]
+position = Vector2(1520, 1660)
+
+[node name="Deer1" parent="Animals" instance=ExtResource("13_deer")]
+position = Vector2(900, 600)
+
+[node name="Deer2" parent="Animals" instance=ExtResource("13_deer")]
+position = Vector2(950, 650)
+
+[node name="Deer3" parent="Animals" instance=ExtResource("13_deer")]
+position = Vector2(1100, 900)
+
+[node name="Deer4" parent="Animals" instance=ExtResource("13_deer")]
+position = Vector2(1150, 950)
+
+[node name="Boar1" parent="Animals" instance=ExtResource("14_boar")]
+position = Vector2(350, 350)
+
+[node name="Boar2" parent="Animals" instance=ExtResource("14_boar")]
+position = Vector2(1600, 1400)
+
+[node name="Wolf1" parent="Animals" instance=ExtResource("15_wolf")]
+position = Vector2(150, 1500)
+
+[node name="Wolf2" parent="Animals" instance=ExtResource("15_wolf")]
+position = Vector2(1800, 300)
