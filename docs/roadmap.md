@@ -1,6 +1,6 @@
 # AoE2 Clone - Roadmap
 
-**Last updated:** 2026-01-27
+**Last updated:** 2026-01-27 (manual gap analysis - added missing QoL features)
 
 ## Goal
 
@@ -14,6 +14,71 @@ We're happy to stop earlier if we reach diminishing returns (e.g., obscure featu
 2. **Gameplay before polish** - Colored rectangles are fine until Phase 9
 3. **AI reproduces original behavior** - Match AoE2's AI as closely as possible
 4. **All 4 ages** - Dark, Feudal, Castle, Imperial (added incrementally)
+
+## Out of Scope
+
+The following features from the original AoE2 are intentionally excluded:
+
+| Feature | Reason |
+|---------|--------|
+| **Online multiplayer** | Networking, lobbies, chat - focus is single-player vs AI |
+| **Campaigns** | Historical campaigns (Joan of Arc, etc.) - content-heavy, not core gameplay |
+| **Scenario/Map Editor** | Custom map creation tools |
+| **Campaign Editor** | Custom campaign creation tools |
+| **Custom AI scripting** | CPSB-style AI behavior scripting |
+| **Recording/Replay system** | Game recording and playback |
+| **Female villagers** | Cosmetic gender variation |
+| **Hero units** | Special named campaign units |
+| **Online encyclopedia** | Civilization histories, Middle Ages reference content - low priority |
+| **Lock game speed** | Less relevant for single-player vs AI |
+
+These may be reconsidered if core gameplay reaches completion.
+
+---
+
+## Phase Workflow
+
+Before starting each phase, follow this process:
+
+### 1. Refactor Check (~30 min)
+
+**Do not skip this step.** Assess the current codebase against what's coming. The goal is to catch architectural issues early (when they're cheap to fix) rather than late (when they're expensive).
+
+**Process:**
+
+1. **Read the phase spec** - What features are being added?
+2. **Skim Phase N+1** - What's coming next? Will this phase's code need to change?
+3. **Inspect the code you'll touch.** Ask:
+   - Will adding these features require duplicating existing code?
+   - Are there hardcoded values that need to become dynamic or configurable?
+   - Is there a pattern emerging (3+ similar things) that should be extracted?
+   - Will the current structure make Phase N+1 harder than it needs to be?
+4. **Decide:**
+   - If refactor needed → Do it first. Commit separately. Then build features.
+   - If not → Proceed with the phase.
+
+**Important:** You (the agent) determine what refactoring is needed based on the actual codebase at that moment. Nothing is pre-defined. Use your judgment. Keep refactors minimal and targeted - only fix what will actually cause problems.
+
+**Common areas to watch** (not exhaustive):
+- Resource/economy systems
+- Player vs AI code symmetry
+- Unit/building stat definitions
+- State machines and gating logic
+
+### 2. Build the Phase
+
+- Implement features per the phase spec
+- Update AI behavior as specified
+- Run `/spec-check` on new units/buildings/techs
+- Commit after each logical chunk
+- **Consider unit tests** for logic-heavy code (stat calculations, combat formulas, resource math, state transitions). Not everything needs tests - use judgment. UI and scene setup rarely benefit; game logic often does.
+
+### 3. Post-Phase
+
+- **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
+- Update `docs/gotchas.md` with new learnings
+- Write checkpoint doc if in orchestrator mode
+- Verify game still launches and plays correctly
 
 ---
 
@@ -90,7 +155,7 @@ Tiers 1-3 are complete. The game is playable with Player vs AI combat.
 | 10 | Naval Economy | Dock, fishing, transport (Optional) |
 | 11 | Naval Combat | Warships, water maps (Optional) |
 | 12 | Civilizations | 13 civs, unique units, tech trees (Optional) |
-| 13 | Multiplayer | Networking, lobbies, diplomacy (Optional) |
+| 13 | Team Games & Allied AI | Multiple AI, team battles, allied mechanics (Optional) |
 
 ---
 
@@ -104,10 +169,15 @@ Tiers 1-3 are complete. The game is playable with Player vs AI combat.
 | Mining Camp | Building | Drop-off for stone/gold |
 | Lumber Camp | Building | Drop-off for wood |
 | Mill | Building | Drop-off for food, farms built around mills |
-| Fish Trap | Building | Renewable water food source (built by Fishing Ship later, placeholder for now) |
+| Fish Trap | Building | Deferred to Phase 10 (requires Fishing Ship + water terrain) |
 | Market | Building | Commodity trading (buy/sell resources) |
+| Dynamic market pricing | Mechanic | Prices fluctuate based on all players' buy/sell activity |
 | Trade Cart | Unit | Generate passive gold via trade routes |
+| Trade distance scaling | Mechanic | Longer trade routes = more gold per trip |
 | Tribute system | Mechanic | Send resources to other players (30% fee) |
+| Sheep stealing | Mechanic | Sheep change ownership if enemy sees them without friendly units nearby |
+| Sheep herding AI | Mechanic | Villagers auto-herd sheep to drop-off before killing |
+| Resource depletion notification | UI | Villagers go idle + notification when resource depletes |
 
 **Food Sources (from manual):**
 | Source | Type | Notes |
@@ -133,12 +203,13 @@ Tiers 1-3 are complete. The game is playable with Player vs AI combat.
 | Archery Range | Building | Trains archers, skirmishers |
 | Skirmisher | Unit | Anti-archer unit, cheap, bonus vs archers |
 | Spearman | Unit | At Barracks, cheap counter to cavalry |
-| Scout Cavalry | Unit | Fast, good LOS, resistant to conversion |
+| Scout Cavalry | Unit | Fast, good LOS, resistant to conversion. **Starting unit in Random Map games** |
 | Stable | Building | Trains cavalry units |
 | Cavalry Archer | Unit | Mobile ranged, hit-and-run |
-| Fog of War | System | Unexplored = black, explored but unseen = fog, visible = clear |
+| Fog of War | System | Unexplored = black, explored but unseen = fog (frozen view), visible = clear |
 | Basic stances | Mechanic | Aggressive, Defensive, Stand Ground, No Attack |
-| Terrain bonuses | Mechanic | Elevation/cliff attack modifiers |
+| Terrain bonuses | Mechanic | Units firing from elevation get attack bonus; units below get penalty |
+| Attack notifications | Audio | Horn sound for military under attack, bell for villagers/buildings |
 
 **Combat triangle:**
 ```
@@ -163,11 +234,15 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 |---------|------|-------|
 | Age state machine | System | Track current age per player |
 | Dark Age | Age | Starting age, basic units/buildings |
-| Feudal Age | Age | Cost: 500 food, requires 2 Dark Age buildings |
-| Castle Age | Age | Cost: 800 food + 200 gold, requires 2 Feudal Age buildings |
+| Feudal Age | Age | Cost: 500 food, requires 2 qualifying Dark Age buildings |
+| Castle Age | Age | Cost: 800 food + 200 gold, requires 2 qualifying Feudal Age buildings |
 | Age advancement UI | UI | Button at TC, progress bar, notification |
 | Age-gating | System | Buildings/units locked until specific age |
 | Building visual changes | Visual | Buildings update appearance per age |
+
+**Qualifying buildings for age advancement:**
+- Buildings that train units or research techs (Barracks, Mill, Lumber Camp, Mining Camp, Dock, etc.)
+- Does NOT count: Houses, Farms, towers, walls, Gates, Outposts
 
 **Age-gated content:**
 - **Dark Age:** Villager, Militia, Barracks, House, Mill, Mining Camp, Lumber Camp, Farm, Outpost, Palisade Wall
@@ -231,7 +306,9 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 | Monastery | Building | Trains monks, stores relics, Castle Age |
 | Monk | Unit | Slow, heals friendly units, converts enemies |
 | Conversion mechanic | Mechanic | Range 9, random success chance, rejuvenation time |
-| Healing mechanic | Mechanic | Auto-heal nearby wounded friendlies |
+| Conversion adjacency | Mechanic | Monks must stand adjacent to buildings, rams, and Trebuchets to convert |
+| Conversion immunity | Mechanic | Cannot convert: TC, Castle, Monastery, Farm, Fish Trap, walls, Gates, Wonder, allied units |
+| Healing mechanic | Mechanic | Auto-heal nearby wounded friendlies; multiple monks heal faster |
 | Relics | Object | Spawn on map (5 per game), only monks can carry |
 | Relic garrisoning | Mechanic | Garrison in Monastery for +0.5 gold/sec |
 | Relic victory | Victory | Control all relics for 200 years (game time) |
@@ -250,19 +327,29 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 |---------|------|-------|
 | Palisade Wall | Building | 2 wood, 250 HP, Dark Age |
 | Stone Wall | Building | 5 stone, 1800 HP, Feudal Age |
-| Gate | Building | 30 stone, passable wall segment, lockable |
-| Outpost | Building | 25W + 25S, 500 HP, long LOS, no attack |
+| Gate | Building | 30 stone, passable wall segment, lockable, auto-opens for allies |
+| Outpost | Building | 25W + 25S, 500 HP, long LOS, no attack, no garrison |
 | Watch Tower | Building | 125S + 25W, 1020 HP, 5 attack, range 8 |
-| Garrison (basic) | Mechanic | Units inside TC/towers for protection + arrow bonus |
+| Minimum range | Mechanic | Castles and towers cannot attack adjacent units (Murder Holes removes this) |
+| Garrison (basic) | Mechanic | Units inside TC/towers for protection |
+| Garrison attack bonus | Mechanic | Ranged units and villagers add arrows when garrisoned in TC/towers |
 | Garrison healing | Mechanic | Garrisoned units heal automatically over time |
+| Garrison ejection | Mechanic | Buildings auto-eject all garrisoned units when heavily damaged |
 | Allied garrison | Mechanic | Allies can garrison in each other's buildings |
 | Allied gates | Mechanic | Allies can open/close each other's gates |
 | Town Bell | Mechanic | Garrison all villagers in nearest buildings |
+| Wall dragging | Input | Click and drag to place wall segments |
 
 **Garrison capacity:**
 - Town Center: 15 foot units
 - Watch Tower: 5 foot units
 - Castle: 20 units (Phase 8)
+- Barracks: 10 units (own unit types)
+- Archery Range: 10 units (own unit types)
+- Stable: 10 units (own unit types)
+- Siege Workshop: 10 siege units
+- Dock: 10 ships
+- Monastery: 10 monks
 
 **AI updates:** AI builds walls around base, uses towers at chokepoints.
 
@@ -306,6 +393,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 | Bombard Cannon | Unit | 225W + 225G, requires Chemistry |
 | Siege Ram | Unit | Capped Ram upgrade, 270 HP |
 | Siege Onager | Unit | Onager upgrade, 75 damage, cuts forests |
+| Forest cutting | Mechanic | Siege Onagers and Trebuchets can cut paths through forests |
 | Keep | Building | Guard Tower upgrade, 2250 HP, 7 attack |
 | Bombard Tower | Building | 125S + 100G, requires Chemistry, 120 attack |
 | Wonder | Building | 1000W + 1000S + 1000G, 4800 HP |
@@ -326,21 +414,35 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 | Feature | Type | Notes |
 |---------|------|-------|
+| Save/Load system | System | Save and restore single-player games |
 | Minimap | UI | Click to move camera, show units/buildings/resources |
 | Minimap modes | UI | Normal, Combat (military), Economic (resources) |
 | Control groups | Input | Ctrl+1-9 to save, 1-9 to recall selections |
-| Unit queuing | Mechanic | Shift+click for waypoints |
+| Double-click selection | Input | Select all visible units of same type |
+| Unit queuing | Mechanic | Shift+right-click for waypoints |
+| Production queue | Mechanic | Queue up to 15 units; resources deducted when queued, refunded if cancelled |
 | Rally points | Mechanic | Set gather point for trained units |
 | Formations | Mechanic | Line, Box, Staggered, Flank |
+| Auto-formation | Mechanic | Mixed groups auto-position: high HP front, ranged back, weak rear |
+| Formation speed | Mechanic | Groups move at slowest unit's speed |
 | Patrol command | Mechanic | Units patrol between points, attack enemies in sight |
 | Guard command | Mechanic | Units follow and protect target |
 | Follow command | Mechanic | Units follow allied or enemy unit |
-| Idle villager button | UI | Cycle through idle villagers |
+| Idle villager button | UI | Cycle through idle villagers, ships, trade units |
 | Idle military button | UI | Cycle through idle military |
+| Shift-click building | Input | Hold SHIFT to place multiple of same building type |
+| Farm auto-rebuild | Mechanic | Right-click expired farm to queue automatic rebuild |
+| Building damage visuals | Art | Buildings flame when damaged |
+| In-game tech tree | UI | View full technology tree during game |
 | Visual upgrade | Art | Sprites, animations |
 | Sound effects | Audio | Feedback for actions, combat, UI |
 | Larger maps | Map | 120x120, 200x200 options |
-| Multiple map types | Map | Arabia, Black Forest, etc. |
+| Multiple map types | Map | Arabia, Black Forest, Rivers, Archipelago, etc. (14 types) |
+| Hotkey customization | UI | Rebindable hotkeys saved to user profile |
+| Signal allies | UI | Visual/audio ping on minimap for AI team communication |
+| Observer mode | UI | "All Visible" option to watch AI play without fog of war |
+| Tooltips/Help | UI | Contextual tooltips for buildings, units, and techs |
+| Unit visibility | Render | Units remain visible behind buildings and trees |
 
 **Done when:** Game feels responsive and professional.
 
@@ -356,9 +458,10 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 | Fish (deep water) | Resource | Food source, requires Fishing Ship |
 | Fish Trap | Building | 100W, renewable food, built by Fishing Ship |
 | Trade Cog | Unit | 100W + 50G, sea trade route |
-| Transport Ship | Unit | 125W, carries land units across water |
-| Water terrain | Map | Shallow (passable), deep water |
+| Transport Ship | Unit | 125W, carries land units across water (capacity limit shown in status) |
+| Water terrain | Map | Deep water (ships only), shallows (passable by land AND ships) |
 | Shore fishing | Mechanic | Villagers fish from shore |
+| Allied transport | Mechanic | Allies can transport each other's units |
 
 **AI updates:** AI builds Dock on water maps, uses fishing economy.
 
@@ -424,27 +527,32 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 13: Multiplayer (Optional)
-**Goal:** Human vs human gameplay
+## Phase 13: Team Games & Allied AI (Optional)
+**Goal:** 1 human + AI allies vs AI enemies (team battles)
 
 | Feature | Type | Notes |
 |---------|------|-------|
-| Networking layer | System | Godot High-Level Multiplayer or ENet |
-| Lobby system | UI | Create/join games, player list |
-| Player slots | System | 2-8 players |
+| Multiple AI opponents | System | Support 2-8 total players (1 human + AI) |
+| AI team assignment | System | Pregame setup: assign AI to player's team or enemy team |
 | Team configuration | UI | Set teams, colors, starting positions |
-| Diplomacy | System | Ally/Neutral/Enemy stances, changeable mid-game |
-| Allied victory | Mechanic | Team wins together |
-| Chat | UI | In-game text communication |
-| Replay system | System | Record and playback games |
-| Game speed lock | Setting | Sync speed across all players |
+| Lock teams | Setting | Prevent alliance changes mid-game, restrict tribute to allies only |
+| Diplomacy | System | Ally/Neutral/Enemy stances per AI |
+| Allied victory | Mechanic | Team wins together (all enemy TCs destroyed) |
+| Allied repair | Mechanic | Repair ally buildings/ships/siege (costs from owner's stockpile) |
+| Cartography sharing | Mechanic | Share exploration with allies (via tech) |
+| Tribute to AI | Mechanic | Send resources to AI allies |
+| AI allied behavior | AI | AI allies coordinate attacks, share intel, respond to threats |
 
 **Game Modes:**
 - Random Map (standard)
-- Regicide (protect your King unit)
+- Regicide (protect your King unit - add King as special unit)
 - Death Match (start with large stockpiles)
+- Score Victory (first to target score wins)
+- Timed Victory (highest score after time limit)
 
-**Done when:** Stable multiplayer matches with 2-8 players.
+**Note:** This phase focuses on single-player team games. Online human-vs-human multiplayer (networking, lobbies, chat) is out of scope.
+
+**Done when:** Player can fight alongside AI allies against AI enemies in team configurations.
 
 ---
 
@@ -859,7 +967,7 @@ All technologies organized by building and phase.
 
 | Building | Age | Cost | HP | Attack | Garrison | Range |
 |----------|-----|------|-----|--------|----------|-------|
-| Town Center | Castle | 275W | 2400 | 5 | 15 | 6 |
+| Town Center | Castle* | 275W | 2400 | 5 | 15 | 6 |
 | House | Dark | 30W | 900 | 0 | 0 | 0 |
 | Mill | Dark | 100W | 1000 | 0 | 0 | 0 |
 | Mining Camp | Dark | 100W | 1000 | 0 | 0 | 0 |
@@ -886,3 +994,5 @@ All technologies organized by building and phase.
 | Guard Tower | Castle | 125S, 25W | 1500 | 6 | 5 | 8 |
 | Keep | Imperial | 125S, 25W | 2250 | 7 | 5 | 8 |
 | Bombard Tower | Imperial | 125S, 100G | 2220 | 120 | 5 | 8 |
+
+*\*Town Center: Players start with one TC in Dark Age (free). Additional TCs can only be built in Castle Age. TC attack (5 damage, range 6) only activates when garrisoned with archers/villagers, or automatically in Castle Age+.*

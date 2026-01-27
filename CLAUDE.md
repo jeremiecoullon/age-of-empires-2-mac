@@ -42,55 +42,42 @@ Building an AoE2 clone in Godot 4.x. MVP complete (Tiers 1-3).
 
 Key docs:
 - `docs/roadmap.md` - Architecture, phased implementation plan, how to add content
+- `docs/design_decisions.md` - High-level design choices and rationale (ADRs)
 - `docs/gotchas.md` - Accumulated learnings and pitfalls
 - `docs/AoE_manual/` - Reference specs from original game
 
+**gotchas.md vs design_decisions.md:**
+- `gotchas.md` = Implementation lessons ("X doesn't work because Y", "remember to do Z")
+- `design_decisions.md` = Strategic choices ("we chose A over B because...")
+
+When you make a significant design choice (scope, architecture, tradeoffs), add it to `design_decisions.md`.
+
 ---
 
-## Orchestrator Workflow
+## Phase Workflow
+
+**For the full phase workflow (refactor check, build, post-phase), see `docs/roadmap.md` → "Phase Workflow" section.**
+
+Both DIRECT and ORCHESTRATOR modes follow that workflow. The difference is *how* you execute the build step:
+
+- **DIRECT mode:** Write code yourself
+- **ORCHESTRATOR mode:** Coordinate sub-agents (see below)
+
+---
+
+## Orchestrator Mode Details
 
 *Skip this section when in DIRECT mode.*
 
 You are the **orchestrator**. You do not write game code directly. You coordinate sub-agents.
 
-### Phase Workflow
+### How to Execute a Phase (Orchestrator)
 
-```
-1. PRE-FLIGHT
-   - Read docs/gotchas.md
-   - Read previous phase checkpoint (docs/phase_checkpoints/)
-   - Verify game launches (run Godot)
-   - Review phase spec in roadmap.md
-
-2. PLAN PHASE
-   - Break phase into sub-tasks
-   - Create task files in docs/tasks/phaseN/
-   - Each task file includes: objective, context files, acceptance criteria
-
-3. BUILD (per sub-task)
-   - Pass task file + context to sub-agent
-   - Sub-agent implements and returns summary
-   - Update task file with results
-   - Verify: feature works, no regressions
-   - Commit after each sub-task
-
-4. CODE REVIEW
-   - Use code-reviewer agent on the phase's changes
-
-5. SPEC VERIFICATION
-   - Run /spec-check on all new units/buildings/techs
-   - Compare against AoE manual (see "Spec Verification" section above)
-   - Flag any deviations (intentional or bugs)
-
-6. CHECKPOINT
-   - Write checkpoint doc (docs/phase_checkpoints/phaseN.md)
-   - Update docs/gotchas.md with new learnings
-   - Git tag: phase-N-complete
-
-7. CLEAR CONTEXT
-   - Summarize critical info for next session
-   - Context can be cleared; artifacts persist
-```
+1. Follow the Phase Workflow in `docs/roadmap.md` (refactor check, etc.)
+2. Break the phase into sub-tasks
+3. Create task files in `docs/tasks/phaseN/`
+4. For each sub-task: spawn a sub-agent, verify results, commit
+5. After phase completion: checkpoint doc + git tag
 
 ### Sub-Agent Briefing
 
@@ -98,7 +85,7 @@ When spawning a sub-agent for a build task, include:
 
 1. The task file content (objective, acceptance criteria)
 2. Relevant context files (existing code patterns to follow)
-3. The gotchas.md content
+3. The `docs/gotchas.md` content
 4. Explicit instruction: "Implement this feature. Return a summary of what you built and file locations."
 
 ### Task File Format
@@ -136,7 +123,7 @@ See `docs/phase_checkpoints/_template.md`
 - Buildings extend `scripts/buildings/building.gd`
 - AI logic lives in `scripts/ai/ai_controller.gd`
 - New units/buildings must be added to appropriate groups
-- Collision layers: 1=Units, 2=Buildings, 3=Resources
+- Collision layers: 1=Units, 2=Buildings, 4=Resources
 
 ## Current State
 

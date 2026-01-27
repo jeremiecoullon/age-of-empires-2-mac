@@ -6,7 +6,7 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 
 ## Project Structure
 
-- Collision layers: 1=Units, 2=Buildings, 3=Resources
+- Collision layers: 1=Units, 2=Buildings, 4=Resources
 - Team 0 = Player (Blue), Team 1 = AI (Red)
 - All game state goes through GameManager singleton
 
