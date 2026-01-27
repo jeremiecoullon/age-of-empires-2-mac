@@ -37,7 +37,7 @@ func get_building_name() -> String:
 	return building_name
 
 func is_drop_off_for(resource_type: String) -> bool:
-	return resource_type in accepts_resources
+	return accepts_resources.has(resource_type)
 
 func take_damage(amount: int) -> void:
 	current_hp -= amount

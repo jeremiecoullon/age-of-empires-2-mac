@@ -9,4 +9,4 @@ func _ready() -> void:
 	wood_cost = 100
 	max_hp = 1000
 	current_hp = max_hp
-	accepts_resources = ["wood"]
+	accepts_resources.assign(["wood"])

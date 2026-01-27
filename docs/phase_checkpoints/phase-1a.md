@@ -52,13 +52,13 @@ None - implemented as specified
 ## Test Coverage
 
 ### Manual Testing Performed
-- [ ] Launch game, verify 4 resources display
-- [ ] Build Lumber Camp near trees, verify wood deposits there
-- [ ] Build Mining Camp near gold, send villager, verify gold collected
-- [ ] Build Mill near berries, verify food deposited there
-- [ ] Verify TC still accepts all resource types
-- [ ] Verify villager chooses nearest valid drop-off
-- [ ] Watch AI - should build camps and gather all 4 resources
+- [x] Launch game, verify 4 resources display
+- [x] Build Lumber Camp near trees, verify wood deposits there
+- [x] Build Mining Camp near gold, send villager, verify gold collected
+- [x] Build Mill near berries, verify food deposited there
+- [x] Verify TC still accepts all resource types
+- [x] Verify villager chooses nearest valid drop-off
+- [x] Watch AI - should build camps and gather all 4 resources
 
 ### Automated Tests
 - None yet
@@ -95,9 +95,3 @@ Critical information for Phase 1B (Trading and food sources):
 - AI tracks camps via `ai_lumber_camp`, `ai_mining_camp`, `ai_mill` variables
 - GameManager functions: `add_resource()`, `spend_resource()`, `can_afford()`, `get_resource()` - all take team parameter
 
----
-
-## Git Reference
-
-- **Commits:** See git log after phase-1a-complete tag
-- **Tag:** phase-1a-complete (to be created)

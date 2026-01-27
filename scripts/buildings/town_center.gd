@@ -20,7 +20,7 @@ func _ready() -> void:
 	size = Vector2i(3, 3)
 	max_hp = 500
 	current_hp = max_hp
-	accepts_resources = ["wood", "food", "gold", "stone"]
+	accepts_resources.assign(["wood", "food", "gold", "stone"])
 
 func _destroy() -> void:
 	if is_destroyed:
