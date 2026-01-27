@@ -67,7 +67,7 @@ Before starting each phase, follow this process:
 
 ### 2. Build the Phase
 
-- Implement features per the phase spec
+- Implement features per the phase spec. You can find details of features in `docs/AoE_manual/AoE_manual.txt` (ie: numbers etc)
 - Update AI behavior as specified
 - Run `/spec-check` on new units/buildings/techs
 - Commit after each logical chunk
@@ -77,7 +77,8 @@ Before starting each phase, follow this process:
 
 - **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
 - Update `docs/gotchas.md` with new learnings
-- Write checkpoint doc if in orchestrator mode
+- **Write a checkpoint doc** in `docs/phase_checkpoints/` using the template. This is required for both DIRECT and ORCHESTRATOR modes - it's how future sessions know what was built.
+- Create a git tag: `git tag phase-N-complete`
 - Verify game still launches and plays correctly
 
 ---

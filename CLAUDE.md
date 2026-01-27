@@ -5,9 +5,9 @@
 **DIRECT mode** (current):
 - Write code directly - no need to spawn sub-agents
 - Skip task files - just do the work
-- Lightweight checkpoints (a paragraph in commit messages or a brief note)
 - Still read `docs/gotchas.md` before starting work
 - Still update `docs/gotchas.md` when you hit issues
+- **Still write checkpoint docs** at end of phase (see Post-Phase in roadmap.md)
 
 **ORCHESTRATOR mode** (switch to this when codebase grows large):
 - Follow the full orchestrator workflow below
