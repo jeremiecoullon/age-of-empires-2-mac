@@ -6,6 +6,9 @@ const VILLAGER_SCENE_PATH = "res://scenes/units/villager.tscn"
 const HOUSE_SCENE_PATH = "res://scenes/buildings/house.tscn"
 const BARRACKS_SCENE_PATH = "res://scenes/buildings/barracks.tscn"
 const MILITIA_SCENE_PATH = "res://scenes/units/militia.tscn"
+const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
+const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
+const MILL_SCENE_PATH = "res://scenes/buildings/mill.tscn"
 
 const AI_TEAM: int = 1
 const AI_BASE_POSITION: Vector2 = Vector2(1700, 1700)
@@ -14,6 +17,9 @@ const ATTACK_THRESHOLD: int = 3
 
 var ai_tc: TownCenter = null
 var ai_barracks: Barracks = null
+var ai_lumber_camp: LumberCamp = null
+var ai_mining_camp: MiningCamp = null
+var ai_mill: Mill = null
 var decision_timer: float = 0.0
 var has_attacked: bool = false
 
@@ -40,7 +46,7 @@ func _spawn_ai_base() -> void:
 		villager.global_position = AI_BASE_POSITION + offset
 		villager.team = AI_TEAM
 		get_parent().get_node("Units").add_child(villager)
-		GameManager.ai_add_population(1)
+		GameManager.add_population(1, AI_TEAM)
 
 func _process(delta: float) -> void:
 	if GameManager.game_ended:
@@ -56,22 +62,25 @@ func _make_decisions() -> void:
 	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
 		return
 
-	# 1. Send idle villagers to gather
+	# 1. Send idle villagers to gather (with priority)
 	_assign_idle_villagers()
 
 	# 2. Build house if pop capped
-	if _is_pop_capped() and GameManager.ai_can_afford_wood(25):
+	if _is_pop_capped() and GameManager.can_afford("wood", 25, AI_TEAM):
 		_build_house()
 
-	# 3. Build barracks if we don't have one
-	if not _has_barracks() and GameManager.ai_can_afford_wood(100):
+	# 3. Build camps near resources if villagers are gathering far from drop-offs
+	_consider_building_camps()
+
+	# 4. Build barracks if we don't have one
+	if not _has_barracks() and GameManager.can_afford("wood", 100, AI_TEAM):
 		_build_barracks()
 
-	# 4. Train militia if we have barracks and can afford
+	# 5. Train militia if we have barracks and can afford
 	if _has_barracks() and _can_train_militia():
 		_train_militia()
 
-	# 5. Attack when we have enough military (reset flag if military depleted)
+	# 6. Attack when we have enough military (reset flag if military depleted)
 	var military_count = _get_military_count()
 	if military_count < ATTACK_THRESHOLD:
 		has_attacked = false
@@ -80,12 +89,65 @@ func _make_decisions() -> void:
 
 func _assign_idle_villagers() -> void:
 	var ai_villagers = _get_ai_villagers()
+	var idle_villagers = []
 
 	for villager in ai_villagers:
 		if villager.current_state == Villager.State.IDLE:
-			var nearest_resource = _find_nearest_resource(villager.global_position)
-			if nearest_resource:
-				villager.command_gather(nearest_resource)
+			idle_villagers.append(villager)
+
+	if idle_villagers.is_empty():
+		return
+
+	# Determine what we need most (priority: food > wood > gold > stone)
+	var needed_resource = _get_priority_resource()
+
+	for villager in idle_villagers:
+		var resource = _find_resource_of_type(villager.global_position, needed_resource)
+		if resource:
+			villager.command_gather(resource)
+		else:
+			# Fallback to any nearby resource
+			resource = _find_nearest_resource(villager.global_position)
+			if resource:
+				villager.command_gather(resource)
+
+func _get_priority_resource() -> String:
+	# Food is always priority for villagers and military
+	var food = GameManager.get_resource("food", AI_TEAM)
+	var wood = GameManager.get_resource("wood", AI_TEAM)
+	var gold = GameManager.get_resource("gold", AI_TEAM)
+
+	# Need food for villagers (50) and militia (60)
+	if food < 100:
+		return "food"
+	# Need wood for buildings and militia
+	if wood < 150:
+		return "wood"
+	# Gold for advanced units (less important in MVP)
+	if gold < 50:
+		return "gold"
+	# Default to food
+	return "food"
+
+func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> ResourceNode:
+	var resources = get_tree().get_nodes_in_group("resources")
+	var nearest: ResourceNode = null
+	var nearest_dist: float = INF
+
+	for resource in resources:
+		if resource is Farm:
+			if resource.team != AI_TEAM:
+				continue
+		if not resource.has_resources():
+			continue
+		if resource.get_resource_type() != resource_type:
+			continue
+		var dist = from_pos.distance_to(resource.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = resource
+
+	return nearest
 
 func _find_nearest_resource(from_pos: Vector2) -> ResourceNode:
 	var resources = get_tree().get_nodes_in_group("resources")
@@ -107,10 +169,110 @@ func _find_nearest_resource(from_pos: Vector2) -> ResourceNode:
 	return nearest
 
 func _is_pop_capped() -> bool:
-	return GameManager.ai_population >= GameManager.ai_population_cap
+	return GameManager.get_population(AI_TEAM) >= GameManager.get_population_cap(AI_TEAM)
+
+func _consider_building_camps() -> void:
+	if not GameManager.can_afford("wood", 100, AI_TEAM):
+		return
+
+	# Check if we need a lumber camp near trees
+	if not _has_lumber_camp() and _has_villagers_gathering("wood"):
+		var wood_pos = _find_resource_cluster_position("wood")
+		if wood_pos != Vector2.ZERO:
+			_build_lumber_camp(wood_pos)
+			return
+
+	# Check if we need a mining camp near gold/stone
+	if not _has_mining_camp():
+		if _has_villagers_gathering("gold") or _has_villagers_gathering("stone"):
+			var gold_pos = _find_resource_cluster_position("gold")
+			if gold_pos != Vector2.ZERO:
+				_build_mining_camp(gold_pos)
+				return
+			var stone_pos = _find_resource_cluster_position("stone")
+			if stone_pos != Vector2.ZERO:
+				_build_mining_camp(stone_pos)
+				return
+
+func _has_lumber_camp() -> bool:
+	if is_instance_valid(ai_lumber_camp) and not ai_lumber_camp.is_destroyed:
+		return true
+	var camps = get_tree().get_nodes_in_group("lumber_camps")
+	for c in camps:
+		if c.team == AI_TEAM and not c.is_destroyed:
+			ai_lumber_camp = c
+			return true
+	return false
+
+func _has_mining_camp() -> bool:
+	if is_instance_valid(ai_mining_camp) and not ai_mining_camp.is_destroyed:
+		return true
+	var camps = get_tree().get_nodes_in_group("mining_camps")
+	for c in camps:
+		if c.team == AI_TEAM and not c.is_destroyed:
+			ai_mining_camp = c
+			return true
+	return false
+
+func _has_villagers_gathering(resource_type: String) -> bool:
+	var ai_villagers = _get_ai_villagers()
+	for v in ai_villagers:
+		if v.current_state == Villager.State.GATHERING:
+			if v.carried_resource_type == resource_type:
+				return true
+	return false
+
+func _find_resource_cluster_position(resource_type: String) -> Vector2:
+	var resources = get_tree().get_nodes_in_group("resources")
+	for resource in resources:
+		if resource.get_resource_type() == resource_type and resource.has_resources():
+			# Find a spot near this resource
+			return resource.global_position + Vector2(80, 0)
+	return Vector2.ZERO
+
+func _build_lumber_camp(near_pos: Vector2) -> void:
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
+		return
+
+	var scene = load(LUMBER_CAMP_SCENE_PATH)
+	ai_lumber_camp = scene.instantiate()
+
+	# Find valid position near the resource
+	var pos = _find_valid_camp_position(near_pos, Vector2(64, 64))
+	ai_lumber_camp.global_position = pos
+	ai_lumber_camp.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_lumber_camp)
+
+func _build_mining_camp(near_pos: Vector2) -> void:
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
+		return
+
+	var scene = load(MINING_CAMP_SCENE_PATH)
+	ai_mining_camp = scene.instantiate()
+
+	var pos = _find_valid_camp_position(near_pos, Vector2(64, 64))
+	ai_mining_camp.global_position = pos
+	ai_mining_camp.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_mining_camp)
+
+func _find_valid_camp_position(near_pos: Vector2, size: Vector2) -> Vector2:
+	var offsets = [
+		Vector2(80, 0), Vector2(-80, 0), Vector2(0, 80), Vector2(0, -80),
+		Vector2(80, 80), Vector2(-80, 80), Vector2(80, -80), Vector2(-80, -80),
+	]
+
+	for offset in offsets:
+		var pos = near_pos + offset
+		if _is_valid_building_position(pos, size):
+			return pos
+
+	# Fallback to just the offset position
+	return near_pos + Vector2(80, 0)
 
 func _build_house() -> void:
-	if not GameManager.ai_spend_wood(25):
+	if not GameManager.spend_resource("wood", 25, AI_TEAM):
 		return
 
 	var house_scene = load(HOUSE_SCENE_PATH)
@@ -137,7 +299,7 @@ func _has_barracks() -> bool:
 	return false
 
 func _build_barracks() -> void:
-	if not GameManager.ai_spend_wood(100):
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
 		return
 
 	var barracks_scene = load(BARRACKS_SCENE_PATH)
@@ -156,11 +318,11 @@ func _can_train_militia() -> bool:
 		return false
 	if ai_barracks.is_training:
 		return false
-	if not GameManager.ai_can_add_population():
+	if not GameManager.can_add_population(AI_TEAM):
 		return false
-	if not GameManager.ai_can_afford_food(60):
+	if not GameManager.can_afford("food", 60, AI_TEAM):
 		return false
-	if not GameManager.ai_can_afford_wood(20):
+	if not GameManager.can_afford("wood", 20, AI_TEAM):
 		return false
 	return true
 
@@ -238,5 +400,12 @@ func _is_valid_building_position(pos: Vector2, size: Vector2) -> bool:
 		if abs(pos.x - building.global_position.x) < (half_size.x + building_half_size.x) and \
 		   abs(pos.y - building.global_position.y) < (half_size.y + building_half_size.y):
 			return false
+
+	# Check collision with resources
+	var resources = get_tree().get_nodes_in_group("resources")
+	for resource in resources:
+		if not resource is Farm:
+			if pos.distance_to(resource.global_position) < half_size.x + 20:
+				return false
 
 	return true

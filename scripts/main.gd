@@ -3,9 +3,12 @@ extends Node2D
 const HOUSE_SCENE_PATH = "res://scenes/buildings/house.tscn"
 const BARRACKS_SCENE_PATH = "res://scenes/buildings/barracks.tscn"
 const FARM_SCENE_PATH = "res://scenes/buildings/farm.tscn"
+const MILL_SCENE_PATH = "res://scenes/buildings/mill.tscn"
+const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
+const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -230,6 +233,39 @@ func start_farm_placement() -> void:
 	current_building_type = BuildingType.FARM
 	GameManager.start_building_placement(load(FARM_SCENE_PATH), building_ghost)
 
+func start_mill_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(64, 64), Color(0.9, 0.8, 0.4, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.MILL
+	GameManager.start_building_placement(load(MILL_SCENE_PATH), building_ghost)
+
+func start_lumber_camp_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(64, 64), Color(0.5, 0.35, 0.2, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.LUMBER_CAMP
+	GameManager.start_building_placement(load(LUMBER_CAMP_SCENE_PATH), building_ghost)
+
+func start_mining_camp_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(64, 64), Color(0.5, 0.5, 0.55, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.MINING_CAMP
+	GameManager.start_building_placement(load(MINING_CAMP_SCENE_PATH), building_ghost)
+
 func _handle_building_placement_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if building_ghost:
@@ -265,7 +301,7 @@ func _place_building() -> void:
 	var building = GameManager.building_to_place.instantiate()
 	var cost = building.wood_cost
 
-	if not GameManager.spend_wood(cost):
+	if not GameManager.spend_resource("wood", cost):
 		building.queue_free()
 		return
 
@@ -285,6 +321,12 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.BARRACKS:
 			return Vector2(96, 96)
 		BuildingType.FARM:
+			return Vector2(64, 64)
+		BuildingType.MILL:
+			return Vector2(64, 64)
+		BuildingType.LUMBER_CAMP:
+			return Vector2(64, 64)
+		BuildingType.MINING_CAMP:
 			return Vector2(64, 64)
 		_:
 			return Vector2(64, 64)

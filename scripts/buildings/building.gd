@@ -10,6 +10,8 @@ const AI_COLOR = Color(0.9, 0.2, 0.2, 1)  # Red
 @export var food_cost: int = 0
 @export var team: int = 0  # 0 = player, 1 = AI
 @export var max_hp: int = 200
+# Resource types this building accepts for drop-off (empty = not a drop-off point)
+@export var accepts_resources: Array[String] = []
 
 var current_hp: int
 var is_constructed: bool = true
@@ -33,6 +35,9 @@ func _apply_team_color() -> void:
 
 func get_building_name() -> String:
 	return building_name
+
+func is_drop_off_for(resource_type: String) -> bool:
+	return resource_type in accepts_resources
 
 func take_damage(amount: int) -> void:
 	current_hp -= amount

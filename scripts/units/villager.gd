@@ -10,26 +10,33 @@ var current_state: State = State.IDLE
 var carried_resource_type: String = ""
 var carried_amount: int = 0
 var target_resource: ResourceNode = null
-var town_center: Node2D = null
+var drop_off_building: Building = null
 var gather_timer: float = 0.0
 var move_target: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	super._ready()
 	add_to_group("villagers")
-	# Find town center reference matching our team
-	await get_tree().process_frame
-	_find_town_center()
 
-func _find_town_center() -> void:
-	var tcs = get_tree().get_nodes_in_group("town_centers")
-	for tc in tcs:
-		if tc.team == team:
-			town_center = tc
-			return
-	# Fallback to first TC if none matches (shouldn't happen)
-	if tcs.size() > 0:
-		town_center = tcs[0]
+func _find_drop_off(resource_type: String) -> Building:
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	var nearest: Building = null
+	var nearest_dist: float = INF
+
+	for building in buildings:
+		if building.team != team:
+			continue
+		if building.is_destroyed:
+			continue
+		if not building.is_drop_off_for(resource_type):
+			continue
+
+		var dist = global_position.distance_to(building.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = building
+
+	return nearest
 
 func _physics_process(delta: float) -> void:
 	match current_state:
@@ -57,9 +64,11 @@ func _process_gathering(delta: float) -> void:
 	if not is_instance_valid(target_resource) or not target_resource.has_resources():
 		# Resource depleted, find another or go idle
 		if carried_amount > 0:
-			_return_to_tc()
+			_return_to_drop_off()
 		else:
 			current_state = State.IDLE
+			carried_resource_type = ""
+			target_resource = null
 		return
 
 	# Check if we're close enough to gather
@@ -88,41 +97,33 @@ func _process_gathering(delta: float) -> void:
 		_update_carry_visual()
 
 		if carried_amount >= carry_capacity:
-			_return_to_tc()
+			_return_to_drop_off()
 
 func _process_returning(delta: float) -> void:
-	if town_center == null or not is_instance_valid(town_center):
-		_find_town_center()  # Retry lookup
-		if town_center == null:
-			current_state = State.IDLE
+	if drop_off_building == null or not is_instance_valid(drop_off_building):
+		drop_off_building = _find_drop_off(carried_resource_type)
+		if drop_off_building == null:
+			# No drop-off available, wait in place (don't lose resources)
+			velocity = Vector2.ZERO
 			return
 
 	# Check if close enough to deposit
-	var distance = global_position.distance_to(town_center.global_position)
+	var distance = global_position.distance_to(drop_off_building.global_position)
 	if distance < 60:
 		_deposit_resources()
 		return
 
-	# Keep moving toward TC
-	var direction = global_position.direction_to(town_center.global_position)
+	# Keep moving toward drop-off
+	var direction = global_position.direction_to(drop_off_building.global_position)
 	velocity = direction * move_speed
 	move_and_slide()
 
-func _return_to_tc() -> void:
-	if town_center:
-		current_state = State.RETURNING
+func _return_to_drop_off() -> void:
+	drop_off_building = _find_drop_off(carried_resource_type)
+	current_state = State.RETURNING  # Always transition, will wait if no drop-off
 
 func _deposit_resources() -> void:
-	if team == 0:  # Player
-		if carried_resource_type == "wood":
-			GameManager.add_wood(carried_amount)
-		elif carried_resource_type == "food":
-			GameManager.add_food(carried_amount)
-	else:  # AI
-		if carried_resource_type == "wood":
-			GameManager.ai_add_wood(carried_amount)
-		elif carried_resource_type == "food":
-			GameManager.ai_add_food(carried_amount)
+	GameManager.add_resource(carried_resource_type, carried_amount, team)
 
 	carried_amount = 0
 	_update_carry_visual()
@@ -136,10 +137,15 @@ func _deposit_resources() -> void:
 
 func _update_carry_visual() -> void:
 	if carried_amount > 0:
-		if carried_resource_type == "wood":
-			sprite.modulate = Color(0.6, 0.4, 0.2, 1)  # Brown for wood
-		elif carried_resource_type == "food":
-			sprite.modulate = Color(0.9, 0.8, 0.3, 1)  # Yellow for food
+		match carried_resource_type:
+			"wood":
+				sprite.modulate = Color(0.6, 0.4, 0.2, 1)  # Brown for wood
+			"food":
+				sprite.modulate = Color(0.9, 0.8, 0.3, 1)  # Yellow for food
+			"gold":
+				sprite.modulate = Color(1.0, 0.85, 0.0, 1)  # Bright yellow for gold
+			"stone":
+				sprite.modulate = Color(0.6, 0.6, 0.6, 1)  # Gray for stone
 	else:
 		# Reset to team color
 		_apply_team_color()

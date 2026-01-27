@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://cmain000001"]
+[gd_scene load_steps=11 format=3 uid="uid://cmain000001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cmap0000001" path="res://scenes/map.tscn" id="2_map"]
@@ -9,6 +9,8 @@
 [ext_resource type="PackedScene" uid="uid://cberrybush1" path="res://scenes/resources/berry_bush.tscn" id="7_berry"]
 [ext_resource type="Script" path="res://scripts/camera.gd" id="8_camera"]
 [ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="9_ai"]
+[ext_resource type="PackedScene" uid="uid://cgoldmine01" path="res://scenes/resources/gold_mine.tscn" id="10_gold"]
+[ext_resource type="PackedScene" uid="uid://cstonemine1" path="res://scenes/resources/stone_mine.tscn" id="11_stone"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -93,6 +95,42 @@ position = Vector2(1650, 1600)
 
 [node name="BerryBush7" parent="Resources" instance=ExtResource("7_berry")]
 position = Vector2(1680, 1650)
+
+[node name="GoldMine1" parent="Resources" instance=ExtResource("10_gold")]
+position = Vector2(700, 300)
+
+[node name="GoldMine2" parent="Resources" instance=ExtResource("10_gold")]
+position = Vector2(750, 340)
+
+[node name="GoldMine3" parent="Resources" instance=ExtResource("10_gold")]
+position = Vector2(1200, 1200)
+
+[node name="GoldMine4" parent="Resources" instance=ExtResource("10_gold")]
+position = Vector2(1250, 1250)
+
+[node name="GoldMine5" parent="Resources" instance=ExtResource("10_gold")]
+position = Vector2(1500, 1500)
+
+[node name="GoldMine6" parent="Resources" instance=ExtResource("10_gold")]
+position = Vector2(1540, 1540)
+
+[node name="StoneMine1" parent="Resources" instance=ExtResource("11_stone")]
+position = Vector2(200, 800)
+
+[node name="StoneMine2" parent="Resources" instance=ExtResource("11_stone")]
+position = Vector2(250, 850)
+
+[node name="StoneMine3" parent="Resources" instance=ExtResource("11_stone")]
+position = Vector2(1100, 700)
+
+[node name="StoneMine4" parent="Resources" instance=ExtResource("11_stone")]
+position = Vector2(1150, 750)
+
+[node name="StoneMine5" parent="Resources" instance=ExtResource("11_stone")]
+position = Vector2(1400, 1600)
+
+[node name="StoneMine6" parent="Resources" instance=ExtResource("11_stone")]
+position = Vector2(1450, 1650)
 
 [node name="HUD" parent="." instance=ExtResource("3_hud")]
 

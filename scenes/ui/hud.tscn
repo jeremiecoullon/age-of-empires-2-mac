@@ -8,33 +8,45 @@ script = ExtResource("1_hud")
 [node name="TopBar" type="HBoxContainer" parent="."]
 offset_left = 10.0
 offset_top = 10.0
-offset_right = 500.0
+offset_right = 700.0
 offset_bottom = 40.0
-theme_override_constants/separation = 30
+theme_override_constants/separation = 20
 
 [node name="WoodLabel" type="Label" parent="TopBar"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "Wood: 200"
 
 [node name="FoodLabel" type="Label" parent="TopBar"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "Food: 200"
+
+[node name="GoldLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.0, 0.85, 0.0, 1)
+theme_override_font_sizes/font_size = 18
+text = "Gold: 0"
+
+[node name="StoneLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 18
+text = "Stone: 0"
 
 [node name="PopLabel" type="Label" parent="TopBar"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "Pop: 3/5"
 
 [node name="BuildPanel" type="PanelContainer" parent="."]
 offset_left = 970.0
 offset_top = 10.0
 offset_right = 1270.0
-offset_bottom = 110.0
+offset_bottom = 200.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="BuildPanel"]
 layout_mode = 2
@@ -51,12 +63,24 @@ text = "Build Barracks (100 Wood)"
 layout_mode = 2
 text = "Build Farm (50 Wood)"
 
+[node name="BuildMillButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Mill (100 Wood)"
+
+[node name="BuildLumberCampButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Lumber Camp (100 Wood)"
+
+[node name="BuildMiningCampButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Mining Camp (100 Wood)"
+
 [node name="TCPanel" type="PanelContainer" parent="."]
 visible = false
 offset_left = 970.0
-offset_top = 120.0
+offset_top = 210.0
 offset_right = 1270.0
-offset_bottom = 240.0
+offset_bottom = 330.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="TCPanel"]
 layout_mode = 2
@@ -79,9 +103,9 @@ value = 50.0
 [node name="BarracksPanel" type="PanelContainer" parent="."]
 visible = false
 offset_left = 970.0
-offset_top = 120.0
+offset_top = 210.0
 offset_right = 1270.0
-offset_bottom = 240.0
+offset_bottom = 330.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="BarracksPanel"]
 layout_mode = 2
@@ -104,9 +128,9 @@ value = 50.0
 [node name="InfoPanel" type="PanelContainer" parent="."]
 visible = false
 offset_left = 970.0
-offset_top = 290.0
+offset_top = 340.0
 offset_right = 1270.0
-offset_bottom = 440.0
+offset_bottom = 490.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
 layout_mode = 2
@@ -125,9 +149,9 @@ text = "Details here"
 [node name="ErrorLabel" type="Label" parent="."]
 visible = false
 offset_left = 970.0
-offset_top = 250.0
+offset_top = 500.0
 offset_right = 1270.0
-offset_bottom = 280.0
+offset_bottom = 530.0
 theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
 theme_override_font_sizes/font_size = 18
 text = "Error message here"
@@ -164,6 +188,9 @@ text = "Play Again"
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildHouseButton" to="." method="_on_build_house_pressed"]
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildBarracksButton" to="." method="_on_build_barracks_pressed"]
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildFarmButton" to="." method="_on_build_farm_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMillButton" to="." method="_on_build_mill_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildLumberCampButton" to="." method="_on_build_lumber_camp_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMiningCampButton" to="." method="_on_build_mining_camp_pressed"]
 [connection signal="pressed" from="TCPanel/VBoxContainer/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
 [connection signal="pressed" from="BarracksPanel/VBoxContainer/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

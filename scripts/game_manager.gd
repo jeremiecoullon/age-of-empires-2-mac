@@ -1,18 +1,12 @@
 extends Node
 
-# Player resource counts
-var wood: int = 200
-var food: int = 200
+# Resource pools - dictionary-based for extensibility
+var resources: Dictionary = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
+var ai_resources: Dictionary = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
 
-# Player population
+# Population
 var population: int = 3
 var population_cap: int = 5
-
-# AI resource counts
-var ai_wood: int = 200
-var ai_food: int = 200
-
-# AI population
 var ai_population: int = 0
 var ai_population_cap: int = 5
 
@@ -31,85 +25,62 @@ var is_placing_building: bool = false
 var building_to_place: PackedScene = null
 var building_ghost: Node2D = null
 
-func add_wood(amount: int) -> void:
-	wood += amount
+# Unified resource functions
+func add_resource(type: String, amount: int, team: int = 0) -> void:
+	if team == 0:
+		resources[type] += amount
+	else:
+		ai_resources[type] += amount
 	resources_changed.emit()
 
-func add_food(amount: int) -> void:
-	food += amount
-	resources_changed.emit()
-
-func spend_wood(amount: int) -> bool:
-	if wood >= amount:
-		wood -= amount
+func spend_resource(type: String, amount: int, team: int = 0) -> bool:
+	var pool = resources if team == 0 else ai_resources
+	if pool[type] >= amount:
+		pool[type] -= amount
 		resources_changed.emit()
 		return true
 	return false
 
-func spend_food(amount: int) -> bool:
-	if food >= amount:
-		food -= amount
-		resources_changed.emit()
-		return true
-	return false
+func can_afford(type: String, amount: int, team: int = 0) -> bool:
+	var pool = resources if team == 0 else ai_resources
+	return pool[type] >= amount
 
-func can_afford_wood(amount: int) -> bool:
-	return wood >= amount
+func get_resource(type: String, team: int = 0) -> int:
+	return resources[type] if team == 0 else ai_resources[type]
 
-func can_afford_food(amount: int) -> bool:
-	return food >= amount
-
-func add_population(amount: int) -> void:
-	population += amount
+# Population functions
+func add_population(amount: int, team: int = 0) -> void:
+	if team == 0:
+		population += amount
+	else:
+		ai_population += amount
 	population_changed.emit()
 
-func remove_population(amount: int) -> void:
-	population -= amount
+func remove_population(amount: int, team: int = 0) -> void:
+	if team == 0:
+		population -= amount
+	else:
+		ai_population -= amount
 	population_changed.emit()
 
-func increase_population_cap(amount: int) -> void:
-	population_cap += amount
+func increase_population_cap(amount: int, team: int = 0) -> void:
+	if team == 0:
+		population_cap += amount
+	else:
+		ai_population_cap += amount
 	population_changed.emit()
 
-func can_add_population() -> bool:
-	return population < population_cap
+func can_add_population(team: int = 0) -> bool:
+	if team == 0:
+		return population < population_cap
+	else:
+		return ai_population < ai_population_cap
 
-# AI Resource functions
-func ai_add_wood(amount: int) -> void:
-	ai_wood += amount
+func get_population(team: int = 0) -> int:
+	return population if team == 0 else ai_population
 
-func ai_add_food(amount: int) -> void:
-	ai_food += amount
-
-func ai_spend_wood(amount: int) -> bool:
-	if ai_wood >= amount:
-		ai_wood -= amount
-		return true
-	return false
-
-func ai_spend_food(amount: int) -> bool:
-	if ai_food >= amount:
-		ai_food -= amount
-		return true
-	return false
-
-func ai_can_afford_wood(amount: int) -> bool:
-	return ai_wood >= amount
-
-func ai_can_afford_food(amount: int) -> bool:
-	return ai_food >= amount
-
-func ai_add_population(amount: int) -> void:
-	ai_population += amount
-
-func ai_remove_population(amount: int) -> void:
-	ai_population -= amount
-
-func ai_increase_population_cap(amount: int) -> void:
-	ai_population_cap += amount
-
-func ai_can_add_population() -> bool:
-	return ai_population < ai_population_cap
+func get_population_cap(team: int = 0) -> int:
+	return population_cap if team == 0 else ai_population_cap
 
 # Victory check
 func check_victory() -> void:
@@ -166,12 +137,10 @@ func complete_building_placement() -> void:
 	building_ghost = null
 
 func reset() -> void:
-	wood = 200
-	food = 200
+	resources = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
+	ai_resources = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
 	population = 3
 	population_cap = 5
-	ai_wood = 200
-	ai_food = 200
 	ai_population = 0
 	ai_population_cap = 5
 	game_ended = false

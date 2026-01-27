@@ -34,24 +34,14 @@ func train_militia() -> bool:
 		return false
 
 	# Check resources based on team
-	if team == 0:
-		if not GameManager.can_add_population():
-			return false
-		if not GameManager.can_afford_food(MILITIA_FOOD_COST):
-			return false
-		if not GameManager.can_afford_wood(MILITIA_WOOD_COST):
-			return false
-		GameManager.spend_food(MILITIA_FOOD_COST)
-		GameManager.spend_wood(MILITIA_WOOD_COST)
-	else:
-		if not GameManager.ai_can_add_population():
-			return false
-		if not GameManager.ai_can_afford_food(MILITIA_FOOD_COST):
-			return false
-		if not GameManager.ai_can_afford_wood(MILITIA_WOOD_COST):
-			return false
-		GameManager.ai_spend_food(MILITIA_FOOD_COST)
-		GameManager.ai_spend_wood(MILITIA_WOOD_COST)
+	if not GameManager.can_add_population(team):
+		return false
+	if not GameManager.can_afford("food", MILITIA_FOOD_COST, team):
+		return false
+	if not GameManager.can_afford("wood", MILITIA_WOOD_COST, team):
+		return false
+	GameManager.spend_resource("food", MILITIA_FOOD_COST, team)
+	GameManager.spend_resource("wood", MILITIA_WOOD_COST, team)
 
 	is_training = true
 	train_timer = 0.0
@@ -69,10 +59,7 @@ func _complete_training() -> void:
 		militia.team = team  # Inherit team from barracks
 		get_parent().add_child(militia)
 		# Team color handled by Unit._ready()
-		if team == 0:
-			GameManager.add_population(1)
-		else:
-			GameManager.ai_add_population(1)
+		GameManager.add_population(1, team)
 
 	training_completed.emit()
 

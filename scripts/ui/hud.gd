@@ -2,6 +2,8 @@ extends CanvasLayer
 
 @onready var wood_label: Label = $TopBar/WoodLabel
 @onready var food_label: Label = $TopBar/FoodLabel
+@onready var gold_label: Label = $TopBar/GoldLabel
+@onready var stone_label: Label = $TopBar/StoneLabel
 @onready var pop_label: Label = $TopBar/PopLabel
 @onready var build_panel: PanelContainer = $BuildPanel
 @onready var tc_panel: PanelContainer = $TCPanel
@@ -34,11 +36,13 @@ func _ready() -> void:
 	game_over_panel.visible = false
 
 func _update_resources() -> void:
-	wood_label.text = "Wood: %d" % GameManager.wood
-	food_label.text = "Food: %d" % GameManager.food
+	wood_label.text = "Wood: %d" % GameManager.get_resource("wood")
+	food_label.text = "Food: %d" % GameManager.get_resource("food")
+	gold_label.text = "Gold: %d" % GameManager.get_resource("gold")
+	stone_label.text = "Stone: %d" % GameManager.get_resource("stone")
 
 func _update_population() -> void:
-	pop_label.text = "Pop: %d/%d" % [GameManager.population, GameManager.population_cap]
+	pop_label.text = "Pop: %d/%d" % [GameManager.get_population(), GameManager.get_population_cap()]
 
 func _process(_delta: float) -> void:
 	if selected_tc and selected_tc.is_training:
@@ -101,38 +105,53 @@ func _on_barracks_training_completed() -> void:
 func _on_train_villager_pressed() -> void:
 	if selected_tc:
 		if not selected_tc.train_villager():
-			if not GameManager.can_afford_food(TownCenter.VILLAGER_COST):
+			if not GameManager.can_afford("food", TownCenter.VILLAGER_COST):
 				_show_error("Not enough food! (Need 50)")
 			elif not GameManager.can_add_population():
 				_show_error("Population cap reached! Build a House.")
 
 func _on_build_house_pressed() -> void:
-	if not GameManager.can_afford_wood(25):
+	if not GameManager.can_afford("wood", 25):
 		_show_error("Not enough wood! (Need 25)")
 		return
-	# Signal to main to start house placement
 	get_parent().start_house_placement()
 
 func _on_build_barracks_pressed() -> void:
-	if not GameManager.can_afford_wood(100):
+	if not GameManager.can_afford("wood", 100):
 		_show_error("Not enough wood! (Need 100)")
 		return
-	# Signal to main to start barracks placement
 	get_parent().start_barracks_placement()
 
 func _on_build_farm_pressed() -> void:
-	if not GameManager.can_afford_wood(50):
+	if not GameManager.can_afford("wood", 50):
 		_show_error("Not enough wood! (Need 50)")
 		return
-	# Signal to main to start farm placement
 	get_parent().start_farm_placement()
+
+func _on_build_mill_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Not enough wood! (Need 100)")
+		return
+	get_parent().start_mill_placement()
+
+func _on_build_lumber_camp_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Not enough wood! (Need 100)")
+		return
+	get_parent().start_lumber_camp_placement()
+
+func _on_build_mining_camp_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Not enough wood! (Need 100)")
+		return
+	get_parent().start_mining_camp_placement()
 
 func _on_train_militia_pressed() -> void:
 	if selected_barracks:
 		if not selected_barracks.train_militia():
-			if not GameManager.can_afford_food(Barracks.MILITIA_FOOD_COST):
+			if not GameManager.can_afford("food", Barracks.MILITIA_FOOD_COST):
 				_show_error("Not enough food! (Need 60)")
-			elif not GameManager.can_afford_wood(Barracks.MILITIA_WOOD_COST):
+			elif not GameManager.can_afford("wood", Barracks.MILITIA_WOOD_COST):
 				_show_error("Not enough wood! (Need 20)")
 			elif not GameManager.can_add_population():
 				_show_error("Population cap reached! Build a House.")
@@ -153,11 +172,17 @@ func show_info(entity: Node) -> void:
 	elif entity is ResourceNode:
 		_show_resource_info(entity)
 	elif entity is TownCenter:
-		_show_building_info("Town Center", "Trains villagers\nDeposit point for resources")
+		_show_building_info("Town Center", "Trains villagers\nDeposit: all resources")
 	elif entity is Barracks:
 		_show_building_info("Barracks", "Trains militia")
 	elif entity is House:
 		_show_building_info("House", "+5 population cap")
+	elif entity is Mill:
+		_show_building_info("Mill", "Deposit point for food")
+	elif entity is LumberCamp:
+		_show_building_info("Lumber Camp", "Deposit point for wood")
+	elif entity is MiningCamp:
+		_show_building_info("Mining Camp", "Deposit point for gold/stone")
 	elif entity is Building:
 		_show_building_info(entity.building_name, "")
 	else:
@@ -174,7 +199,7 @@ func _show_villager_info(villager: Villager) -> void:
 		Villager.State.GATHERING:
 			state_text = "Gathering " + villager.carried_resource_type
 		Villager.State.RETURNING:
-			state_text = "Returning to TC"
+			state_text = "Returning to drop-off"
 
 	var details = "Status: %s" % state_text
 	if villager.carried_amount > 0:
@@ -198,7 +223,18 @@ func _show_militia_info(militia: Militia) -> void:
 	info_panel.visible = true
 
 func _show_resource_info(resource: ResourceNode) -> void:
-	var type_name = "Tree" if resource.resource_type == "wood" else "Berry Bush"
+	var type_name: String
+	match resource.resource_type:
+		"wood":
+			type_name = "Tree"
+		"food":
+			type_name = "Berry Bush"
+		"gold":
+			type_name = "Gold Mine"
+		"stone":
+			type_name = "Stone Mine"
+		_:
+			type_name = "Resource"
 	info_title.text = type_name
 	info_details.text = "Resource: %s\nRemaining: %d" % [resource.resource_type.capitalize(), resource.current_amount]
 	info_panel.visible = true

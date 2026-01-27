@@ -20,6 +20,7 @@ func _ready() -> void:
 	size = Vector2i(3, 3)
 	max_hp = 500
 	current_hp = max_hp
+	accepts_resources = ["wood", "food", "gold", "stone"]
 
 func _destroy() -> void:
 	if is_destroyed:
@@ -45,13 +46,13 @@ func train_villager() -> bool:
 	if is_training:
 		return false
 
-	if not GameManager.can_add_population():
+	if not GameManager.can_add_population(team):
 		return false
 
-	if not GameManager.can_afford_food(VILLAGER_COST):
+	if not GameManager.can_afford("food", VILLAGER_COST, team):
 		return false
 
-	GameManager.spend_food(VILLAGER_COST)
+	GameManager.spend_resource("food", VILLAGER_COST, team)
 	is_training = true
 	train_timer = 0.0
 	training_started.emit()
@@ -65,8 +66,9 @@ func _complete_training() -> void:
 	if villager_scene:
 		var villager = villager_scene.instantiate()
 		villager.global_position = global_position + spawn_point_offset
+		villager.team = team
 		get_parent().add_child(villager)
-		GameManager.add_population(1)
+		GameManager.add_population(1, team)
 
 	training_completed.emit()
 

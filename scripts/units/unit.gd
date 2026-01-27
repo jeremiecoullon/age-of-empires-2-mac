@@ -66,8 +66,5 @@ func die() -> void:
 	died.emit()
 	if is_selected:
 		GameManager.deselect_unit(self)
-	if team == 0:
-		GameManager.remove_population(1)
-	else:
-		GameManager.ai_remove_population(1)
+	GameManager.remove_population(1, team)
 	queue_free()
