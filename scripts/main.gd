@@ -45,7 +45,19 @@ func _unhandled_input(event: InputEvent) -> void:
 func _start_selection(screen_pos: Vector2) -> void:
 	var world_pos = get_global_mouse_position()
 
-	# Check if clicking on a building first
+	# Check for units first - they have selection priority over buildings
+	var clicked_unit = _get_unit_at_position(world_pos)
+	if clicked_unit:
+		# Unit found - skip building check, let drag/click selection handle it
+		hud.hide_tc_panel()
+		hud.hide_barracks_panel()
+		hud.hide_market_panel()
+		is_dragging = true
+		drag_start = screen_pos
+		selection_rect = Rect2(drag_start, Vector2.ZERO)
+		return
+
+	# Check if clicking on a building (only if no unit nearby)
 	var clicked_building = _get_building_at_position(world_pos)
 	if clicked_building:
 		GameManager.clear_selection()
