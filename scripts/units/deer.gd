@@ -18,6 +18,8 @@ func _ready() -> void:
 
 	super._ready()
 	add_to_group("deer")
+	# 25 frames total, 8 directions = ~3 frames per direction
+	_load_directional_animations("res://assets/sprites/units/deer_frames", "Deerstand", 25)
 
 func take_damage(amount: int) -> void:
 	# Store position of attacker before taking damage

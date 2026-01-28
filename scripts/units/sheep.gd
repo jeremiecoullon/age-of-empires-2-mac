@@ -21,6 +21,8 @@ func _ready() -> void:
 
 	super._ready()
 	add_to_group("sheep")
+	# 45 frames total, 8 directions = ~5-6 frames per direction
+	_load_directional_animations("res://assets/sprites/units/sheep_frames", "Sheepstand", 45)
 
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)

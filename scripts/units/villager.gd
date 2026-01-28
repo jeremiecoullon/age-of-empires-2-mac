@@ -23,6 +23,8 @@ var move_target: Vector2 = Vector2.ZERO
 func _ready() -> void:
 	super._ready()
 	add_to_group("villagers")
+	# 75 frames total, 8 directions = ~9 frames per direction
+	_load_directional_animations("res://assets/sprites/units/villager_frames", "Villagerstand", 75)
 
 func _find_drop_off(resource_type: String) -> Building:
 	var buildings = get_tree().get_nodes_in_group("buildings")
@@ -67,6 +69,7 @@ func _process_moving(delta: float) -> void:
 	var direction = global_position.direction_to(move_target)
 	velocity = direction * move_speed
 	move_and_slide()
+	_update_facing_direction()
 
 func _process_gathering(delta: float) -> void:
 	if not is_instance_valid(target_resource) or not target_resource.has_resources():
@@ -89,6 +92,7 @@ func _process_gathering(delta: float) -> void:
 		var direction = global_position.direction_to(target_resource.global_position)
 		velocity = direction * move_speed
 		move_and_slide()
+		_update_facing_direction()
 		return
 
 	# We're close enough, gather
@@ -128,6 +132,7 @@ func _process_returning(delta: float) -> void:
 	var direction = global_position.direction_to(drop_off_building.global_position)
 	velocity = direction * move_speed
 	move_and_slide()
+	_update_facing_direction()
 
 func _return_to_drop_off() -> void:
 	drop_off_building = _find_drop_off(carried_resource_type)
@@ -159,6 +164,7 @@ func _process_hunting(delta: float) -> void:
 		var direction = global_position.direction_to(next_path_position)
 		velocity = direction * move_speed
 		move_and_slide()
+		_update_facing_direction()
 		return
 
 	# In range, attack

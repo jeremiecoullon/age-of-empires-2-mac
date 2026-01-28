@@ -22,3 +22,5 @@ func _ready() -> void:
 
 	super._ready()
 	add_to_group("wolves")
+	# 50 frames total, 8 directions = ~6 frames per direction
+	_load_directional_animations("res://assets/sprites/units/wolf_frames", "Wolfstand", 50)

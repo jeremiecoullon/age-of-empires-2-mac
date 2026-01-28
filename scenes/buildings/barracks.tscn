@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://cbarracks001"]
 
 [ext_resource type="Script" path="res://scripts/buildings/barracks.gd" id="1_barracks"]
-[ext_resource type="Texture2D" path="res://assets/sprites/buildings/barracks.png" id="2_texture"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/barracks_aoe.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_barracks"]
 size = Vector2(96, 96)

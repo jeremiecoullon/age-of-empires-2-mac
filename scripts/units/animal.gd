@@ -79,6 +79,7 @@ func _process_wandering(delta: float) -> void:
 	var direction = global_position.direction_to(next_path_position)
 	velocity = direction * move_speed
 	move_and_slide()
+	_update_facing_direction()
 
 func _process_fleeing(delta: float) -> void:
 	if nav_agent.is_navigation_finished():
@@ -90,6 +91,7 @@ func _process_fleeing(delta: float) -> void:
 	var direction = global_position.direction_to(next_path_position)
 	velocity = direction * move_speed
 	move_and_slide()
+	_update_facing_direction()
 
 func _process_attacking(delta: float) -> void:
 	if not is_instance_valid(attack_target) or attack_target.is_dead:
@@ -106,6 +108,7 @@ func _process_attacking(delta: float) -> void:
 		var direction = global_position.direction_to(next_path_position)
 		velocity = direction * move_speed
 		move_and_slide()
+		_update_facing_direction()
 		return
 
 	# In range, attack

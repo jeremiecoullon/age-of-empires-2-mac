@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://cfoodcarcass1"]
 
 [ext_resource type="Script" path="res://scripts/resources/food_carcass.gd" id="1_carcass"]
-[ext_resource type="Texture2D" path="res://assets/sprites/resources/food_carcass.png" id="2_texture"]
+[ext_resource type="Texture2D" path="res://assets/sprites/resources/food_carcass_aoe.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_carcass"]
 size = Vector2(24, 20)

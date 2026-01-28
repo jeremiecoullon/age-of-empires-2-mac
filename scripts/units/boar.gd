@@ -26,6 +26,8 @@ func _ready() -> void:
 
 	super._ready()
 	add_to_group("boar")
+	# 50 frames total, 8 directions = ~6 frames per direction
+	_load_directional_animations("res://assets/sprites/units/boar_frames", "Boarstand", 50)
 
 func take_damage(amount: int) -> void:
 	super.take_damage(amount)

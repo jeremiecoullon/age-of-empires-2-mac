@@ -1,7 +1,6 @@
-[gd_scene load_steps=5 format=3 uid="uid://cboar0001"]
+[gd_scene load_steps=4 format=3 uid="uid://cboar0001"]
 
 [ext_resource type="Script" path="res://scripts/units/boar.gd" id="1_boar"]
-[ext_resource type="Texture2D" path="res://assets/sprites/units/boar.svg" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_boar"]
 size = Vector2(28, 22)
@@ -15,8 +14,8 @@ collision_mask = 1
 script = ExtResource("1_boar")
 team = -1
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2_texture")
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+scale = Vector2(0.5, 0.5)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_boar")

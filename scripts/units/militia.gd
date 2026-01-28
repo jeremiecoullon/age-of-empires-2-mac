@@ -16,6 +16,8 @@ func _ready() -> void:
 	add_to_group("military")
 	max_hp = 50
 	current_hp = max_hp
+	# 30 frames total, 8 directions = ~4 frames per direction
+	_load_directional_animations("res://assets/sprites/units/militia_frames", "Militiastand", 30)
 
 func _physics_process(delta: float) -> void:
 	match current_state:
@@ -37,6 +39,7 @@ func _process_moving(delta: float) -> void:
 	var direction = global_position.direction_to(next_path_position)
 	velocity = direction * move_speed
 	move_and_slide()
+	_update_facing_direction()
 
 func _process_attacking(delta: float) -> void:
 	if not is_instance_valid(attack_target):
@@ -65,6 +68,7 @@ func _process_attacking(delta: float) -> void:
 		var direction = global_position.direction_to(next_path_position)
 		velocity = direction * move_speed
 		move_and_slide()
+		_update_facing_direction()
 		# Don't increment attack timer when out of range
 		return
 
