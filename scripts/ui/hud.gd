@@ -295,6 +295,8 @@ func show_info(entity: Node) -> void:
 		_show_animal_info(entity, "Wild Boar", "Dangerous! Fights back.\nLure to TC with villagers.")
 	elif entity is Wolf:
 		_show_animal_info(entity, "Wolf", "Hostile! Attacks on sight.\nNo food yield.")
+	elif entity is PelicanBicycle:
+		_show_animal_info(entity, "Pelican on Bicycle", "A rare sight! Herdable.\nHow did it learn to ride?")
 	elif entity is Animal:
 		_show_animal_info(entity, "Animal", "")
 	elif entity is Farm:

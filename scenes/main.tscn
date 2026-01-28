@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://cmain000001"]
+[gd_scene load_steps=17 format=3 uid="uid://cmain000001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cmap0000001" path="res://scenes/map.tscn" id="2_map"]
@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://cdeer0001" path="res://scenes/units/deer.tscn" id="13_deer"]
 [ext_resource type="PackedScene" uid="uid://cboar0001" path="res://scenes/units/boar.tscn" id="14_boar"]
 [ext_resource type="PackedScene" uid="uid://cwolf0001" path="res://scenes/units/wolf.tscn" id="15_wolf"]
+[ext_resource type="PackedScene" path="res://scenes/units/pelican_bicycle.tscn" id="16_pelican"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -190,3 +191,15 @@ position = Vector2(150, 1500)
 
 [node name="Wolf2" parent="Animals" instance=ExtResource("15_wolf")]
 position = Vector2(1800, 300)
+
+[node name="PelicanBicycle1" parent="Animals" instance=ExtResource("16_pelican")]
+position = Vector2(600, 1200)
+
+[node name="PelicanBicycle2" parent="Animals" instance=ExtResource("16_pelican")]
+position = Vector2(1300, 600)
+
+[node name="PelicanBicycle3" parent="Animals" instance=ExtResource("16_pelican")]
+position = Vector2(900, 900)
+
+[node name="PelicanBicycle4" parent="Animals" instance=ExtResource("16_pelican")]
+position = Vector2(1500, 1100)
