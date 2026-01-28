@@ -4,8 +4,14 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 
 ## Quick Start
 
-1. Open project in Godot 4.x
-2. Press F5 to play
+1. Install Git LFS (assets are stored with LFS):
+   ```bash
+   brew install git-lfs
+   git lfs install
+   ```
+2. Clone the repo (LFS assets download automatically)
+3. Open project in Godot 4.x
+4. Press F5 to play
 3. Destroy the enemy Town Center (red) to win
 
 ## Controls
