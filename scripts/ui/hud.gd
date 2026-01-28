@@ -12,6 +12,14 @@ extends CanvasLayer
 @onready var barracks_panel: PanelContainer = $BarracksPanel
 @onready var train_militia_button: Button = $BarracksPanel/VBoxContainer/TrainMilitiaButton
 @onready var barracks_train_progress: ProgressBar = $BarracksPanel/VBoxContainer/BarracksTrainProgress
+@onready var market_panel: PanelContainer = $MarketPanel
+@onready var buy_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton
+@onready var buy_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyFoodButton
+@onready var buy_stone_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyStoneButton
+@onready var sell_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellWoodButton
+@onready var sell_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellFoodButton
+@onready var sell_stone_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton
+@onready var market_train_progress: ProgressBar = $MarketPanel/VBoxContainer/MarketTrainProgress
 @onready var error_label: Label = $ErrorLabel
 @onready var info_panel: PanelContainer = $InfoPanel
 @onready var info_title: Label = $InfoPanel/VBoxContainer/InfoTitle
@@ -22,16 +30,20 @@ extends CanvasLayer
 
 var selected_tc: TownCenter = null
 var selected_barracks: Barracks = null
+var selected_market: Market = null
 
 func _ready() -> void:
 	GameManager.resources_changed.connect(_update_resources)
 	GameManager.population_changed.connect(_update_population)
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.villager_idle.connect(_on_villager_idle)
+	GameManager.market_prices_changed.connect(_update_market_prices)
 	_update_resources()
 	_update_population()
+	_update_market_prices()
 	tc_panel.visible = false
 	barracks_panel.visible = false
+	market_panel.visible = false
 	error_label.visible = false
 	info_panel.visible = false
 	game_over_panel.visible = false
@@ -57,6 +69,12 @@ func _process(_delta: float) -> void:
 		barracks_train_progress.visible = true
 	else:
 		barracks_train_progress.visible = false
+
+	if selected_market and selected_market.is_training:
+		market_train_progress.value = selected_market.get_train_progress() * 100
+		market_train_progress.visible = true
+	else:
+		market_train_progress.visible = false
 
 func show_tc_panel(tc: TownCenter) -> void:
 	# Disconnect previous TC signal if exists
@@ -97,11 +115,47 @@ func hide_barracks_panel() -> void:
 	barracks_panel.visible = false
 	build_panel.visible = true
 
+func show_market_panel(market: Market) -> void:
+	# Disconnect previous market signal if exists
+	if selected_market and selected_market.training_completed.is_connected(_on_market_training_completed):
+		selected_market.training_completed.disconnect(_on_market_training_completed)
+
+	selected_market = market
+	market_panel.visible = true
+	tc_panel.visible = false
+	barracks_panel.visible = false
+	build_panel.visible = false
+	_update_market_prices()
+	if not market.training_completed.is_connected(_on_market_training_completed):
+		market.training_completed.connect(_on_market_training_completed)
+
+func hide_market_panel() -> void:
+	if selected_market:
+		if selected_market.training_completed.is_connected(_on_market_training_completed):
+			selected_market.training_completed.disconnect(_on_market_training_completed)
+	selected_market = null
+	market_panel.visible = false
+	build_panel.visible = true
+
 func _on_training_completed() -> void:
 	train_progress.visible = false
 
 func _on_barracks_training_completed() -> void:
 	barracks_train_progress.visible = false
+
+func _on_market_training_completed() -> void:
+	market_train_progress.visible = false
+
+func _update_market_prices() -> void:
+	# Update buy button labels
+	buy_wood_button.text = "Wood: %dg" % GameManager.get_market_buy_price("wood")
+	buy_food_button.text = "Food: %dg" % GameManager.get_market_buy_price("food")
+	buy_stone_button.text = "Stone: %dg" % GameManager.get_market_buy_price("stone")
+
+	# Update sell button labels
+	sell_wood_button.text = "Wood: %dg" % GameManager.get_market_sell_price("wood")
+	sell_food_button.text = "Food: %dg" % GameManager.get_market_sell_price("food")
+	sell_stone_button.text = "Stone: %dg" % GameManager.get_market_sell_price("stone")
 
 func _on_train_villager_pressed() -> void:
 	if selected_tc:
@@ -157,6 +211,56 @@ func _on_train_militia_pressed() -> void:
 			elif not GameManager.can_add_population():
 				_show_error("Population cap reached! Build a House.")
 
+func _on_build_market_pressed() -> void:
+	if not GameManager.can_afford("wood", 175):
+		_show_error("Not enough wood! (Need 175)")
+		return
+	get_parent().start_market_placement()
+
+# Market buy/sell handlers
+func _on_buy_wood_pressed() -> void:
+	if selected_market:
+		if not selected_market.buy_resource("wood"):
+			var price = GameManager.get_market_buy_price("wood")
+			_show_error("Not enough gold! (Need %d)" % price)
+
+func _on_buy_food_pressed() -> void:
+	if selected_market:
+		if not selected_market.buy_resource("food"):
+			var price = GameManager.get_market_buy_price("food")
+			_show_error("Not enough gold! (Need %d)" % price)
+
+func _on_buy_stone_pressed() -> void:
+	if selected_market:
+		if not selected_market.buy_resource("stone"):
+			var price = GameManager.get_market_buy_price("stone")
+			_show_error("Not enough gold! (Need %d)" % price)
+
+func _on_sell_wood_pressed() -> void:
+	if selected_market:
+		if not selected_market.sell_resource("wood"):
+			_show_error("Not enough wood! (Need 100)")
+
+func _on_sell_food_pressed() -> void:
+	if selected_market:
+		if not selected_market.sell_resource("food"):
+			_show_error("Not enough food! (Need 100)")
+
+func _on_sell_stone_pressed() -> void:
+	if selected_market:
+		if not selected_market.sell_resource("stone"):
+			_show_error("Not enough stone! (Need 100)")
+
+func _on_train_trade_cart_pressed() -> void:
+	if selected_market:
+		if not selected_market.train_trade_cart():
+			if not GameManager.can_afford("wood", Market.TRADE_CART_WOOD_COST):
+				_show_error("Not enough wood! (Need 100)")
+			elif not GameManager.can_afford("gold", Market.TRADE_CART_GOLD_COST):
+				_show_error("Not enough gold! (Need 50)")
+			elif not GameManager.can_add_population():
+				_show_error("Population cap reached! Build a House.")
+
 func _show_error(message: String) -> void:
 	error_label.text = message
 	error_label.visible = true
@@ -179,6 +283,8 @@ func _show_notification(message: String) -> void:
 func show_info(entity: Node) -> void:
 	if entity is Villager:
 		_show_villager_info(entity)
+	elif entity is TradeCart:
+		_show_trade_cart_info(entity)
 	elif entity is Militia:
 		_show_militia_info(entity)
 	elif entity is Sheep:
@@ -207,6 +313,8 @@ func show_info(entity: Node) -> void:
 		_show_building_info("Lumber Camp", "Deposit point for wood")
 	elif entity is MiningCamp:
 		_show_building_info("Mining Camp", "Deposit point for gold/stone")
+	elif entity is Market:
+		_show_building_info("Market", "Buy/sell resources\nTrain Trade Carts")
 	elif entity is Building:
 		_show_building_info(entity.building_name, "")
 	else:
@@ -245,6 +353,12 @@ func _show_militia_info(militia: Militia) -> void:
 			state_text = "Attacking"
 
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d" % [state_text, militia.current_hp, militia.max_hp, militia.attack_damage]
+	info_details.text = details
+	info_panel.visible = true
+
+func _show_trade_cart_info(cart: TradeCart) -> void:
+	info_title.text = "Trade Cart"
+	var details = "HP: %d/%d\n%s" % [cart.current_hp, cart.max_hp, cart.get_trade_info()]
 	info_details.text = details
 	info_panel.visible = true
 
@@ -301,5 +415,6 @@ func _on_game_over(winner: int) -> void:
 func _on_restart_pressed() -> void:
 	selected_tc = null
 	selected_barracks = null
+	selected_market = null
 	GameManager.reset()
 	get_tree().reload_current_scene()

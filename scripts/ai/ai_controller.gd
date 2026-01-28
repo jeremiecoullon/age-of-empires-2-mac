@@ -9,6 +9,7 @@ const MILITIA_SCENE_PATH = "res://scenes/units/militia.tscn"
 const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
 const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
 const MILL_SCENE_PATH = "res://scenes/buildings/mill.tscn"
+const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
 
 const AI_TEAM: int = 1
 const AI_BASE_POSITION: Vector2 = Vector2(1700, 1700)
@@ -20,6 +21,7 @@ var ai_barracks: Barracks = null
 var ai_lumber_camp: LumberCamp = null
 var ai_mining_camp: MiningCamp = null
 var ai_mill: Mill = null
+var ai_market: Market = null
 var decision_timer: float = 0.0
 var has_attacked: bool = false
 
@@ -80,7 +82,16 @@ func _make_decisions() -> void:
 	if _has_barracks() and _can_train_militia():
 		_train_militia()
 
-	# 6. Attack when we have enough military (reset flag if military depleted)
+	# 6. Build market if we have surplus resources and need gold, or vice versa
+	if not _has_market() and GameManager.can_afford("wood", 175, AI_TEAM):
+		if _should_build_market():
+			_build_market()
+
+	# 7. Use market to balance resources if we have one
+	if _has_market():
+		_use_market()
+
+	# 8. Attack when we have enough military (reset flag if military depleted)
 	var military_count = _get_military_count()
 	if military_count < ATTACK_THRESHOLD:
 		has_attacked = false
@@ -492,3 +503,73 @@ func _is_valid_building_position(pos: Vector2, size: Vector2) -> bool:
 				return false
 
 	return true
+
+# Market functions
+func _has_market() -> bool:
+	if is_instance_valid(ai_market) and not ai_market.is_destroyed:
+		return true
+	var markets = get_tree().get_nodes_in_group("markets")
+	for m in markets:
+		if m.team == AI_TEAM and not m.is_destroyed:
+			ai_market = m
+			return true
+	return false
+
+func _should_build_market() -> bool:
+	# Build market if we have significant surplus in some resources but not gold
+	var wood = GameManager.get_resource("wood", AI_TEAM)
+	var food = GameManager.get_resource("food", AI_TEAM)
+	var gold = GameManager.get_resource("gold", AI_TEAM)
+	var stone = GameManager.get_resource("stone", AI_TEAM)
+
+	# Want market if we have surplus resources (>300) but low gold (<100)
+	var has_surplus = (wood > 300 or food > 300 or stone > 200)
+	var needs_gold = (gold < 100)
+
+	return has_surplus and needs_gold
+
+func _build_market() -> void:
+	if not GameManager.spend_resource("wood", 175, AI_TEAM):
+		return
+
+	var market_scene = load(MARKET_SCENE_PATH)
+	ai_market = market_scene.instantiate()
+
+	var offset = _find_building_spot(Vector2(96, 96))
+	ai_market.global_position = AI_BASE_POSITION + offset
+	ai_market.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_market)
+
+func _use_market() -> void:
+	if not is_instance_valid(ai_market):
+		return
+
+	var wood = GameManager.get_resource("wood", AI_TEAM)
+	var food = GameManager.get_resource("food", AI_TEAM)
+	var gold = GameManager.get_resource("gold", AI_TEAM)
+	var stone = GameManager.get_resource("stone", AI_TEAM)
+
+	# Sell surplus resources for gold
+	# Sell if we have > 400 of a resource
+	if wood > 400 and GameManager.can_afford("wood", 100, AI_TEAM):
+		ai_market.sell_resource("wood")
+		return  # One transaction per decision cycle
+
+	if food > 400 and GameManager.can_afford("food", 100, AI_TEAM):
+		ai_market.sell_resource("food")
+		return
+
+	if stone > 300 and GameManager.can_afford("stone", 100, AI_TEAM):
+		ai_market.sell_resource("stone")
+		return
+
+	# Buy resources we desperately need (if we have gold)
+	# Only buy if gold > 150 (keep some reserve)
+	if gold > 150:
+		if wood < 50:
+			ai_market.buy_resource("wood")
+			return
+		if food < 50:
+			ai_market.buy_resource("food")
+			return

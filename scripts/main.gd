@@ -6,9 +6,10 @@ const FARM_SCENE_PATH = "res://scenes/buildings/farm.tscn"
 const MILL_SCENE_PATH = "res://scenes/buildings/mill.tscn"
 const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
 const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
+const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -51,11 +52,15 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_info()
 		hud.hide_tc_panel()
 		hud.hide_barracks_panel()
+		hud.hide_market_panel()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
 		elif clicked_building is Barracks:
 			hud.show_barracks_panel(clicked_building)
+			hud.show_info(clicked_building)
+		elif clicked_building is Market:
+			hud.show_market_panel(clicked_building)
 			hud.show_info(clicked_building)
 		else:
 			hud.show_info(clicked_building)
@@ -63,6 +68,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 
 	hud.hide_tc_panel()
 	hud.hide_barracks_panel()
+	hud.hide_market_panel()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -289,6 +295,17 @@ func start_mining_camp_placement() -> void:
 	current_building_type = BuildingType.MINING_CAMP
 	GameManager.start_building_placement(load(MINING_CAMP_SCENE_PATH), building_ghost)
 
+func start_market_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.8, 0.6, 0.2, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.MARKET
+	GameManager.start_building_placement(load(MARKET_SCENE_PATH), building_ghost)
+
 func _handle_building_placement_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if building_ghost:
@@ -358,6 +375,8 @@ func _get_building_size(type: BuildingType) -> Vector2:
 			return Vector2(64, 64)
 		BuildingType.MINING_CAMP:
 			return Vector2(64, 64)
+		BuildingType.MARKET:
+			return Vector2(96, 96)
 		_:
 			return Vector2(64, 64)
 

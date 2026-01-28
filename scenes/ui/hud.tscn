@@ -75,6 +75,10 @@ text = "Build Lumber Camp (100 Wood)"
 layout_mode = 2
 text = "Build Mining Camp (100 Wood)"
 
+[node name="BuildMarketButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Market (175 Wood)"
+
 [node name="TCPanel" type="PanelContainer" parent="."]
 visible = false
 offset_left = 970.0
@@ -121,6 +125,81 @@ layout_mode = 2
 text = "Train Militia (60 Food, 20 Wood)"
 
 [node name="BarracksTrainProgress" type="ProgressBar" parent="BarracksPanel/VBoxContainer"]
+visible = false
+layout_mode = 2
+value = 50.0
+
+[node name="MarketPanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 750.0
+offset_top = 210.0
+offset_right = 1270.0
+offset_bottom = 430.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarketPanel"]
+layout_mode = 2
+
+[node name="MarketLabel" type="Label" parent="MarketPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Market"
+horizontal_alignment = 1
+
+[node name="PriceContainer" type="HBoxContainer" parent="MarketPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="BuyColumn" type="VBoxContainer" parent="MarketPanel/VBoxContainer/PriceContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BuyLabel" type="Label" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Buy (100 units)"
+horizontal_alignment = 1
+
+[node name="BuyWoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+layout_mode = 2
+text = "Wood: 100g"
+
+[node name="BuyFoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+layout_mode = 2
+text = "Food: 100g"
+
+[node name="BuyStoneButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+layout_mode = 2
+text = "Stone: 130g"
+
+[node name="SellColumn" type="VBoxContainer" parent="MarketPanel/VBoxContainer/PriceContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SellLabel" type="Label" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Sell (100 units)"
+horizontal_alignment = 1
+
+[node name="SellWoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
+layout_mode = 2
+text = "Wood: 70g"
+
+[node name="SellFoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
+layout_mode = 2
+text = "Food: 70g"
+
+[node name="SellStoneButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
+layout_mode = 2
+text = "Stone: 91g"
+
+[node name="Separator" type="HSeparator" parent="MarketPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="TrainTradeCartButton" type="Button" parent="MarketPanel/VBoxContainer"]
+layout_mode = 2
+text = "Train Trade Cart (100W, 50G)"
+
+[node name="MarketTrainProgress" type="ProgressBar" parent="MarketPanel/VBoxContainer"]
 visible = false
 layout_mode = 2
 value = 50.0
@@ -191,6 +270,14 @@ text = "Play Again"
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMillButton" to="." method="_on_build_mill_pressed"]
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildLumberCampButton" to="." method="_on_build_lumber_camp_pressed"]
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMiningCampButton" to="." method="_on_build_mining_camp_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMarketButton" to="." method="_on_build_market_pressed"]
 [connection signal="pressed" from="TCPanel/VBoxContainer/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
 [connection signal="pressed" from="BarracksPanel/VBoxContainer/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyFoodButton" to="." method="_on_buy_food_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyStoneButton" to="." method="_on_buy_stone_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellWoodButton" to="." method="_on_sell_wood_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellFoodButton" to="." method="_on_sell_food_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton" to="." method="_on_sell_stone_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/TrainTradeCartButton" to="." method="_on_train_trade_cart_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

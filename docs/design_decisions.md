@@ -4,6 +4,90 @@ This document records key design decisions for the AoE2 clone project, including
 
 ---
 
+## DD-005: Explicit building panels over generic abstraction
+
+**Date:** 2026-01-28
+**Status:** Accepted
+
+### Context
+
+During Phase 1E refactor check, the explore agent recommended creating a generic building action panel system in the HUD. Currently, TC and Barracks each have their own hardcoded panels (`tc_panel`, `barracks_panel`). The concern was that adding Market, Blacksmith, Monastery would lead to "panel explosion."
+
+### Options Considered
+
+| Option | Description |
+|--------|-------------|
+| **A** | Generic building panel system - buildings register actions dynamically |
+| **B** | Explicit panels per building type - add `market_panel` like `barracks_panel` |
+
+### Decision
+
+**Option B** - Keep explicit panels per building type.
+
+### Rationale
+
+1. **AoE2 does this too**: The original game has distinct UI per building type. This isn't inherently bad design.
+
+2. **Premature abstraction**: We have 2 panels now, adding a 3rd. The "right" abstraction isn't clear yet. Generalizing too early often creates more problems.
+
+3. **Explicit is easier to understand**: `market_panel` with market-specific buttons is clearer than a generic system with dynamic registration.
+
+4. **Can refactor later**: If we reach 5+ panels and see clear patterns, we can generalize then. The code isn't harder to refactor later.
+
+### Implications
+
+- Add `market_panel` directly to HUD (like `barracks_panel`)
+- Future buildings (Blacksmith, Monastery) will get their own panels
+- Revisit if panel count becomes unmanageable (Phase 4+)
+
+---
+
+## DD-004: Phase 1E scope - defer tribute and sheep herding
+
+**Date:** 2026-01-28
+**Status:** Accepted
+
+### Context
+
+Phase 1 roadmap includes several trading features. During Phase 1E planning, we needed to decide which features to implement now vs defer.
+
+### Features Evaluated
+
+| Feature | Decision |
+|---------|----------|
+| Market building | Include |
+| Dynamic market pricing | Include |
+| Trade Cart | Include |
+| Trade distance scaling | Include |
+| Tribute system (30% fee) | **Defer to Phase 13** |
+| Sheep herding AI | **Defer** |
+
+### Decision
+
+Implement core trading (Market, Trade Cart, pricing). Defer tribute and sheep herding.
+
+### Rationale
+
+**Tribute system deferred:**
+1. Tribute is for sending resources to other players
+2. In 1v1 against AI, there's no one to tribute to (AI is enemy)
+3. Only useful with allied AI (Phase 13: Team Games)
+4. Implementing now would be untestable dead code
+
+**Sheep herding AI deferred:**
+1. Villagers auto-herding sheep to drop-off before killing is a nice-to-have optimization
+2. Current hunting behavior works (villagers kill sheep, gather from carcass)
+3. Low gameplay impact - can add as polish if requested
+4. Not blocking any other features
+
+### Implications
+
+- Phase 1E focuses on: Market, Trade Cart, dynamic pricing, trade distance scaling
+- Tribute system moves to Phase 13 (Team Games & Allied AI)
+- Sheep herding remains in backlog, not scheduled
+
+---
+
 ## DD-001: Single-player focus (no online multiplayer)
 
 **Date:** 2026-01-27
