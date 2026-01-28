@@ -1,5 +1,11 @@
 # Age of Empires 2 Clone
 
+## Git Policy
+
+**Never perform git operations.** No commits, no pushes, no branch operations. The user handles all git manually.
+
+---
+
 ## Current Mode: DIRECT
 
 **DIRECT mode** (current):
@@ -23,14 +29,11 @@
 **Always verify implementations against the AoE2 manual.**
 
 After implementing or modifying any unit, building, or technology:
-1. Run `/spec-check <feature>` (uses Haiku - cheap extraction/comparison task)
-2. Compare values: HP, attack, armor, cost, range, speed, special abilities
+1. Use the **spec-check agent** to verify implementation matches specs
+2. Review the comparison table it returns
 3. Fix any mismatches, or document intentional deviations in `docs/gotchas.md`
 
-The source of truth is `docs/AoE_manual/AoE_manual.txt`:
-- Unit stats: "Unit Attributes" appendix (~line 3750)
-- Building stats: "Building Attributes" appendix (~line 3714)
-- Tech costs/effects: "Technology Costs & Benefits" (~line 3854)
+The spec-check agent searches `docs/AoE_manual/AoE_manual.txt` and compares against your implementation.
 
 **Do not skip this step.** The goal is a faithful AoE2 clone, not "close enough."
 
