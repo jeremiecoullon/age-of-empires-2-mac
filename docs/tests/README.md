@@ -4,10 +4,15 @@ This folder documents the automated testing infrastructure for the AoE2 clone.
 
 ## Quick Start
 
-1. Open Godot
-2. Open `tests/test_scene.tscn`
-3. Run the scene (F6 or Scene > Run This Scene)
-4. Watch console for test results
+**In Godot:**
+1. Open `tests/test_scene.tscn`
+2. Cmd+R (Mac) or F6 (Windows/Linux)
+3. Watch console for test results
+
+**From command line (CI):**
+```bash
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
+```
 
 ## What It Tests
 
@@ -167,16 +172,25 @@ Tests should account for these when clicking "near" vs "on" entities.
 
 ### Known Limitations
 
-1. **Box selection uses screen coords** - Camera position affects results
-2. **No pathfinding tests yet** - Movement tests need more wait time
-3. **Enemy selection test** - `test_only_player_units_selectable` expects enemy units to NOT be selectable, but the game code doesn't filter by team. This test will fail until team filtering is added to `_get_unit_at_position()` in main.gd
+1. **No pathfinding tests yet** - Movement tests need more wait time
+2. **Input simulation unreliable** - Godot headless mode on Mac has a ~20x coordinate scaling bug. Tests use `direct_select_*` methods instead.
 
-### Code Review Fixes Applied
+### Direct Selection API
 
-The following issues from code review have been addressed:
-- `main.gd` now uses `_screen_to_world()` helper instead of `get_global_mouse_position()` - enables input simulation to work correctly
-- `assertions.gd` now validates `is_instance_valid()` before accessing node properties
-- `input_simulator.gd` now warns if setup() called before node is in scene tree
+Due to input simulation issues, tests use direct method calls:
+
+```gdscript
+# Instead of: await runner.input_sim.click_on_entity(unit)
+await runner.input_sim.direct_select_entity(unit)
+
+# Instead of: await runner.input_sim.click_at_world_pos(pos)
+await runner.input_sim.direct_select_at_world_pos(pos)
+
+# Instead of: await runner.input_sim.drag_box(start, end)
+await runner.input_sim.direct_box_select(start, end)
+```
+
+This tests the selection logic directly without going through input simulation.
 
 ## Future Expansion
 
@@ -188,16 +202,14 @@ Planned test scenarios:
 
 ## CI Integration
 
-To run tests headless (for CI):
+Tests auto-quit in headless mode with proper exit code:
 
 ```bash
-godot --headless --path . -s tests/test_scene.tscn
+# Mac
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
+
+# Linux (adjust path as needed)
+godot --headless --path . res://tests/test_scene.tscn
 ```
 
-Uncomment the quit logic in `test_main.gd`:
-```gdscript
-func _on_tests_completed(passed: int, failed: int, _results: Array) -> void:
-    # ...
-    await get_tree().create_timer(1.0).timeout
-    get_tree().quit(0 if failed == 0 else 1)
-```
+Exit code 0 = all tests passed, exit code 1 = some tests failed.

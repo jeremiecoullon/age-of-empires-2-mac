@@ -116,7 +116,10 @@ func _click_select(world_pos: Vector2) -> void:
 	# Check for unit first
 	var unit = _get_unit_at_position(world_pos)
 	if unit:
-		GameManager.select_unit(unit)
+		# Only add player units to selection (for commands)
+		# But show info for any unit (for scouting enemy)
+		if unit.team == 0:
+			GameManager.select_unit(unit)
 		hud.show_info(unit)
 		return
 

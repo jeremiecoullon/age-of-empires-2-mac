@@ -2,7 +2,8 @@ extends Node
 ## Test Runner - Executes test scenarios and reports results
 ##
 ## Attach this to a test scene root node.
-## Press F5 to run the test scene - tests execute automatically.
+## To run: Open tests/test_scene.tscn, then Cmd+R (Mac) or F6 (Windows/Linux)
+## (or click the clapperboard icon in the top-right toolbar)
 ##
 ## Results are printed to console:
 ##   PASS: test_click_selects_villager

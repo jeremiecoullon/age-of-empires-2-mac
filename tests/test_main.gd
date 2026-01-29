@@ -6,8 +6,9 @@ extends "res://scripts/main.gd"
 ## - Runs tests automatically on _ready
 ## - No AI controller
 ##
-## Run this scene directly (F5 with test_scene.tscn set as main scene)
-## or from editor: Scene > Run This Scene
+## To run: Open tests/test_scene.tscn in Godot, then:
+##   - Cmd+R (Mac) or F6 (Windows/Linux), OR
+##   - Click the clapperboard icon (top-right toolbar)
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -51,6 +52,7 @@ func _on_tests_completed(passed: int, failed: int, _results: Array) -> void:
 	else:
 		print("Some tests failed - see above for details")
 
-	# Optionally quit after tests (uncomment for CI)
-	# await get_tree().create_timer(1.0).timeout
-	# get_tree().quit(0 if failed == 0 else 1)
+	# Auto-quit in headless mode (for CLI/CI)
+	if DisplayServer.get_name() == "headless" or "--quit-after-tests" in OS.get_cmdline_args():
+		await get_tree().create_timer(0.5).timeout
+		get_tree().quit(0 if failed == 0 else 1)
