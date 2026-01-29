@@ -116,6 +116,40 @@ Format your summary as:
 | test_name_two | Brief description |
 ```
 
+## Coverage Awareness
+
+Beyond the checkpoint doc, briefly check for coverage gaps - but focus on *patterns*, not exhaustive entity coverage.
+
+### Check for Untested Patterns
+
+Skim `tests/helpers/test_spawner.gd` for spawn methods. Group them by pattern:
+
+- Gathering sources (things villagers collect from)
+- Drop-off buildings (places villagers deposit to)
+- Combat units (things that attack)
+- Training buildings (things that produce units)
+
+If an entire *pattern category* has no tests, that's a gap worth noting. But don't test every entity - one representative per pattern is sufficient unless entities have meaningfully different behavior.
+
+### Representative Coverage Principle
+
+When testing a mechanic, ask: "Does this test cover the general case, or just one specific instance?"
+
+If the general case is covered, additional tests for similar entities add little value. Prioritize:
+1. New code from this phase
+2. Patterns with zero coverage
+3. Entities with unique behavior that differs from others in their category
+
+### In Your Summary
+
+Note any pattern-level gaps briefly:
+```
+### Coverage Notes
+**Untested patterns:** [e.g., "no food-source gathering test" or "none"]
+```
+
+Don't list every untested entity - just patterns. Keep it to 1-2 lines.
+
 ## Guidelines
 
 1. **Keep tests focused**: One logical assertion per test when possible

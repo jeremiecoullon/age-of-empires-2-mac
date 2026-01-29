@@ -6,25 +6,7 @@
 
 ---
 
-## Current Mode: DIRECT
-
-**DIRECT mode** (current):
-- Write code directly - no need to spawn sub-agents
-- Skip task files - just do the work
-- Still read `docs/gotchas.md` before starting work
-- Still update `docs/gotchas.md` when you hit issues
-- **Still write checkpoint docs** at end of phase (see Post-Phase in roadmap.md)
-
-**ORCHESTRATOR mode** (switch to this when codebase grows large):
-- Follow the full orchestrator workflow below
-- Coordinate sub-agents instead of writing code directly
-- Use task files and full checkpoint templates
-
-*To switch modes: change DIRECT to ORCHESTRATOR above.*
-
----
-
-## Spec Verification (Both Modes)
+## Spec Verification
 
 **Always verify implementations against the AoE2 manual.**
 
@@ -61,11 +43,6 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 **For the full phase workflow (refactor check, build, post-phase), see `docs/roadmap.md` → "Phase Workflow" section.**
 
-Both DIRECT and ORCHESTRATOR modes follow that workflow. The difference is *how* you execute the build step:
-
-- **DIRECT mode:** Write code yourself
-- **ORCHESTRATOR mode:** Coordinate sub-agents (see below)
-
 **Sub-phases:** Phases can be split into sub-phases (e.g., 1a, 1b, 1c) if needed. Each sub-phase follows the full workflow including its own checkpoint doc.
 
 ---
@@ -97,70 +74,19 @@ Add the test summary to the checkpoint doc's "Test Coverage → Test Summary" se
 
 See `docs/roadmap.md` → "Post-Phase" for the full workflow.
 
+**Writing tests manually:** When writing or modifying tests yourself (not via test agent), still run code review afterward per the Code Review section above.
+
 ---
 
-## Orchestrator Mode Details
+## Running Tests
 
-*Skip this section when in DIRECT mode.*
+**Always run tests in headless mode.** Do not ask the user to run tests manually in the GUI.
 
-You are the **orchestrator**. You do not write game code directly. You coordinate sub-agents.
-
-### How to Execute a Phase (Orchestrator)
-
-1. Follow the Phase Workflow in `docs/roadmap.md` (refactor check, etc.)
-2. Break the phase into sub-tasks
-3. Create task files in `docs/tasks/phaseN/`
-4. For each sub-task: spawn a sub-agent, verify results, commit
-5. After phase completion: write checkpoint doc
-
-### Sub-Agent Briefing
-
-When spawning a sub-agent for a build task, include:
-
-1. The task file content (objective, acceptance criteria)
-2. Relevant context files (existing code patterns to follow)
-3. The `docs/gotchas.md` content
-4. Explicit instruction: "Implement this feature. Return a summary of what you built and file locations."
-
-### Task File Format
-
-```markdown
-# Task: [Short Name]
-
-## Objective
-[What to build, 1-2 sentences]
-
-## Context Files
-- scripts/path/to/relevant.gd (why it's relevant)
-- scripts/another/file.gd (why it's relevant)
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
-
-## Notes
-[Any gotchas or special considerations]
-
-## Output
-[Filled in by sub-agent after completion: what was built, file locations, any issues]
+```bash
+godot --headless --path . tests/test_scene.tscn
 ```
 
-### Checkpoint Format
-
-See `docs/phase_checkpoints/_template.md`
-
-## Godot Shortcuts (Mac vs Windows/Linux)
-
-| Action | Mac | Windows/Linux |
-|--------|-----|---------------|
-| Run project | Cmd+B | F5 |
-| Run current scene | Cmd+R | F6 |
-| Stop | Cmd+. | F8 |
-
-The toolbar buttons (top-right) work identically on all platforms.
-
-**Running tests:** Open `tests/test_scene.tscn` in Godot, then Cmd+R (Mac) or F6 (Windows/Linux).
+Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures.
 
 ---
 
@@ -173,8 +99,14 @@ The toolbar buttons (top-right) work identically on all platforms.
 - New units/buildings must be added to appropriate groups
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
 
-## Current State
+---
 
-- MVP complete (villager, militia, TC, house, barracks, farm)
-- Player vs AI with conquest victory
-- Next: Phase 1 (Resource & Economy) or Phase 2 (Military Triangle) per docs/roadmap.md
+## Godot Shortcuts (Mac vs Windows/Linux)
+
+| Action | Mac | Windows/Linux |
+|--------|-----|---------------|
+| Run project | Cmd+B | F5 |
+| Run current scene | Cmd+R | F6 |
+| Stop | Cmd+. | F8 |
+
+The toolbar buttons (top-right) work identically on all platforms.
