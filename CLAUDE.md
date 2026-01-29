@@ -47,6 +47,24 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 **Sub-phase sizing:** Each sub-phase should be a coherent chunk - related features that touch the same systems. Too small and you spend more time on ceremony than code. Too large and you get context rot anyway. A good heuristic: 3-5 related features, or 1-2 new systems with their dependent content.
 
+**Orchestrating a full phase:** When the user says "do all of phase X" or "complete phase X":
+
+1. **Propose a split.** Read the phase spec in `docs/roadmap.md`, analyze the scope, and propose sub-phases (e.g., 2A, 2B, 2C). Explain what each sub-phase covers and why. Get user approval once upfront.
+
+2. **Execute sub-phase.** Do the full workflow for the current sub-phase:
+   - Refactor check
+   - Build features
+   - Run spec-check on new units/buildings/techs
+   - Run code-reviewer agent
+   - Run test agent
+   - Write checkpoint doc
+
+3. **Signal for context clear.** Say: "2A complete. Clear context now." (Claude cannot clear its own context.)
+
+4. **Continue automatically.** When user clears context and says "continue", read checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
+
+After the initial split approval, Claude executes autonomously. The only user actions needed are context clears and saying "continue".
+
 ---
 
 ## Code Review
