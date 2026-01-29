@@ -109,3 +109,15 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 ### Resource Gathering Interface
 
 - **Farm duck-types ResourceNode interface**: Farm extends Building (for placement, HP, team ownership) but implements the same gathering interface as ResourceNode: `harvest(amount) -> int`, `get_resource_type() -> String`, `has_resources() -> bool`, plus `gather_rate` property. Villager's `target_resource` and `command_gather()` use `Node` type (not `ResourceNode`) to accept both via duck typing. When adding new gatherable building types (e.g., Fish Trap), ensure they implement these methods and add themselves to the "resources" group.
+
+### Phase 2A - Ranged Units & Archery Range
+
+- **Skirmisher pierce armor deferred**: Skirmisher's 0/3 pierce armor is its defining trait (anti-archer), but armor system is Phase 4. Until then, the counter-unit mechanic relies solely on `bonus_vs_archers` damage. Document and ensure Phase 4 adds the pierce armor.
+
+- **SVG sprites for placeholders**: When no AoE2-style sprite exists, create an SVG placeholder rather than reusing another asset's sprite. SVGs are distinguishable and clearly mark what needs art replacement.
+
+- **Static Sprite2D needs separate team color**: Units with SVG sprites use Sprite2D instead of AnimatedSprite2D. The base Unit class's `_apply_team_color()` only modulates `sprite` (AnimatedSprite2D). Add `_apply_static_sprite_color()` in subclasses with static sprites.
+
+- **Range in pixels**: AoE2 range values (e.g., "range 4") are tiles. Convert: `range_pixels = range_tiles * 32`. Archer/Skirmisher use 128px = 4 tiles.
+
+- **Military units need "military" group**: All combat units (militia, archer, skirmisher) must `add_to_group("military")` for AI attack coordination and military count tracking.

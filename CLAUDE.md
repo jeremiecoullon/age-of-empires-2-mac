@@ -119,6 +119,15 @@ Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures.
 - New units/buildings must be added to appropriate groups
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
 
+### Missing Sprites
+
+**When a sprite doesn't exist, create an SVG placeholder** instead of reusing another asset's sprite. SVGs are:
+- Easy to create programmatically
+- Distinguishable from other assets
+- Clear indication of what needs art replacement later
+
+Place SVGs in the appropriate `assets/sprites/` subfolder (e.g., `assets/sprites/buildings/archery_range.svg`).
+
 ---
 
 ## Godot Shortcuts (Mac vs Windows/Linux)

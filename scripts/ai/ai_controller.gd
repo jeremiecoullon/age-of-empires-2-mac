@@ -5,6 +5,7 @@ const TC_SCENE_PATH = "res://scenes/buildings/town_center.tscn"
 const VILLAGER_SCENE_PATH = "res://scenes/units/villager.tscn"
 const HOUSE_SCENE_PATH = "res://scenes/buildings/house.tscn"
 const BARRACKS_SCENE_PATH = "res://scenes/buildings/barracks.tscn"
+const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const MILITIA_SCENE_PATH = "res://scenes/units/militia.tscn"
 const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
 const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
@@ -18,6 +19,7 @@ const ATTACK_THRESHOLD: int = 3
 
 var ai_tc: TownCenter = null
 var ai_barracks: Barracks = null
+var ai_archery_range: ArcheryRange = null
 var ai_lumber_camp: LumberCamp = null
 var ai_mining_camp: MiningCamp = null
 var ai_mill: Mill = null
@@ -81,6 +83,14 @@ func _make_decisions() -> void:
 	# 5. Train militia if we have barracks and can afford
 	if _has_barracks() and _can_train_militia():
 		_train_militia()
+
+	# 5b. Build archery range if we have a barracks and can afford
+	if _has_barracks() and not _has_archery_range() and GameManager.can_afford("wood", 175, AI_TEAM):
+		_build_archery_range()
+
+	# 5c. Train archers if we have archery range and can afford
+	if _has_archery_range() and _can_train_archer():
+		_train_archer()
 
 	# 6. Build market if we have surplus resources and need gold, or vice versa
 	if not _has_market() and GameManager.can_afford("wood", 175, AI_TEAM):
@@ -426,6 +436,48 @@ func _train_militia() -> void:
 	# Barracks handles resource spending and population based on team
 	ai_barracks.train_militia()
 
+func _has_archery_range() -> bool:
+	if is_instance_valid(ai_archery_range) and not ai_archery_range.is_destroyed:
+		return true
+
+	var archery_ranges = get_tree().get_nodes_in_group("archery_ranges")
+	for ar in archery_ranges:
+		if ar.team == AI_TEAM and not ar.is_destroyed:
+			ai_archery_range = ar
+			return true
+	return false
+
+func _build_archery_range() -> void:
+	if not GameManager.spend_resource("wood", 175, AI_TEAM):
+		return
+
+	var archery_range_scene = load(ARCHERY_RANGE_SCENE_PATH)
+	ai_archery_range = archery_range_scene.instantiate()
+
+	var offset = _find_building_spot(Vector2(96, 96))
+	ai_archery_range.global_position = AI_BASE_POSITION + offset
+	ai_archery_range.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_archery_range)
+
+func _can_train_archer() -> bool:
+	if not is_instance_valid(ai_archery_range):
+		return false
+	if ai_archery_range.is_training:
+		return false
+	if not GameManager.can_add_population(AI_TEAM):
+		return false
+	if not GameManager.can_afford("wood", 25, AI_TEAM):
+		return false
+	if not GameManager.can_afford("gold", 45, AI_TEAM):
+		return false
+	return true
+
+func _train_archer() -> void:
+	if not is_instance_valid(ai_archery_range):
+		return
+	ai_archery_range.train_archer()
+
 func _get_military_count() -> int:
 	var count = 0
 	var militias = get_tree().get_nodes_in_group("military")
@@ -448,11 +500,11 @@ func _attack_player() -> void:
 	if not player_tc:
 		return
 
-	# Send all AI military to attack
-	var militias = get_tree().get_nodes_in_group("military")
-	for militia in militias:
-		if militia.team == AI_TEAM:
-			militia.command_attack(player_tc)
+	# Send all AI military to attack (militia, archers, skirmishers, etc.)
+	var military_units = get_tree().get_nodes_in_group("military")
+	for unit in military_units:
+		if unit.team == AI_TEAM:
+			unit.command_attack(player_tc)
 
 func _get_ai_villagers() -> Array:
 	var result = []

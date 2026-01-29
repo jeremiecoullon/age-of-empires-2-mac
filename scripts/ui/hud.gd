@@ -12,6 +12,10 @@ extends CanvasLayer
 @onready var barracks_panel: PanelContainer = $BarracksPanel
 @onready var train_militia_button: Button = $BarracksPanel/VBoxContainer/TrainMilitiaButton
 @onready var barracks_train_progress: ProgressBar = $BarracksPanel/VBoxContainer/BarracksTrainProgress
+@onready var archery_range_panel: PanelContainer = $ArcheryRangePanel
+@onready var train_archer_button: Button = $ArcheryRangePanel/VBoxContainer/TrainArcherButton
+@onready var train_skirmisher_button: Button = $ArcheryRangePanel/VBoxContainer/TrainSkirmisherButton
+@onready var archery_range_train_progress: ProgressBar = $ArcheryRangePanel/VBoxContainer/ArcheryRangeTrainProgress
 @onready var market_panel: PanelContainer = $MarketPanel
 @onready var buy_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton
 @onready var buy_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyFoodButton
@@ -30,6 +34,7 @@ extends CanvasLayer
 
 var selected_tc: TownCenter = null
 var selected_barracks: Barracks = null
+var selected_archery_range: ArcheryRange = null
 var selected_market: Market = null
 
 func _ready() -> void:
@@ -43,6 +48,7 @@ func _ready() -> void:
 	_update_market_prices()
 	tc_panel.visible = false
 	barracks_panel.visible = false
+	archery_range_panel.visible = false
 	market_panel.visible = false
 	error_label.visible = false
 	info_panel.visible = false
@@ -58,19 +64,25 @@ func _update_population() -> void:
 	pop_label.text = "Pop: %d/%d" % [GameManager.get_population(), GameManager.get_population_cap()]
 
 func _process(_delta: float) -> void:
-	if selected_tc and selected_tc.is_training:
+	if is_instance_valid(selected_tc) and selected_tc.is_training:
 		train_progress.value = selected_tc.get_train_progress() * 100
 		train_progress.visible = true
 	else:
 		train_progress.visible = false
 
-	if selected_barracks and selected_barracks.is_training:
+	if is_instance_valid(selected_barracks) and selected_barracks.is_training:
 		barracks_train_progress.value = selected_barracks.get_train_progress() * 100
 		barracks_train_progress.visible = true
 	else:
 		barracks_train_progress.visible = false
 
-	if selected_market and selected_market.is_training:
+	if is_instance_valid(selected_archery_range) and selected_archery_range.is_training:
+		archery_range_train_progress.value = selected_archery_range.get_train_progress() * 100
+		archery_range_train_progress.visible = true
+	else:
+		archery_range_train_progress.visible = false
+
+	if is_instance_valid(selected_market) and selected_market.is_training:
 		market_train_progress.value = selected_market.get_train_progress() * 100
 		market_train_progress.visible = true
 	else:
@@ -115,6 +127,28 @@ func hide_barracks_panel() -> void:
 	barracks_panel.visible = false
 	build_panel.visible = true
 
+func show_archery_range_panel(archery_range: ArcheryRange) -> void:
+	# Disconnect previous archery range signal if exists
+	if selected_archery_range and selected_archery_range.training_completed.is_connected(_on_archery_range_training_completed):
+		selected_archery_range.training_completed.disconnect(_on_archery_range_training_completed)
+
+	selected_archery_range = archery_range
+	archery_range_panel.visible = true
+	tc_panel.visible = false
+	barracks_panel.visible = false
+	market_panel.visible = false
+	build_panel.visible = false
+	if not archery_range.training_completed.is_connected(_on_archery_range_training_completed):
+		archery_range.training_completed.connect(_on_archery_range_training_completed)
+
+func hide_archery_range_panel() -> void:
+	if selected_archery_range:
+		if selected_archery_range.training_completed.is_connected(_on_archery_range_training_completed):
+			selected_archery_range.training_completed.disconnect(_on_archery_range_training_completed)
+	selected_archery_range = null
+	archery_range_panel.visible = false
+	build_panel.visible = true
+
 func show_market_panel(market: Market) -> void:
 	# Disconnect previous market signal if exists
 	if selected_market and selected_market.training_completed.is_connected(_on_market_training_completed):
@@ -142,6 +176,9 @@ func _on_training_completed() -> void:
 
 func _on_barracks_training_completed() -> void:
 	barracks_train_progress.visible = false
+
+func _on_archery_range_training_completed() -> void:
+	archery_range_train_progress.visible = false
 
 func _on_market_training_completed() -> void:
 	market_train_progress.visible = false
@@ -217,6 +254,32 @@ func _on_build_market_pressed() -> void:
 		return
 	get_parent().start_market_placement()
 
+func _on_build_archery_range_pressed() -> void:
+	if not GameManager.can_afford("wood", 175):
+		_show_error("Not enough wood! (Need 175)")
+		return
+	get_parent().start_archery_range_placement()
+
+func _on_train_archer_pressed() -> void:
+	if selected_archery_range:
+		if not selected_archery_range.train_archer():
+			if not GameManager.can_afford("wood", ArcheryRange.ARCHER_WOOD_COST):
+				_show_error("Not enough wood! (Need 25)")
+			elif not GameManager.can_afford("gold", ArcheryRange.ARCHER_GOLD_COST):
+				_show_error("Not enough gold! (Need 45)")
+			elif not GameManager.can_add_population():
+				_show_error("Population cap reached! Build a House.")
+
+func _on_train_skirmisher_pressed() -> void:
+	if selected_archery_range:
+		if not selected_archery_range.train_skirmisher():
+			if not GameManager.can_afford("food", ArcheryRange.SKIRMISHER_FOOD_COST):
+				_show_error("Not enough food! (Need 25)")
+			elif not GameManager.can_afford("wood", ArcheryRange.SKIRMISHER_WOOD_COST):
+				_show_error("Not enough wood! (Need 35)")
+			elif not GameManager.can_add_population():
+				_show_error("Population cap reached! Build a House.")
+
 # Market buy/sell handlers
 func _on_buy_wood_pressed() -> void:
 	if selected_market:
@@ -287,6 +350,10 @@ func show_info(entity: Node) -> void:
 		_show_trade_cart_info(entity)
 	elif entity is Militia:
 		_show_militia_info(entity)
+	elif entity is Archer:
+		_show_archer_info(entity)
+	elif entity is Skirmisher:
+		_show_skirmisher_info(entity)
 	elif entity is Sheep:
 		_show_animal_info(entity, "Sheep", "Herdable. First to spot owns it.\nCan be stolen by enemies.")
 	elif entity is Deer:
@@ -317,6 +384,8 @@ func show_info(entity: Node) -> void:
 		_show_building_info("Mining Camp", "Deposit point for gold/stone")
 	elif entity is Market:
 		_show_building_info("Market", "Buy/sell resources\nTrain Trade Carts")
+	elif entity is ArcheryRange:
+		_show_building_info("Archery Range", "Trains archers and skirmishers")
 	elif entity is Building:
 		_show_building_info(entity.building_name, "")
 	else:
@@ -355,6 +424,36 @@ func _show_militia_info(militia: Militia) -> void:
 			state_text = "Attacking"
 
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d" % [state_text, militia.current_hp, militia.max_hp, militia.attack_damage]
+	info_details.text = details
+	info_panel.visible = true
+
+func _show_archer_info(archer: Archer) -> void:
+	info_title.text = "Archer"
+	var state_text = ""
+	match archer.current_state:
+		Archer.State.IDLE:
+			state_text = "Idle"
+		Archer.State.MOVING:
+			state_text = "Moving"
+		Archer.State.ATTACKING:
+			state_text = "Attacking"
+
+	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: 4" % [state_text, archer.current_hp, archer.max_hp, archer.attack_damage]
+	info_details.text = details
+	info_panel.visible = true
+
+func _show_skirmisher_info(skirmisher: Skirmisher) -> void:
+	info_title.text = "Skirmisher"
+	var state_text = ""
+	match skirmisher.current_state:
+		Skirmisher.State.IDLE:
+			state_text = "Idle"
+		Skirmisher.State.MOVING:
+			state_text = "Moving"
+		Skirmisher.State.ATTACKING:
+			state_text = "Attacking"
+
+	var details = "Status: %s\nHP: %d/%d\nAttack: %d (+%d vs archers)\nRange: 4" % [state_text, skirmisher.current_hp, skirmisher.max_hp, skirmisher.attack_damage, skirmisher.bonus_vs_archers]
 	info_details.text = details
 	info_panel.visible = true
 
@@ -417,6 +516,7 @@ func _on_game_over(winner: int) -> void:
 func _on_restart_pressed() -> void:
 	selected_tc = null
 	selected_barracks = null
+	selected_archery_range = null
 	selected_market = null
 	GameManager.reset()
 	get_tree().reload_current_scene()

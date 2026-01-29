@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Archer unit - figure with bow -->
+
+  <!-- Body -->
+  <ellipse cx="24" cy="32" rx="8" ry="10" fill="#2E8B57"/>
+
+  <!-- Head -->
+  <circle cx="24" cy="18" r="7" fill="#DEB887"/>
+
+  <!-- Hood/cap -->
+  <path d="M 17 18 Q 24 8 31 18" fill="#228B22" stroke="#1B5E20" stroke-width="1"/>
+
+  <!-- Eyes -->
+  <circle cx="22" cy="17" r="1" fill="#333"/>
+  <circle cx="26" cy="17" r="1" fill="#333"/>
+
+  <!-- Bow (on left side) -->
+  <path d="M 12 20 Q 8 30 12 40" stroke="#8B4513" stroke-width="3" fill="none"/>
+
+  <!-- Bowstring -->
+  <line x1="12" y1="20" x2="12" y2="40" stroke="#654321" stroke-width="1"/>
+
+  <!-- Arrow (nocked) -->
+  <line x1="12" y1="30" x2="28" y2="30" stroke="#8B4513" stroke-width="2"/>
+  <polygon points="28,30 24,28 24,32" fill="#708090"/>
+
+  <!-- Right arm (drawing bow) -->
+  <line x1="24" y1="28" x2="12" y2="30" stroke="#DEB887" stroke-width="3"/>
+
+  <!-- Quiver on back -->
+  <rect x="30" y="24" width="6" height="16" fill="#8B4513" stroke="#5D4E37" stroke-width="1"/>
+  <line x1="31" y1="24" x2="31" y2="20" stroke="#8B4513" stroke-width="1"/>
+  <line x1="33" y1="24" x2="33" y2="19" stroke="#8B4513" stroke-width="1"/>
+  <line x1="35" y1="24" x2="35" y2="21" stroke="#8B4513" stroke-width="1"/>
+</svg>
