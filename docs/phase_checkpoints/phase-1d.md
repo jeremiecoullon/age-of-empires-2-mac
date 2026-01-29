@@ -62,7 +62,18 @@ Replaced the single-direction sprite system with proper 8-directional sprites. U
 - [ ] Verify selection indicators still work
 
 ### Automated Tests
-- None yet
+- `tests/scenarios/test_directions.gd` - 12 tests covering:
+  - Direction enum order (SW, W, NW, N, NE, E, SE, S = 0-7)
+  - DIRECTION_NAMES array consistency
+  - 8 distinct directions from 8 velocity angles
+  - Opposite velocities produce opposite directions (symmetry)
+  - Cardinal directions are distinct
+  - Diagonal directions are distinct
+  - Direction preserved on zero/small velocity
+  - Default direction is South
+  - Villager direction updates on movement
+  - Militia direction updates on movement
+  - Direction changes when velocity changes
 
 ---
 

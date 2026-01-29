@@ -19,6 +19,7 @@ const TestBuildingsScript = preload("res://tests/scenarios/test_buildings.gd")
 const TestVictoryScript = preload("res://tests/scenarios/test_victory.gd")
 const TestResourcesScript = preload("res://tests/scenarios/test_resources.gd")
 const TestAnimalsScript = preload("res://tests/scenarios/test_animals.gd")
+const TestDirectionsScript = preload("res://tests/scenarios/test_directions.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -92,6 +93,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING ANIMAL TESTS ===\n")
 	var animal_tests = TestAnimalsScript.new(test_runner)
 	await test_runner.run_all_tests(animal_tests.get_all_tests())
+
+	# Direction tests (Phase 1D)
+	print("\n=== RUNNING DIRECTION TESTS ===\n")
+	var direction_tests = TestDirectionsScript.new(test_runner)
+	await test_runner.run_all_tests(direction_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)
