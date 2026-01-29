@@ -61,7 +61,16 @@ None - implemented as specified
 - [x] Watch AI - should build camps and gather all 4 resources
 
 ### Automated Tests
-- None yet
+Tests in `tests/scenarios/test_economy.gd` (8 tests for Phase 1A):
+- GameManager resource API: add_resource, spend_resource, spend fails if insufficient, can_afford, starting_resources_correct
+- Villager gathering: gathers_wood_from_tree, deposits_at_correct_building, returns_to_gathering_after_deposit
+
+Tests in `tests/scenarios/test_resources.gd` (15 tests, most cover Phase 1A):
+- Resource gathering by type: villager gathers food from berry bush, gold from mine, stone from mine
+- Drop-off building selection: mining camp for gold, mining camp for stone, mill for food, TC as universal dropoff
+- Resource depletion: node depletes and emits signal, frees when depleted
+- Farm behavior: provides infinite food, slower gather rate, command_gather on farm
+- Edge cases: villager waits when no dropoff, move_to changes state, move_to clears targets
 
 ---
 

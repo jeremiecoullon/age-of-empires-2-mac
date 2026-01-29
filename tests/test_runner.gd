@@ -130,3 +130,8 @@ func _print_summary() -> void:
 func wait_frames(n: int) -> void:
 	for i in range(n):
 		await get_tree().process_frame
+
+
+# Utility: wait for N seconds
+func wait_seconds(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout

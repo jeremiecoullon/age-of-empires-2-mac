@@ -70,7 +70,7 @@ The test agent:
 2. Writes tests for the phase's features
 3. Returns a brief summary of what was tested
 
-Add the test summary to the checkpoint doc's "Test Coverage → Test Summary" section. This keeps test coverage visible for future sessions without them needing to read test files.
+**IMPORTANT: After the test agent returns, you MUST update the checkpoint doc.** Add the test summary to the "Test Coverage → Automated Tests" section (list test files and what they cover). This step is YOUR responsibility, not the test agent's. The checkpoint is how future sessions know what's tested.
 
 See `docs/roadmap.md` → "Post-Phase" for the full workflow.
 

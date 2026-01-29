@@ -18,6 +18,7 @@ const TestUnitsScript = preload("res://tests/scenarios/test_units.gd")
 const TestBuildingsScript = preload("res://tests/scenarios/test_buildings.gd")
 const TestVictoryScript = preload("res://tests/scenarios/test_victory.gd")
 const TestResourcesScript = preload("res://tests/scenarios/test_resources.gd")
+const TestAnimalsScript = preload("res://tests/scenarios/test_animals.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -86,6 +87,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING RESOURCE TESTS ===\n")
 	var resource_tests = TestResourcesScript.new(test_runner)
 	await test_runner.run_all_tests(resource_tests.get_all_tests())
+
+	# Animal tests (Phase 1B)
+	print("\n=== RUNNING ANIMAL TESTS ===\n")
+	var animal_tests = TestAnimalsScript.new(test_runner)
+	await test_runner.run_all_tests(animal_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)

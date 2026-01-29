@@ -60,7 +60,14 @@ Implemented huntable animals (sheep, deer, boar) and environmental hazards (wolv
 - [x] Resource depletion notification shows in HUD
 
 ### Automated Tests
-- None yet
+Tests in `tests/scenarios/test_animals.gd` (22 tests):
+- Animal properties: HP, food amount, team for sheep/deer/boar/wolf
+- Sheep ownership: neutral start, player/AI claiming, stealing mechanics, friendly protection
+- Deer behavior: flees when damaged
+- Boar behavior: retaliates when attacked, gives up chase at distance
+- Wolf behavior: aggressive flag, attacks nearby units, yields no food
+- Carcass mechanics: spawns on death, correct food amount, decays over time, gatherable
+- Villager hunting: command_hunt sets state, hunts and kills animal, gathers from carcass after kill
 
 ---
 

@@ -28,6 +28,13 @@ const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
 const BERRY_BUSH_SCENE = preload("res://scenes/resources/berry_bush.tscn")
 const GOLD_MINE_SCENE = preload("res://scenes/resources/gold_mine.tscn")
 const STONE_MINE_SCENE = preload("res://scenes/resources/stone_mine.tscn")
+const FOOD_CARCASS_SCENE = preload("res://scenes/resources/food_carcass.tscn")
+
+# Scene paths - Animals
+const SHEEP_SCENE = preload("res://scenes/units/sheep.tscn")
+const DEER_SCENE = preload("res://scenes/units/deer.tscn")
+const BOAR_SCENE = preload("res://scenes/units/boar.tscn")
+const WOLF_SCENE = preload("res://scenes/units/wolf.tscn")
 
 # Container references
 var units_container: Node2D
@@ -168,6 +175,52 @@ func spawn_stone_mine(position: Vector2, amount: int = 350) -> Node:
 	resources_container.add_child(mine)
 	spawned_entities.append(mine)
 	return mine
+
+
+func spawn_food_carcass(position: Vector2, amount: int = 100) -> Node:
+	var carcass = FOOD_CARCASS_SCENE.instantiate()
+	carcass.global_position = position
+	carcass.total_amount = amount
+	carcass.current_amount = amount
+	resources_container.add_child(carcass)
+	spawned_entities.append(carcass)
+	return carcass
+
+
+func spawn_sheep(position: Vector2, team: int = -1) -> Node:
+	var sheep = SHEEP_SCENE.instantiate()
+	sheep.global_position = position
+	units_container.add_child(sheep)
+	# Set team after adding to tree (sheep starts neutral by default)
+	if team != -1:
+		sheep.team = team
+		sheep._apply_team_color()
+	spawned_entities.append(sheep)
+	return sheep
+
+
+func spawn_deer(position: Vector2) -> Node:
+	var deer = DEER_SCENE.instantiate()
+	deer.global_position = position
+	units_container.add_child(deer)
+	spawned_entities.append(deer)
+	return deer
+
+
+func spawn_boar(position: Vector2) -> Node:
+	var boar = BOAR_SCENE.instantiate()
+	boar.global_position = position
+	units_container.add_child(boar)
+	spawned_entities.append(boar)
+	return boar
+
+
+func spawn_wolf(position: Vector2) -> Node:
+	var wolf = WOLF_SCENE.instantiate()
+	wolf.global_position = position
+	units_container.add_child(wolf)
+	spawned_entities.append(wolf)
+	return wolf
 
 
 func clear_all() -> void:

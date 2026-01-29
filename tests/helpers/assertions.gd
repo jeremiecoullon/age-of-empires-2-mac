@@ -247,3 +247,37 @@ static func assert_population_cap(expected_cap: int, team: int = 0) -> AssertRes
 		return AssertResult.new(false,
 			"Population cap: expected %d, got %d (team %d)" % [expected_cap, actual, team])
 	return AssertResult.new(true)
+
+
+# Animal assertions
+
+static func assert_animal_state(animal: Node, expected_state: int) -> AssertResult:
+	## Check animal's current state enum
+	if not is_instance_valid(animal):
+		return AssertResult.new(false, "Animal was freed unexpectedly")
+
+	if not animal is Animal:
+		return AssertResult.new(false, "Node is not an Animal")
+
+	var actual = animal.current_state
+	if actual != expected_state:
+		var state_keys = Animal.State.keys()
+		var expected_name = state_keys[expected_state] if expected_state < state_keys.size() else str(expected_state)
+		var actual_name = state_keys[actual] if actual < state_keys.size() else str(actual)
+		return AssertResult.new(false,
+			"Animal state: expected %s, got %s" % [expected_name, actual_name])
+	return AssertResult.new(true)
+
+
+static func assert_animal_team(animal: Node, expected_team: int) -> AssertResult:
+	## Check animal's team ownership (-1 = neutral)
+	if not is_instance_valid(animal):
+		return AssertResult.new(false, "Animal was freed unexpectedly")
+
+	if not animal is Animal:
+		return AssertResult.new(false, "Node is not an Animal")
+
+	if animal.team != expected_team:
+		return AssertResult.new(false,
+			"Animal team: expected %d, got %d" % [expected_team, animal.team])
+	return AssertResult.new(true)
