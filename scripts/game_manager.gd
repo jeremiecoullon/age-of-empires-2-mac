@@ -163,6 +163,9 @@ func check_victory() -> void:
 	var ai_tc_exists = false
 
 	for tc in get_tree().get_nodes_in_group("town_centers"):
+		# Skip destroyed TCs (still in group until queue_free completes)
+		if tc.is_destroyed:
+			continue
 		if tc.team == 0:
 			player_tc_exists = true
 		elif tc.team == 1:

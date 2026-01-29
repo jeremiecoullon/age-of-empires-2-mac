@@ -201,9 +201,9 @@ func _issue_command(world_pos: Vector2) -> void:
 	for unit in GameManager.selected_units:
 		unit.move_to(world_pos)
 
-func _get_resource_at_position(pos: Vector2) -> ResourceNode:
+func _get_resource_at_position(pos: Vector2) -> Node:  # Returns ResourceNode or Farm
 	var resources = get_tree().get_nodes_in_group("resources")
-	var closest: ResourceNode = null
+	var closest: Node = null
 	var closest_dist: float = 40.0  # Click detection radius
 
 	for resource in resources:

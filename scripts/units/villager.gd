@@ -1,5 +1,15 @@
 extends Unit
 class_name Villager
+## Villager unit - gathers resources and constructs buildings
+##
+## Gatherable Resource Interface (duck-typed):
+## Objects passed to command_gather() must implement:
+##   - harvest(amount: int) -> int
+##   - get_resource_type() -> String
+##   - has_resources() -> bool
+##   - global_position: Vector2
+##   - (optional) gather_rate: float - defaults to 1.0 if not present
+## Both ResourceNode and Farm implement this interface.
 
 enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING }
 
@@ -12,7 +22,7 @@ enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING }
 var current_state: State = State.IDLE
 var carried_resource_type: String = ""
 var carried_amount: int = 0
-var target_resource: ResourceNode = null
+var target_resource: Node = null  # ResourceNode or Farm (both implement harvest/get_resource_type/has_resources)
 var target_animal: Animal = null  # For hunting
 var last_animal_position: Vector2 = Vector2.ZERO  # For finding carcass after animal dies
 var drop_off_building: Building = null
@@ -218,7 +228,7 @@ func _update_carry_visual() -> void:
 		# Reset to team color
 		_apply_team_color()
 
-func command_gather(resource: ResourceNode) -> void:
+func command_gather(resource: Node) -> void:  # Accepts ResourceNode or Farm
 	target_resource = resource
 	carried_resource_type = resource.get_resource_type()
 	current_state = State.GATHERING

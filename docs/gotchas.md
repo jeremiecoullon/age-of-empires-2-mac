@@ -99,3 +99,13 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 - **Preload() pattern for runtime spawning**: Several existing files still use `load()` at runtime (barracks.gd, town_center.gd, ai_controller.gd). Phase 1E market.gd was fixed to use preload(). The pattern should be applied consistently - use `const SceneName: PackedScene = preload("path")` rather than `const PATH = "path"` + `load(PATH)`. This is a known tech debt to address.
 
 - **Click selection priority (units > buildings)**: Selection logic is split across two functions in main.gd. `_start_selection()` runs on mouse press and handles building panel display. `_click_select()` runs on mouse release and handles unit/resource selection. Units must be checked in BOTH functions to ensure they have priority over buildings (otherwise clicking a militia near a building selects the building). The fix: `_start_selection()` checks for units first and skips building handling if one is found.
+
+### Pre-Phase Tests (MVP)
+
+- **queue_free doesn't remove from groups immediately**: When a node is queue_free'd, it stays in its groups until actually freed at end of frame. If you check groups in a deferred call (like check_victory), the destroyed node is still there. Fix: check for `is_destroyed` flag before counting nodes. Example: `check_victory()` had to skip TCs where `tc.is_destroyed == true`.
+
+- **GDScript lambdas capture primitives by value**: When connecting signals with lambdas like `signal.connect(func(): my_bool = true)`, primitive types (bool, int, float) are captured by value, not reference. The outer variable won't be updated. Fix: use arrays to capture by reference: `var result = [false]; signal.connect(func(): result[0] = true)`.
+
+### Resource Gathering Interface
+
+- **Farm duck-types ResourceNode interface**: Farm extends Building (for placement, HP, team ownership) but implements the same gathering interface as ResourceNode: `harvest(amount) -> int`, `get_resource_type() -> String`, `has_resources() -> bool`, plus `gather_rate` property. Villager's `target_resource` and `command_gather()` use `Node` type (not `ResourceNode`) to accept both via duck typing. When adding new gatherable building types (e.g., Fish Trap), ensure they implement these methods and add themselves to the "resources" group.

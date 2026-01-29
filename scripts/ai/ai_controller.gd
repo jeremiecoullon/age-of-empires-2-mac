@@ -147,9 +147,9 @@ func _get_priority_resource() -> String:
 	# Default to food
 	return "food"
 
-func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> ResourceNode:
+func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> Node:  # Returns ResourceNode or Farm
 	var resources = get_tree().get_nodes_in_group("resources")
-	var nearest: ResourceNode = null
+	var nearest: Node = null
 	var nearest_dist: float = INF
 
 	# For food, prioritize carcasses (they decay!)
@@ -182,9 +182,9 @@ func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> Resourc
 
 	return nearest
 
-func _find_nearest_resource(from_pos: Vector2) -> ResourceNode:
+func _find_nearest_resource(from_pos: Vector2) -> Node:  # Returns ResourceNode or Farm
 	var resources = get_tree().get_nodes_in_group("resources")
-	var nearest: ResourceNode = null
+	var nearest: Node = null
 	var nearest_dist: float = INF
 
 	for resource in resources:

@@ -181,3 +181,69 @@ static func assert_villager_carrying(villager: Node, type: String, min_amount: i
 		return AssertResult.new(false,
 			"Villager carrying %d %s, expected at least %d" % [villager.carried_amount, type, min_amount])
 	return AssertResult.new(true)
+
+
+# Combat assertions
+
+static func assert_militia_state(militia: Node, expected_state: int) -> AssertResult:
+	## Check militia's current state enum
+	if not is_instance_valid(militia):
+		return AssertResult.new(false, "Militia was freed unexpectedly")
+
+	if not militia is Militia:
+		return AssertResult.new(false, "Node is not a Militia")
+
+	var actual = militia.current_state
+	if actual != expected_state:
+		var state_keys = Militia.State.keys()
+		var expected_name = state_keys[expected_state] if expected_state < state_keys.size() else str(expected_state)
+		var actual_name = state_keys[actual] if actual < state_keys.size() else str(actual)
+		return AssertResult.new(false,
+			"Militia state: expected %s, got %s" % [expected_name, actual_name])
+	return AssertResult.new(true)
+
+
+static func assert_unit_hp(unit: Node, expected_hp: int) -> AssertResult:
+	## Check unit's current HP
+	if not is_instance_valid(unit):
+		return AssertResult.new(false, "Unit was freed unexpectedly")
+
+	if not unit is Unit:
+		return AssertResult.new(false, "Node is not a Unit")
+
+	if unit.current_hp != expected_hp:
+		return AssertResult.new(false,
+			"Unit HP: expected %d, got %d" % [expected_hp, unit.current_hp])
+	return AssertResult.new(true)
+
+
+static func assert_building_hp(building: Node, expected_hp: int) -> AssertResult:
+	## Check building's current HP
+	if not is_instance_valid(building):
+		return AssertResult.new(false, "Building was freed unexpectedly")
+
+	if not building is Building:
+		return AssertResult.new(false, "Node is not a Building")
+
+	if building.current_hp != expected_hp:
+		return AssertResult.new(false,
+			"Building HP: expected %d, got %d" % [expected_hp, building.current_hp])
+	return AssertResult.new(true)
+
+
+static func assert_population(expected_pop: int, team: int = 0) -> AssertResult:
+	## Check population count for a team
+	var actual = GameManager.get_population(team)
+	if actual != expected_pop:
+		return AssertResult.new(false,
+			"Population: expected %d, got %d (team %d)" % [expected_pop, actual, team])
+	return AssertResult.new(true)
+
+
+static func assert_population_cap(expected_cap: int, team: int = 0) -> AssertResult:
+	## Check population cap for a team
+	var actual = GameManager.get_population_cap(team)
+	if actual != expected_cap:
+		return AssertResult.new(false,
+			"Population cap: expected %d, got %d (team %d)" % [expected_cap, actual, team])
+	return AssertResult.new(true)

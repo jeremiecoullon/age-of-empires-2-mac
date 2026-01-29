@@ -21,6 +21,7 @@ const MILL_SCENE = preload("res://scenes/buildings/mill.tscn")
 const LUMBER_CAMP_SCENE = preload("res://scenes/buildings/lumber_camp.tscn")
 const MINING_CAMP_SCENE = preload("res://scenes/buildings/mining_camp.tscn")
 const MARKET_SCENE = preload("res://scenes/buildings/market.tscn")
+const FARM_SCENE = preload("res://scenes/buildings/farm.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -122,6 +123,15 @@ func spawn_market(position: Vector2, team: int = 0) -> Node:
 	buildings_container.add_child(market)
 	spawned_entities.append(market)
 	return market
+
+
+func spawn_farm(position: Vector2, team: int = 0) -> Node:
+	var farm = FARM_SCENE.instantiate()
+	farm.global_position = position
+	farm.team = team
+	buildings_container.add_child(farm)
+	spawned_entities.append(farm)
+	return farm
 
 
 func spawn_tree(position: Vector2, amount: int = 100) -> Node:
