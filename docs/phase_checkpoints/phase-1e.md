@@ -61,7 +61,17 @@ Implemented the Market building for buying/selling resources with dynamic pricin
 - [ ] AI uses market to buy when desperate
 
 ### Automated Tests
-- None yet
+- `tests/scenarios/test_economy.gd` - 11 new tests (23 total in file) covering:
+  - Price change exact amount (+3 buy, -3 sell)
+  - Price min bound (20) after many sells
+  - Price max bound (300) after many buys
+  - Sell price spread (70% of buy price)
+  - Cannot buy/sell gold with gold
+  - Buy fails without sufficient gold
+  - Sell fails without sufficient resource
+  - market_prices_changed signal emission
+  - Trade Cart gold formula (distance_tiles * BASE_GOLD_PER_TILE)
+  - Trade Cart minimum 1 gold for short distances
 
 ---
 

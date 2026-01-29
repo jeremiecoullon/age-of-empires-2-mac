@@ -12,6 +12,7 @@ class_name TestSpawner
 # Scene paths - Units
 const VILLAGER_SCENE = preload("res://scenes/units/villager.tscn")
 const MILITIA_SCENE = preload("res://scenes/units/militia.tscn")
+const TRADE_CART_SCENE = preload("res://scenes/units/trade_cart.tscn")
 
 # Scene paths - Buildings
 const TOWN_CENTER_SCENE = preload("res://scenes/buildings/town_center.tscn")
@@ -67,6 +68,17 @@ func spawn_militia(position: Vector2, team: int = 0) -> Node:
 	units_container.add_child(militia)
 	spawned_entities.append(militia)
 	return militia
+
+
+func spawn_trade_cart(position: Vector2, team: int = 0, home_market: Node = null) -> Node:
+	var cart = TRADE_CART_SCENE.instantiate()
+	cart.global_position = position
+	cart.team = team
+	if home_market:
+		cart.home_market = home_market
+	units_container.add_child(cart)
+	spawned_entities.append(cart)
+	return cart
 
 
 func spawn_town_center(position: Vector2, team: int = 0) -> Node:

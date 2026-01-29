@@ -1,9 +1,11 @@
 extends Node
-## Economy Tests - Tests for Phase 1A Core Economy features
+## Economy Tests - Tests for Phase 1A Core Economy features and Phase 1E Market & Trading
 ##
 ## These tests verify:
 ## - GameManager resource API (add, spend, can_afford)
 ## - Market buy/sell with dynamic pricing
+## - Market price bounds and spread
+## - Trade Cart gold generation formula
 ## - Villager gathering and deposit behavior
 
 class_name TestEconomy
@@ -24,11 +26,24 @@ func get_all_tests() -> Array[Callable]:
 		test_spend_resource_fails_if_insufficient,
 		test_can_afford_checks_correctly,
 		test_starting_resources_correct,
-		# Market system tests
+		# Market system tests (basic)
 		test_market_buy_exchanges_gold_for_resource,
 		test_market_sell_exchanges_resource_for_gold,
 		test_market_buy_increases_price,
 		test_market_sell_decreases_price,
+		# Market system tests (Phase 1E - advanced)
+		test_market_price_change_exact_amount,
+		test_market_price_min_bound,
+		test_market_price_max_bound,
+		test_market_sell_price_spread,
+		test_market_cannot_buy_gold,
+		test_market_cannot_sell_gold,
+		test_market_buy_fails_without_gold,
+		test_market_sell_fails_without_resource,
+		test_market_prices_changed_signal,
+		# Trade Cart gold formula tests
+		test_trade_cart_gold_formula,
+		test_trade_cart_gold_minimum_one,
 		# Villager gathering tests (simulation)
 		test_villager_gathers_wood_from_tree,
 		test_villager_deposits_at_correct_building,
@@ -175,6 +190,245 @@ func test_market_sell_decreases_price() -> Assertions.AssertResult:
 	if new_price >= initial_price:
 		return Assertions.AssertResult.new(false,
 			"Price should decrease after sell: was %d, now %d" % [initial_price, new_price])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Market Advanced Tests (Phase 1E) ===
+
+func test_market_price_change_exact_amount() -> Assertions.AssertResult:
+	## Price should change by exactly PRICE_CHANGE_PER_TRADE (3) per trade
+	GameManager.reset_market_prices()
+	GameManager.resources["gold"] = 1000
+	GameManager.resources["wood"] = 500
+
+	var initial_price = GameManager.get_market_buy_price("wood")
+	GameManager.market_buy("wood")
+	var price_after_buy = GameManager.get_market_buy_price("wood")
+
+	# Buy should increase by 3
+	if price_after_buy != initial_price + GameManager.PRICE_CHANGE_PER_TRADE:
+		return Assertions.AssertResult.new(false,
+			"Buy should increase price by %d: was %d, now %d (expected %d)" % [
+				GameManager.PRICE_CHANGE_PER_TRADE, initial_price, price_after_buy,
+				initial_price + GameManager.PRICE_CHANGE_PER_TRADE])
+
+	# Sell should decrease by 3
+	var price_before_sell = GameManager.get_market_buy_price("wood")
+	GameManager.market_sell("wood")
+	var price_after_sell = GameManager.get_market_buy_price("wood")
+
+	if price_after_sell != price_before_sell - GameManager.PRICE_CHANGE_PER_TRADE:
+		return Assertions.AssertResult.new(false,
+			"Sell should decrease price by %d: was %d, now %d (expected %d)" % [
+				GameManager.PRICE_CHANGE_PER_TRADE, price_before_sell, price_after_sell,
+				price_before_sell - GameManager.PRICE_CHANGE_PER_TRADE])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_price_min_bound() -> Assertions.AssertResult:
+	## Price should not go below MIN_MARKET_PRICE (20)
+	GameManager.reset_market_prices()
+	GameManager.resources["wood"] = 10000
+
+	# Sell many times to drive price down
+	for i in range(50):
+		GameManager.resources["wood"] = 1000  # Refill each iteration
+		GameManager.market_sell("wood")
+
+	var final_price = GameManager.get_market_buy_price("wood")
+
+	if final_price < GameManager.MIN_MARKET_PRICE:
+		return Assertions.AssertResult.new(false,
+			"Price should not go below %d, got: %d" % [GameManager.MIN_MARKET_PRICE, final_price])
+
+	if final_price != GameManager.MIN_MARKET_PRICE:
+		return Assertions.AssertResult.new(false,
+			"Price should hit exactly %d after many sells, got: %d" % [GameManager.MIN_MARKET_PRICE, final_price])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_price_max_bound() -> Assertions.AssertResult:
+	## Price should not go above MAX_MARKET_PRICE (300)
+	GameManager.reset_market_prices()
+	GameManager.resources["gold"] = 100000
+
+	# Buy many times to drive price up
+	for i in range(100):
+		GameManager.resources["gold"] = 10000  # Refill each iteration
+		GameManager.market_buy("wood")
+
+	var final_price = GameManager.get_market_buy_price("wood")
+
+	if final_price > GameManager.MAX_MARKET_PRICE:
+		return Assertions.AssertResult.new(false,
+			"Price should not go above %d, got: %d" % [GameManager.MAX_MARKET_PRICE, final_price])
+
+	if final_price != GameManager.MAX_MARKET_PRICE:
+		return Assertions.AssertResult.new(false,
+			"Price should hit exactly %d after many buys, got: %d" % [GameManager.MAX_MARKET_PRICE, final_price])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_sell_price_spread() -> Assertions.AssertResult:
+	## Sell price should be ~70% of buy price (AoE2-style spread)
+	GameManager.reset_market_prices()
+
+	var buy_price = GameManager.get_market_buy_price("wood")
+	var sell_price = GameManager.get_market_sell_price("wood")
+	var expected_sell = int(buy_price * 0.7)
+
+	if sell_price != expected_sell:
+		return Assertions.AssertResult.new(false,
+			"Sell price should be 70%% of buy price. Buy: %d, Sell: %d, Expected: %d" % [
+				buy_price, sell_price, expected_sell])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_cannot_buy_gold() -> Assertions.AssertResult:
+	## Cannot buy gold (gold is the trading currency)
+	GameManager.resources["gold"] = 1000
+
+	var result = GameManager.market_buy("gold")
+
+	if result:
+		return Assertions.AssertResult.new(false,
+			"market_buy('gold') should return false")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_cannot_sell_gold() -> Assertions.AssertResult:
+	## Cannot sell gold (gold is the trading currency)
+	GameManager.resources["gold"] = 1000
+
+	var result = GameManager.market_sell("gold")
+
+	if result:
+		return Assertions.AssertResult.new(false,
+			"market_sell('gold') should return false")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_buy_fails_without_gold() -> Assertions.AssertResult:
+	## market_buy should fail if player doesn't have enough gold
+	GameManager.reset_market_prices()
+	GameManager.resources["gold"] = 10  # Not enough (buy price is 100 for wood)
+
+	var result = GameManager.market_buy("wood")
+
+	if result:
+		return Assertions.AssertResult.new(false,
+			"market_buy should fail when gold is insufficient")
+
+	# Verify gold wasn't spent
+	if GameManager.resources["gold"] != 10:
+		return Assertions.AssertResult.new(false,
+			"Gold should be unchanged after failed buy")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_sell_fails_without_resource() -> Assertions.AssertResult:
+	## market_sell should fail if player doesn't have enough of the resource
+	GameManager.reset_market_prices()
+	GameManager.resources["wood"] = 50  # Not enough (need 100 to sell)
+	GameManager.resources["gold"] = 0
+
+	var result = GameManager.market_sell("wood")
+
+	if result:
+		return Assertions.AssertResult.new(false,
+			"market_sell should fail when resource is insufficient")
+
+	# Verify wood wasn't spent
+	if GameManager.resources["wood"] != 50:
+		return Assertions.AssertResult.new(false,
+			"Wood should be unchanged after failed sell")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_market_prices_changed_signal() -> Assertions.AssertResult:
+	## market_prices_changed signal should emit when prices change
+	GameManager.reset_market_prices()
+	GameManager.resources["gold"] = 1000
+
+	var signal_count = [0]
+	var handler = func(): signal_count[0] += 1
+	GameManager.market_prices_changed.connect(handler)
+
+	# Buy should emit signal
+	GameManager.market_buy("wood")
+
+	# Disconnect to prevent affecting other tests
+	GameManager.market_prices_changed.disconnect(handler)
+
+	if signal_count[0] != 1:
+		return Assertions.AssertResult.new(false,
+			"market_prices_changed should emit once after buy, got: %d" % signal_count[0])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Trade Cart Gold Formula Tests ===
+
+func test_trade_cart_gold_formula() -> Assertions.AssertResult:
+	## Trade Cart gold earned should scale with distance: distance_tiles * BASE_GOLD_PER_TILE
+	# Create two markets 320 pixels apart
+	var market1 = runner.spawner.spawn_market(Vector2(400, 400))
+	var market2 = runner.spawner.spawn_market(Vector2(720, 400))
+	await runner.wait_frames(2)
+
+	var cart = runner.spawner.spawn_trade_cart(Vector2(400, 400), 0, market1)
+	await runner.wait_frames(2)
+
+	cart.destination_market = market2
+	GameManager.resources["gold"] = 0
+
+	# Call _complete_trade directly to test the formula
+	cart._complete_trade()
+
+	# Formula: distance_tiles * BASE_GOLD_PER_TILE, truncated to int
+	var distance_px = 320.0
+	var distance_tiles = distance_px / TradeCart.TILE_SIZE
+	var expected_gold = int(distance_tiles * TradeCart.BASE_GOLD_PER_TILE)
+	var actual_gold = GameManager.resources["gold"]
+
+	if actual_gold != expected_gold:
+		return Assertions.AssertResult.new(false,
+			"Trade gold: expected %d (%.1f tiles * %.2f), got: %d" % [
+				expected_gold, distance_tiles, TradeCart.BASE_GOLD_PER_TILE, actual_gold])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_trade_cart_gold_minimum_one() -> Assertions.AssertResult:
+	## Trade Cart should earn at least 1 gold even for very short distances
+	# Create two markets very close (less than 1 tile apart)
+	var market1 = runner.spawner.spawn_market(Vector2(400, 400))
+	var market2 = runner.spawner.spawn_market(Vector2(410, 400))  # Only 10px = 0.3 tiles
+	await runner.wait_frames(2)
+
+	var cart = runner.spawner.spawn_trade_cart(Vector2(400, 400), 0, market1)
+	await runner.wait_frames(2)
+
+	cart.destination_market = market2
+
+	GameManager.resources["gold"] = 0
+	cart._complete_trade()
+
+	# 0.3 tiles * 0.46 = 0.14, which would round to 0, but minimum is 1
+	var actual_gold = GameManager.resources["gold"]
+
+	if actual_gold < 1:
+		return Assertions.AssertResult.new(false,
+			"Trade should earn minimum 1 gold even for short distances, got: %d" % actual_gold)
 
 	return Assertions.AssertResult.new(true)
 
