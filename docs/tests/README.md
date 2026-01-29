@@ -169,7 +169,14 @@ Tests should account for these when clicking "near" vs "on" entities.
 
 1. **Box selection uses screen coords** - Camera position affects results
 2. **No pathfinding tests yet** - Movement tests need more wait time
-3. **Enemy selection bug** - Current code allows selecting enemy units (test will fail, revealing the bug)
+3. **Enemy selection test** - `test_only_player_units_selectable` expects enemy units to NOT be selectable, but the game code doesn't filter by team. This test will fail until team filtering is added to `_get_unit_at_position()` in main.gd
+
+### Code Review Fixes Applied
+
+The following issues from code review have been addressed:
+- `main.gd` now uses `_screen_to_world()` helper instead of `get_global_mouse_position()` - enables input simulation to work correctly
+- `assertions.gd` now validates `is_instance_valid()` before accessing node properties
+- `input_simulator.gd` now warns if setup() called before node is in scene tree
 
 ## Future Expansion
 

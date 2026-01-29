@@ -85,8 +85,7 @@ func run_single_test(test_method: Callable) -> void:
 
 func _before_each() -> void:
 	## Reset state before each test
-	spawner.clear_all()
-	GameManager.clear_selection()
+	spawner.clear_all()  # This already calls GameManager.clear_selection()
 
 
 func _after_each() -> void:

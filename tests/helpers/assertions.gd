@@ -27,6 +27,8 @@ static func assert_selected(expected_units: Array) -> AssertResult:
 			"Selection count mismatch: expected %d, got %d" % [expected_units.size(), actual.size()])
 
 	for unit in expected_units:
+		if not is_instance_valid(unit):
+			return AssertResult.new(false, "Unit was freed unexpectedly")
 		if unit not in actual:
 			return AssertResult.new(false,
 				"Expected unit not in selection: %s" % str(unit))
@@ -64,6 +66,9 @@ static func assert_selection_count(expected_count: int) -> AssertResult:
 
 static func assert_unit_selected(unit: Node) -> AssertResult:
 	## Check that a specific unit is selected (among possibly others)
+	if not is_instance_valid(unit):
+		return AssertResult.new(false, "Unit was freed unexpectedly")
+
 	if unit not in GameManager.selected_units:
 		return AssertResult.new(false,
 			"Unit not in selection: %s" % str(unit))
@@ -77,6 +82,9 @@ static func assert_unit_selected(unit: Node) -> AssertResult:
 
 static func assert_unit_not_selected(unit: Node) -> AssertResult:
 	## Check that a specific unit is NOT selected
+	if not is_instance_valid(unit):
+		return AssertResult.new(false, "Unit was freed unexpectedly")
+
 	if unit in GameManager.selected_units:
 		return AssertResult.new(false,
 			"Unit should not be in selection: %s" % str(unit))
@@ -90,6 +98,9 @@ static func assert_unit_not_selected(unit: Node) -> AssertResult:
 
 static func assert_unit_at_position(unit: Node2D, expected_pos: Vector2, tolerance: float = 10.0) -> AssertResult:
 	## Check that unit is near expected position
+	if not is_instance_valid(unit):
+		return AssertResult.new(false, "Unit was freed unexpectedly")
+
 	var distance = unit.global_position.distance_to(expected_pos)
 
 	if distance > tolerance:

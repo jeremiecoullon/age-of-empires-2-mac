@@ -16,6 +16,8 @@ var viewport: Viewport
 func setup(cam: Camera2D) -> void:
 	camera = cam
 	viewport = get_viewport()
+	if not viewport:
+		push_error("InputSimulator.setup() called before node is in scene tree")
 
 
 func world_to_screen(world_pos: Vector2) -> Vector2:
