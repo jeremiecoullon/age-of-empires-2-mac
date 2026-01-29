@@ -24,13 +24,8 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 - **Right-click**: Move units / Attack enemy / Gather resource
 - **Build buttons**: Enter placement mode, left-click to place, right-click to cancel
 
-## Running Tests
+# Development
 
-1. Open `tests/test_scene.tscn` in Godot
-2. Run the scene:
-   - Click the clapperboard icon (top-right toolbar), OR
-   - Cmd+R (Mac) / F6 (Windows/Linux)
-3. Results print to the console
 
 ## Key Files
 
@@ -41,7 +36,7 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 | `docs/gotchas.md` | Accumulated learnings |
 | `docs/design_decisions.md` | Key design choices |
 
-## Development
+## To get started on development
 
 **Before starting work:**
 
@@ -50,3 +45,12 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 2. Read `docs/roadmap.md` to understand the next phase. Follow the Phase Workflow section (refactor check → build → post-phase).
 
 3. Read `docs/gotchas.md` to avoid known pitfalls.
+
+
+## Running Tests
+
+```bash
+godot --headless --path . tests/test_scene.tscn
+```
+
+Exit code 0 = all passed, 1 = failures.

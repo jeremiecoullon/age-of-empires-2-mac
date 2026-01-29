@@ -11,6 +11,18 @@
 
 ---
 
+## Context Friction
+
+Answer these before writing the rest of the checkpoint:
+
+1. **Files re-read multiple times?** [Yes/No - if yes, which files and why]
+2. **Forgot earlier decisions?** [Yes/No - if yes, what had to be corrected]
+3. **Uncertain patterns?** [Yes/No - if yes, which patterns need review]
+
+(If all "No", write "No friction observed")
+
+---
+
 ## Implemented Features
 
 | Feature | Files | Notes |

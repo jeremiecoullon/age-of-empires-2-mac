@@ -1,6 +1,6 @@
 # AoE2 Clone - Roadmap
 
-**Last updated:** 2026-01-27 (manual gap analysis - added missing QoL features)
+**Last updated:** 2026-01-29 (refactored MVP into Phase 0)
 
 ## Goal
 
@@ -75,6 +75,13 @@ Before starting each phase, follow this process:
 
 ### 3. Post-Phase
 
+- **Self-report on context friction.** Before anything else, answer these questions in the checkpoint doc:
+  1. Did I re-read any file more than twice? Which ones?
+  2. Did I forget earlier decisions and have to correct myself?
+  3. Are there patterns I'm not confident are consistent?
+
+  This surfaces internal friction that tests might not catch. If multiple flags appear, consider splitting future phases smaller.
+
 - **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
 - **Run the test agent** to write automated tests for the phase. The test agent receives the checkpoint doc and relevant source files, writes tests, and returns a brief summary of what was tested. Add this summary to the checkpoint doc's "Test Coverage" section.
 - Update `docs/gotchas.md` with new learnings
@@ -83,20 +90,29 @@ Before starting each phase, follow this process:
 
 ---
 
-## Current State (MVP Complete)
+## Phases Overview
 
-Tiers 1-3 are complete. The game is playable with Player vs AI combat.
+| Phase | Name | Core Focus |
+|-------|------|------------|
+| 0 | MVP | Playable foundation: 2 resources, basic units, AI opponent, win condition |
+| 1 | Complete Economy | 4 resources, drop-off buildings, trading |
+| 2 | Military Foundation | Combat triangle, fog of war, counter-units |
+| 3 | Age System | Dark → Feudal → Castle progression |
+| 4 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
+| 5 | Monks & Relics | Conversion, healing, relic victory |
+| 6 | Walls & Basic Defense | Walls, gates, basic towers, garrison |
+| 7 | Advanced Defense & Siege | University, siege units, advanced towers |
+| 8 | Imperial Age | 4th age, late-game units, Wonder victory |
+| 9 | Polish & UX | Minimap, control groups, formations, audio |
+| 10 | Naval Economy | Dock, fishing, transport (Optional) |
+| 11 | Naval Combat | Warships, water maps (Optional) |
+| 12 | Civilizations | 13 civs, unique units, tech trees (Optional) |
+| 13 | Team Games & Allied AI | Multiple AI, team battles, allied mechanics (Optional) |
 
-| Category | Implemented |
-|----------|-------------|
-| Resources | 2 (wood, food) |
-| Units | 2 (villager, militia) |
-| Buildings | 4 (Town Center, House, Barracks, Farm) |
-| Ages | 0 (no progression) |
-| Victory conditions | 1 (conquest - destroy enemy TC) |
-| Map size | 60x60 tiles (1920x1920 pixels) |
+---
 
-### Completed Features
+## Phase 0: MVP (Complete)
+**Goal:** Playable game foundation with basic economy, combat, and AI opponent
 
 **Tier 1: Foundation**
 - [x] Map: 60x60 tiles, green grass ColorRect
@@ -138,29 +154,11 @@ Tiers 1-3 are complete. The game is playable with Player vs AI combat.
 > - Buildings use placeholder HP values. Spec: TC=2400, Barracks=1200, House=900
 > - These will be corrected as we move past MVP.
 
----
-
-## Phases Overview
-
-| Phase | Name | Core Focus |
-|-------|------|------------|
-| 1 | Complete Economy | 4 resources, drop-off buildings, trading |
-| 2 | Military Foundation | Combat triangle, fog of war, counter-units |
-| 3 | Age System | Dark → Feudal → Castle progression |
-| 4 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
-| 5 | Monks & Relics | Conversion, healing, relic victory |
-| 6 | Walls & Basic Defense | Walls, gates, basic towers, garrison |
-| 7 | Advanced Defense & Siege | University, siege units, advanced towers |
-| 8 | Imperial Age | 4th age, late-game units, Wonder victory |
-| 9 | Polish & UX | Minimap, control groups, formations, audio |
-| 10 | Naval Economy | Dock, fishing, transport (Optional) |
-| 11 | Naval Combat | Warships, water maps (Optional) |
-| 12 | Civilizations | 13 civs, unique units, tech trees (Optional) |
-| 13 | Team Games & Allied AI | Multiple AI, team battles, allied mechanics (Optional) |
+**Done when:** Player can defeat AI opponent by destroying their Town Center.
 
 ---
 
-## Phase 1: Complete Economy
+## Phase 1: Complete Economy (Complete)
 **Goal:** Establish full 4-resource economy with trading
 
 | Feature | Type | Notes |
