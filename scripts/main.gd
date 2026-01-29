@@ -25,6 +25,13 @@ var building_ghost: Sprite2D = null
 func _ready() -> void:
 	pass
 
+
+func _screen_to_world(screen_pos: Vector2) -> Vector2:
+	## Convert screen coordinates to world coordinates
+	## This uses the canvas transform so it works with both real and simulated input
+	return get_viewport().get_canvas_transform().affine_inverse() * screen_pos
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.is_placing_building:
 		_handle_building_placement_input(event)
@@ -37,13 +44,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_end_selection(event.position)
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			_issue_command(get_global_mouse_position())
+			_issue_command(_screen_to_world(event.position))
 
 	elif event is InputEventMouseMotion and is_dragging:
 		_update_selection(event.position)
 
 func _start_selection(screen_pos: Vector2) -> void:
-	var world_pos = get_global_mouse_position()
+	var world_pos = _screen_to_world(screen_pos)
 
 	# Check for units first - they have selection priority over buildings
 	var clicked_unit = _get_unit_at_position(world_pos)
@@ -95,7 +102,7 @@ func _end_selection(screen_pos: Vector2) -> void:
 
 	if drag_start.distance_to(screen_pos) < 5:
 		# Click selection
-		_click_select(get_global_mouse_position())
+		_click_select(_screen_to_world(screen_pos))
 	else:
 		# Box selection
 		_box_select()
@@ -109,7 +116,10 @@ func _click_select(world_pos: Vector2) -> void:
 	# Check for unit first
 	var unit = _get_unit_at_position(world_pos)
 	if unit:
-		GameManager.select_unit(unit)
+		# Only add player units to selection (for commands)
+		# But show info for any unit (for scouting enemy)
+		if unit.team == 0:
+			GameManager.select_unit(unit)
 		hud.show_info(unit)
 		return
 

@@ -11,8 +11,10 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
    ```
 2. Clone the repo (LFS assets download automatically)
 3. Open project in Godot 4.x
-4. Press F5 to play
-3. Destroy the enemy Town Center (red) to win
+4. Click the Play button (top-right) or use keyboard shortcut
+   - Mac: Cmd+B
+   - Windows/Linux: F5
+5. Destroy the enemy Town Center (red) to win
 
 ## Controls
 
@@ -21,6 +23,14 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 - **Left-click drag**: Box select multiple units
 - **Right-click**: Move units / Attack enemy / Gather resource
 - **Build buttons**: Enter placement mode, left-click to place, right-click to cancel
+
+## Running Tests
+
+1. Open `tests/test_scene.tscn` in Godot
+2. Run the scene:
+   - Click the clapperboard icon (top-right toolbar), OR
+   - Cmd+R (Mac) / F6 (Windows/Linux)
+3. Results print to the console
 
 ## Key Files
 
