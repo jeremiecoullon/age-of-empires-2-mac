@@ -66,6 +66,22 @@ Both DIRECT and ORCHESTRATOR modes follow that workflow. The difference is *how*
 - **DIRECT mode:** Write code yourself
 - **ORCHESTRATOR mode:** Coordinate sub-agents (see below)
 
+**Sub-phases:** Phases can be split into sub-phases (e.g., 1a, 1b, 1c) if needed. Each sub-phase follows the full workflow including its own checkpoint doc.
+
+---
+
+## Code Review
+
+**Always run the code-reviewer agent after completing work.** This includes:
+- Phases and sub-phases
+- Writing or modifying tests
+- Bug fixes
+- Refactoring
+
+Review the suggestions critically - apply what's useful, skip what's not.
+
+Note: For non-phase work (tests, bug fixes), you don't need the full phase ceremony (refactor check, checkpoint docs). Just do the work, then run code review.
+
 ---
 
 ## Orchestrator Mode Details
