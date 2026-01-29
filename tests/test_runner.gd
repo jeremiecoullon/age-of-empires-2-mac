@@ -25,18 +25,20 @@ var input_sim: InputSimulator
 # Scene references (set via setup())
 var units_container: Node2D
 var buildings_container: Node2D
+var resources_container: Node2D
 var camera: Camera2D
 
 
-func setup(units: Node2D, buildings: Node2D, cam: Camera2D) -> void:
+func setup(units: Node2D, buildings: Node2D, cam: Camera2D, resources: Node2D = null) -> void:
 	units_container = units
 	buildings_container = buildings
+	resources_container = resources
 	camera = cam
 
 	# Create helpers
 	spawner = TestSpawner.new()
 	add_child(spawner)
-	spawner.setup(units, buildings)
+	spawner.setup(units, buildings, resources)
 
 	input_sim = InputSimulator.new()
 	add_child(input_sim)
@@ -87,6 +89,7 @@ func run_single_test(test_method: Callable) -> void:
 func _before_each() -> void:
 	## Reset state before each test
 	spawner.clear_all()  # This already calls GameManager.clear_selection()
+	GameManager.reset()  # Reset resources, population, market prices
 
 
 func _after_each() -> void:

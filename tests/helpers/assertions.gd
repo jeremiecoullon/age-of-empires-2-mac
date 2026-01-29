@@ -124,3 +124,60 @@ static func assert_equal(actual, expected, message: String = "") -> AssertResult
 		var msg = message if message else "Expected %s, got %s" % [str(expected), str(actual)]
 		return AssertResult.new(false, msg)
 	return AssertResult.new(true)
+
+
+# Economy assertions
+
+static func assert_resource(type: String, expected: int, team: int = 0) -> AssertResult:
+	## Check that a resource amount matches exactly
+	var actual = GameManager.get_resource(type, team)
+	if actual != expected:
+		return AssertResult.new(false,
+			"Resource %s: expected %d, got %d (team %d)" % [type, expected, actual, team])
+	return AssertResult.new(true)
+
+
+static func assert_resource_at_least(type: String, minimum: int, team: int = 0) -> AssertResult:
+	## Check that a resource amount is at least the minimum
+	var actual = GameManager.get_resource(type, team)
+	if actual < minimum:
+		return AssertResult.new(false,
+			"Resource %s: expected at least %d, got %d (team %d)" % [type, minimum, actual, team])
+	return AssertResult.new(true)
+
+
+static func assert_villager_state(villager: Node, expected_state: int) -> AssertResult:
+	## Check villager's current state enum
+	if not is_instance_valid(villager):
+		return AssertResult.new(false, "Villager was freed unexpectedly")
+
+	if not villager is Villager:
+		return AssertResult.new(false, "Node is not a Villager")
+
+	var actual = villager.current_state
+	if actual != expected_state:
+		# Use enum keys directly to stay in sync with Villager.State
+		var state_keys = Villager.State.keys()
+		var expected_name = state_keys[expected_state] if expected_state < state_keys.size() else str(expected_state)
+		var actual_name = state_keys[actual] if actual < state_keys.size() else str(actual)
+		return AssertResult.new(false,
+			"Villager state: expected %s, got %s" % [expected_name, actual_name])
+	return AssertResult.new(true)
+
+
+static func assert_villager_carrying(villager: Node, type: String, min_amount: int) -> AssertResult:
+	## Check that villager is carrying at least min_amount of the specified resource type
+	if not is_instance_valid(villager):
+		return AssertResult.new(false, "Villager was freed unexpectedly")
+
+	if not villager is Villager:
+		return AssertResult.new(false, "Node is not a Villager")
+
+	if villager.carried_resource_type != type:
+		return AssertResult.new(false,
+			"Villager carrying %s, expected %s" % [villager.carried_resource_type, type])
+
+	if villager.carried_amount < min_amount:
+		return AssertResult.new(false,
+			"Villager carrying %d %s, expected at least %d" % [villager.carried_amount, type, min_amount])
+	return AssertResult.new(true)

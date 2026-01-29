@@ -10,15 +10,21 @@ extends "res://scripts/main.gd"
 ##   - Cmd+R (Mac) or F6 (Windows/Linux), OR
 ##   - Click the clapperboard icon (top-right toolbar)
 
+# Preload test scenarios to ensure classes are available
+const TestSelectionScript = preload("res://tests/scenarios/test_selection.gd")
+const TestEconomyScript = preload("res://tests/scenarios/test_economy.gd")
+
 var test_runner: TestRunner
 var camera_node: Camera2D
+var resources_container: Node2D
 
 
 func _ready() -> void:
 	super._ready()
 
-	# Get camera reference
+	# Get camera and resources references
 	camera_node = $Camera2D
+	resources_container = $Resources
 
 	# Reset GameManager state for clean tests
 	GameManager.reset()
@@ -26,7 +32,7 @@ func _ready() -> void:
 	# Setup test runner
 	test_runner = TestRunner.new()
 	add_child(test_runner)
-	test_runner.setup(units_container, buildings_container, camera_node)
+	test_runner.setup(units_container, buildings_container, camera_node, resources_container)
 
 	# Connect completion signal
 	test_runner.all_tests_completed.connect(_on_tests_completed)
@@ -39,8 +45,18 @@ func _ready() -> void:
 func _run_selection_tests() -> void:
 	print("\n=== RUNNING SELECTION TESTS ===\n")
 
-	var selection_tests = TestSelection.new(test_runner)
+	var selection_tests = TestSelectionScript.new(test_runner)
 	await test_runner.run_all_tests(selection_tests.get_all_tests())
+
+	# Run economy tests after selection tests
+	await _run_economy_tests()
+
+
+func _run_economy_tests() -> void:
+	print("\n=== RUNNING ECONOMY TESTS ===\n")
+
+	var economy_tests = TestEconomyScript.new(test_runner)
+	await test_runner.run_all_tests(economy_tests.get_all_tests())
 
 
 func _on_tests_completed(passed: int, failed: int, _results: Array) -> void:
