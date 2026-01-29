@@ -48,6 +48,13 @@
 ### Automated Tests
 - (List test files, or "None yet")
 
+### Test Summary
+(Filled in by test agent after phase completion)
+
+- **Tests written:** [number] tests in [files]
+- **Coverage focus:** [what aspects were tested - e.g., resource gathering, combat calculations, state transitions]
+- **Notable edge cases:** [any interesting scenarios the tests cover]
+
 ---
 
 ## AI Behavior Updates

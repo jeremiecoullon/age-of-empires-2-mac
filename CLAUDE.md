@@ -84,6 +84,21 @@ Note: For non-phase work (tests, bug fixes), you don't need the full phase cerem
 
 ---
 
+## Test Agent
+
+**After code review, run the test agent to write automated tests for the phase.**
+
+The test agent:
+1. Receives the checkpoint doc + relevant source files
+2. Writes tests for the phase's features
+3. Returns a brief summary of what was tested
+
+Add the test summary to the checkpoint doc's "Test Coverage → Test Summary" section. This keeps test coverage visible for future sessions without them needing to read test files.
+
+See `docs/roadmap.md` → "Post-Phase" for the full workflow.
+
+---
+
 ## Orchestrator Mode Details
 
 *Skip this section when in DIRECT mode.*
