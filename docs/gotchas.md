@@ -94,7 +94,7 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 
 - **Building panels: explicit over generic**: Kept explicit panels per building type (tc_panel, barracks_panel, market_panel) rather than a generic system. This matches AoE2's approach and is easier to understand. See DD-005 in design_decisions.md.
 
-- **Market sprite placeholder**: No AoE market sprite found in asset pack. Currently uses barracks_aoe.png as placeholder. Replace in Phase 9 or when asset becomes available.
+- **Market sprite**: Custom SVG created at `assets/sprites/buildings/market.svg` since no AoE market sprite was available in asset pack.
 
 - **Preload() pattern for runtime spawning**: Several existing files still use `load()` at runtime (barracks.gd, town_center.gd, ai_controller.gd). Phase 1E market.gd was fixed to use preload(). The pattern should be applied consistently - use `const SceneName: PackedScene = preload("path")` rather than `const PATH = "path"` + `load(PATH)`. This is a known tech debt to address.
 
