@@ -119,6 +119,20 @@ When spawning a sub-agent for a build task, include:
 
 See `docs/phase_checkpoints/_template.md`
 
+## Godot Shortcuts (Mac vs Windows/Linux)
+
+| Action | Mac | Windows/Linux |
+|--------|-----|---------------|
+| Run project | Cmd+B | F5 |
+| Run current scene | Cmd+R | F6 |
+| Stop | Cmd+. | F8 |
+
+The toolbar buttons (top-right) work identically on all platforms.
+
+**Running tests:** Open `tests/test_scene.tscn` in Godot, then Cmd+R (Mac) or F6 (Windows/Linux).
+
+---
+
 ## Project Conventions
 
 - All game state goes through GameManager (autoload singleton)
