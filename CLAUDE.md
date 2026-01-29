@@ -45,6 +45,8 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 **Sub-phases:** Phases can be split into sub-phases (e.g., 1a, 1b, 1c) if needed. Each sub-phase follows the full workflow including its own checkpoint doc.
 
+**Sub-phase sizing:** Each sub-phase should be a coherent chunk - related features that touch the same systems. Too small and you spend more time on ceremony than code. Too large and you get context rot anyway. A good heuristic: 3-5 related features, or 1-2 new systems with their dependent content.
+
 ---
 
 ## Code Review
