@@ -14,6 +14,8 @@ static var _sprite_frames_cache: Dictionary = {}
 @export var move_speed: float = 100.0
 @export var max_hp: int = 100
 @export var team: int = 0  # 0 = player, 1 = AI
+@export var melee_armor: int = 0  # Reduces melee damage
+@export var pierce_armor: int = 0  # Reduces pierce/ranged damage
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
@@ -232,8 +234,14 @@ func set_selected(selected: bool) -> void:
 func stop_movement() -> void:
 	nav_agent.target_position = global_position
 
-func take_damage(amount: int) -> void:
-	current_hp -= amount
+## Take damage with armor calculation.
+## attack_type: "melee" or "pierce" - determines which armor applies
+## bonus_damage: Extra damage that ignores armor (e.g., spearman vs cavalry)
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
+	var armor = melee_armor if attack_type == "melee" else pierce_armor
+	var base_damage = max(1, amount - armor)  # Minimum 1 damage
+	var final_damage = base_damage + bonus_damage
+	current_hp -= final_damage
 	if current_hp <= 0:
 		die()
 

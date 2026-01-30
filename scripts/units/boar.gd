@@ -29,8 +29,8 @@ func _ready() -> void:
 	# 50 frames total, 8 directions = ~6 frames per direction
 	_load_directional_animations("res://assets/sprites/units/boar_frames", "Boarstand", 50)
 
-func take_damage(amount: int) -> void:
-	super.take_damage(amount)
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
+	super.take_damage(amount, attack_type, bonus_damage)
 
 	# If still alive and not already attacking, find and attack nearby units
 	if not is_dead and current_state != State.ATTACKING:

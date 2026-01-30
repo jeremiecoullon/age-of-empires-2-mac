@@ -221,6 +221,42 @@ static func assert_archer_state(archer: Node, expected_state: int) -> AssertResu
 	return AssertResult.new(true)
 
 
+static func assert_scout_cavalry_state(scout: Node, expected_state: int) -> AssertResult:
+	## Check scout cavalry's current state enum
+	if not is_instance_valid(scout):
+		return AssertResult.new(false, "Scout Cavalry was freed unexpectedly")
+
+	if not scout is ScoutCavalry:
+		return AssertResult.new(false, "Node is not a ScoutCavalry")
+
+	var actual = scout.current_state
+	if actual != expected_state:
+		var state_keys = ScoutCavalry.State.keys()
+		var expected_name = state_keys[expected_state] if expected_state < state_keys.size() else str(expected_state)
+		var actual_name = state_keys[actual] if actual < state_keys.size() else str(actual)
+		return AssertResult.new(false,
+			"Scout Cavalry state: expected %s, got %s" % [expected_name, actual_name])
+	return AssertResult.new(true)
+
+
+static func assert_spearman_state(spearman: Node, expected_state: int) -> AssertResult:
+	## Check spearman's current state enum
+	if not is_instance_valid(spearman):
+		return AssertResult.new(false, "Spearman was freed unexpectedly")
+
+	if not spearman is Spearman:
+		return AssertResult.new(false, "Node is not a Spearman")
+
+	var actual = spearman.current_state
+	if actual != expected_state:
+		var state_keys = Spearman.State.keys()
+		var expected_name = state_keys[expected_state] if expected_state < state_keys.size() else str(expected_state)
+		var actual_name = state_keys[actual] if actual < state_keys.size() else str(actual)
+		return AssertResult.new(false,
+			"Spearman state: expected %s, got %s" % [expected_name, actual_name])
+	return AssertResult.new(true)
+
+
 static func assert_unit_hp(unit: Node, expected_hp: int) -> AssertResult:
 	## Check unit's current HP
 	if not is_instance_valid(unit):

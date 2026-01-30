@@ -14,6 +14,8 @@ const VILLAGER_SCENE = preload("res://scenes/units/villager.tscn")
 const MILITIA_SCENE = preload("res://scenes/units/militia.tscn")
 const ARCHER_SCENE = preload("res://scenes/units/archer.tscn")
 const TRADE_CART_SCENE = preload("res://scenes/units/trade_cart.tscn")
+const SCOUT_CAVALRY_SCENE = preload("res://scenes/units/scout_cavalry.tscn")
+const SPEARMAN_SCENE = preload("res://scenes/units/spearman.tscn")
 
 # Scene paths - Buildings
 const TOWN_CENTER_SCENE = preload("res://scenes/buildings/town_center.tscn")
@@ -25,6 +27,7 @@ const MINING_CAMP_SCENE = preload("res://scenes/buildings/mining_camp.tscn")
 const MARKET_SCENE = preload("res://scenes/buildings/market.tscn")
 const FARM_SCENE = preload("res://scenes/buildings/farm.tscn")
 const ARCHERY_RANGE_SCENE = preload("res://scenes/buildings/archery_range.tscn")
+const STABLE_SCENE = preload("res://scenes/buildings/stable.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -90,6 +93,24 @@ func spawn_archer(position: Vector2, team: int = 0) -> Node:
 	units_container.add_child(archer)
 	spawned_entities.append(archer)
 	return archer
+
+
+func spawn_scout_cavalry(position: Vector2, team: int = 0) -> Node:
+	var scout = SCOUT_CAVALRY_SCENE.instantiate()
+	scout.global_position = position
+	scout.team = team
+	units_container.add_child(scout)
+	spawned_entities.append(scout)
+	return scout
+
+
+func spawn_spearman(position: Vector2, team: int = 0) -> Node:
+	var spearman = SPEARMAN_SCENE.instantiate()
+	spearman.global_position = position
+	spearman.team = team
+	units_container.add_child(spearman)
+	spawned_entities.append(spearman)
+	return spearman
 
 
 func spawn_town_center(position: Vector2, team: int = 0) -> Node:
@@ -171,6 +192,15 @@ func spawn_archery_range(position: Vector2, team: int = 0) -> Node:
 	buildings_container.add_child(archery_range)
 	spawned_entities.append(archery_range)
 	return archery_range
+
+
+func spawn_stable(position: Vector2, team: int = 0) -> Node:
+	var stable = STABLE_SCENE.instantiate()
+	stable.global_position = position
+	stable.team = team
+	buildings_container.add_child(stable)
+	spawned_entities.append(stable)
+	return stable
 
 
 func spawn_tree(position: Vector2, amount: int = 100) -> Node:

@@ -13,7 +13,10 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 | Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle |
 | Market | Building | `assets/sprites/buildings/market.svg` | Orange rectangle with "M" |
 | Archery Range | Building | `assets/sprites/buildings/archery_range.svg` | Building with target |
+| Stable | Building | `assets/sprites/buildings/stable.svg` | Brown rectangle with horseshoe |
 | Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
+| Scout Cavalry | Unit | `assets/sprites/units/scout_cavalry.svg` | Orange mounted figure |
+| Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
 
 **Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
 
@@ -122,6 +125,14 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 - **Group-based attack dispatch:** Use `unit.is_in_group("military")` instead of explicit type checks (`is Militia or is Archer`) for attack command handling in main.gd. More extensible as new military units are added.
 
 - **Static sprite loader pattern:** For units without 8-dir animations, use `_load_static_sprite(texture)` helper that creates a single-frame SpriteFrames from the preloaded texture.
+
+### Phase 2B - Stable, Cavalry & Infantry
+
+- **preload() vs load() for new assets:** New asset files (SVGs, scenes) that haven't been imported by Godot yet will cause `preload()` to fail at parse time. This breaks the entire class resolution chain - if `stable.gd` preloads `scout_cavalry.tscn` which references `scout_cavalry.gd` which preloads an unimported SVG, the whole chain fails and `Stable` class can't be registered. **Fix:** Use `load()` at runtime for newly created assets until they're imported. Run `godot --headless --import --path .` to force Godot to import all assets before running tests.
+
+- **Armor system signature:** `take_damage(amount, attack_type, bonus_damage)` where `attack_type` is "melee" or "pierce". Armor reduces base damage (min 1), then bonus damage is added. This matches AoE2's damage formula.
+
+- **Bonus damage via groups:** Spearman's anti-cavalry bonus checks `target.is_in_group("cavalry")`. When adding new unit types, add them to appropriate groups (cavalry, infantry, archer, siege) for bonus damage targeting.
 
 ### Pre-Phase Tests (MVP)
 

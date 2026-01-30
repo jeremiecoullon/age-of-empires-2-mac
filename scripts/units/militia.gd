@@ -14,6 +14,7 @@ var attack_timer: float = 0.0
 func _ready() -> void:
 	super._ready()
 	add_to_group("military")
+	add_to_group("infantry")
 	max_hp = 50
 	current_hp = max_hp
 	# 30 frames total, 8 directions = ~4 frames per direction
@@ -78,7 +79,7 @@ func _process_attacking(delta: float) -> void:
 
 	if attack_timer >= attack_cooldown:
 		attack_timer = 0.0
-		attack_target.take_damage(attack_damage)
+		attack_target.take_damage(attack_damage, "melee")
 
 func command_attack(target: Node2D) -> void:
 	attack_target = target
