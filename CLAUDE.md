@@ -51,7 +51,11 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 1. **Propose a split.** Read the phase spec in `docs/roadmap.md`, analyze the scope, and propose sub-phases (e.g., 2A, 2B, 2C). Explain what each sub-phase covers and why. Get user approval once upfront.
 
-2. **Execute sub-phase.** Do the full workflow for the current sub-phase:
+2. **Persist the split.** After approval, update `docs/roadmap.md` with the sub-phase breakdown under that phase's section. Add a "Sub-phases" block with date and brief description of each sub-phase. This is the source of truth for future sessions.
+
+   **Sub-phase descriptions must include both entities AND systems.** Don't just list units/buildings—also list any new mechanics or systems being introduced (e.g., "armor system", "fog of war", "stance system"). If a previous checkpoint deferred something to this phase, it should appear in the description.
+
+3. **Execute sub-phase.** Do the full workflow for the current sub-phase:
    - Refactor check
    - Build features
    - Run spec-check on new units/buildings/techs
@@ -59,9 +63,9 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
    - Run test agent
    - Write checkpoint doc
 
-3. **Signal for context clear.** Say: "2A complete. Clear context now." (Claude cannot clear its own context.)
+4. **Signal for context clear.** Say: "2A complete. Clear context now." (Claude cannot clear its own context.)
 
-4. **Continue automatically.** When user clears context and says "continue", read checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
+5. **Continue automatically.** When user clears context and says "continue", read the sub-phase breakdown in `roadmap.md` and checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
 
 After the initial split approval, Claude executes autonomously. The only user actions needed are context clears and saying "continue".
 
