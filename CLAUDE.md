@@ -110,6 +110,20 @@ Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures.
 
 ---
 
+## Sprites & Assets
+
+**When creating new buildings/units without available sprites:**
+
+1. **Never use another entity's sprite as a fallback.** Don't use the barracks sprite for a stable, or militia sprite for an archer. This causes confusion and visual bugs.
+
+2. **Create an SVG placeholder instead.** SVGs are simple XML that Godot imports natively. Create a basic colored rectangle/shape with text indicating what it represents. See `assets/sprites/buildings/farm.svg` or `market.svg` for examples.
+
+3. **Document the missing sprite** in `docs/gotchas.md` under the "Missing Sprites" section. This ensures Phase 9 (Polish) knows what to replace.
+
+Existing SVG placeholders: farm, market. All other buildings/units have AoE sprites.
+
+---
+
 ## Project Conventions
 
 - All game state goes through GameManager (autoload singleton)

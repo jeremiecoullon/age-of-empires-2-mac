@@ -4,6 +4,19 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 
 ---
 
+## Missing Sprites
+
+Track placeholder sprites here for replacement in Phase 9 (Polish). When creating a new entity without an available sprite, add it to this list.
+
+| Entity | Type | Current Placeholder | Notes |
+|--------|------|---------------------|-------|
+| Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle |
+| Market | Building | `assets/sprites/buildings/market.svg` | Orange rectangle with "M" |
+
+**Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
+
+---
+
 ## Project Structure
 
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
