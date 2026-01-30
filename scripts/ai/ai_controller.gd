@@ -708,7 +708,9 @@ func _train_military() -> void:
 	var militia_count = 0
 	var spearman_count = 0
 	var archer_count = 0
+	var skirmisher_count = 0
 	var scout_count = 0
+	var cavalry_archer_count = 0
 
 	var military = get_tree().get_nodes_in_group("military")
 	for unit in military:
@@ -718,8 +720,12 @@ func _train_military() -> void:
 			militia_count += 1
 		elif unit is Spearman:
 			spearman_count += 1
+		elif unit is Skirmisher:
+			skirmisher_count += 1
 		elif unit is Archer:
 			archer_count += 1
+		elif unit is CavalryArcher:
+			cavalry_archer_count += 1
 		elif unit is ScoutCavalry:
 			scout_count += 1
 
@@ -727,28 +733,46 @@ func _train_military() -> void:
 	# - Militia: baseline infantry (from Barracks)
 	# - Spearman: anti-cavalry (from Barracks)
 	# - Archer: ranged damage (from Archery Range)
+	# - Skirmisher: anti-archer (from Archery Range)
 	# - Scout Cavalry: fast harass (from Stable)
+	# - Cavalry Archer: mobile ranged (from Stable)
 
-	# Try to maintain rough balance: 40% infantry (militia/spearman), 40% ranged, 20% cavalry
+	# Try to maintain rough balance: 40% infantry, 40% ranged (archers+skirms), 20% cavalry
 
 	# Train from available buildings
 	_refresh_barracks_list()
 
-	# Train archers if we have archery range and need ranged units
-	if _has_archery_range() and not ai_archery_range.is_training:
-		var total_military = militia_count + spearman_count + archer_count + scout_count
-		if total_military == 0 or archer_count < total_military * 0.4:
-			if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
-				ai_archery_range.train_archer()
-				return
+	var total_ranged = archer_count + skirmisher_count
+	var total_cavalry = scout_count + cavalry_archer_count
+	var total_military = militia_count + spearman_count + total_ranged + total_cavalry
 
-	# Train scouts if we have stable and need cavalry
+	# Train from archery range (archers or skirmishers)
+	if _has_archery_range() and not ai_archery_range.is_training:
+		if total_military == 0 or total_ranged < total_military * 0.4:
+			# Decide between archer and skirmisher
+			# Mix in some skirmishers (about 1/3 of ranged units)
+			if skirmisher_count < archer_count * 0.5 and skirmisher_count < 2:
+				if GameManager.can_afford("food", 25, AI_TEAM) and GameManager.can_afford("wood", 35, AI_TEAM):
+					ai_archery_range.train_skirmisher()
+					return
+			else:
+				if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
+					ai_archery_range.train_archer()
+					return
+
+	# Train from stable (scouts or cavalry archers)
 	if _has_stable() and not ai_stable.is_training:
-		var total_military = militia_count + spearman_count + archer_count + scout_count
-		if scout_count < 2 or (total_military > 0 and scout_count < total_military * 0.2):
-			if GameManager.can_afford("food", 80, AI_TEAM):
-				ai_stable.train_scout_cavalry()
-				return
+		if total_cavalry < 2 or (total_military > 0 and total_cavalry < total_military * 0.2):
+			# Decide between scout and cavalry archer
+			# Mix in some cavalry archers for ranged harassment
+			if cavalry_archer_count < scout_count and cavalry_archer_count < 2:
+				if GameManager.can_afford("wood", 40, AI_TEAM) and GameManager.can_afford("gold", 70, AI_TEAM):
+					ai_stable.train_cavalry_archer()
+					return
+			else:
+				if GameManager.can_afford("food", 80, AI_TEAM):
+					ai_stable.train_scout_cavalry()
+					return
 
 	# Train from barracks (militia or spearman)
 	for barracks in ai_barracks:

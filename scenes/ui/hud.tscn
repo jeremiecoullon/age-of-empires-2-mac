@@ -236,6 +236,10 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Train Archer (25 Wood, 45 Gold)"
 
+[node name="TrainSkirmisherButton" type="Button" parent="ArcheryRangePanel/VBoxContainer"]
+layout_mode = 2
+text = "Train Skirmisher (25 Food, 35 Wood)"
+
 [node name="ArcheryRangeTrainProgress" type="ProgressBar" parent="ArcheryRangePanel/VBoxContainer"]
 visible = false
 layout_mode = 2
@@ -260,6 +264,10 @@ horizontal_alignment = 1
 [node name="TrainScoutCavalryButton" type="Button" parent="StablePanel/VBoxContainer"]
 layout_mode = 2
 text = "Train Scout Cavalry (80 Food)"
+
+[node name="TrainCavalryArcherButton" type="Button" parent="StablePanel/VBoxContainer"]
+layout_mode = 2
+text = "Train Cav Archer (40 Wood, 70 Gold)"
 
 [node name="StableTrainProgress" type="ProgressBar" parent="StablePanel/VBoxContainer"]
 visible = false
@@ -346,5 +354,7 @@ text = "Play Again"
 [connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton" to="." method="_on_sell_stone_pressed"]
 [connection signal="pressed" from="MarketPanel/VBoxContainer/TrainTradeCartButton" to="." method="_on_train_trade_cart_pressed"]
 [connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/TrainArcherButton" to="." method="_on_train_archer_pressed"]
+[connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/TrainSkirmisherButton" to="." method="_on_train_skirmisher_pressed"]
 [connection signal="pressed" from="StablePanel/VBoxContainer/TrainScoutCavalryButton" to="." method="_on_train_scout_cavalry_pressed"]
+[connection signal="pressed" from="StablePanel/VBoxContainer/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

@@ -314,6 +314,16 @@ func _on_train_archer_pressed() -> void:
 			elif not GameManager.can_add_population():
 				_show_error("Population cap reached! Build a House.")
 
+func _on_train_skirmisher_pressed() -> void:
+	if selected_archery_range:
+		if not selected_archery_range.train_skirmisher():
+			if not GameManager.can_afford("food", ArcheryRange.SKIRMISHER_FOOD_COST):
+				_show_error("Not enough food! (Need 25)")
+			elif not GameManager.can_afford("wood", ArcheryRange.SKIRMISHER_WOOD_COST):
+				_show_error("Not enough wood! (Need 35)")
+			elif not GameManager.can_add_population():
+				_show_error("Population cap reached! Build a House.")
+
 func _on_build_stable_pressed() -> void:
 	if not GameManager.can_afford("wood", 175):
 		_show_error("Not enough wood! (Need 175)")
@@ -325,6 +335,16 @@ func _on_train_scout_cavalry_pressed() -> void:
 		if not selected_stable.train_scout_cavalry():
 			if not GameManager.can_afford("food", Stable.SCOUT_CAVALRY_FOOD_COST):
 				_show_error("Not enough food! (Need 80)")
+			elif not GameManager.can_add_population():
+				_show_error("Population cap reached! Build a House.")
+
+func _on_train_cavalry_archer_pressed() -> void:
+	if selected_stable:
+		if not selected_stable.train_cavalry_archer():
+			if not GameManager.can_afford("wood", Stable.CAVALRY_ARCHER_WOOD_COST):
+				_show_error("Not enough wood! (Need 40)")
+			elif not GameManager.can_afford("gold", Stable.CAVALRY_ARCHER_GOLD_COST):
+				_show_error("Not enough gold! (Need 70)")
 			elif not GameManager.can_add_population():
 				_show_error("Population cap reached! Build a House.")
 
@@ -400,6 +420,10 @@ func show_info(entity: Node) -> void:
 		_show_militia_info(entity)
 	elif entity is Archer:
 		_show_archer_info(entity)
+	elif entity is Skirmisher:
+		_show_skirmisher_info(entity)
+	elif entity is CavalryArcher:
+		_show_cavalry_archer_info(entity)
 	elif entity is ScoutCavalry:
 		_show_scout_cavalry_info(entity)
 	elif entity is Spearman:
@@ -437,7 +461,7 @@ func show_info(entity: Node) -> void:
 	elif entity is ArcheryRange:
 		_show_building_info("Archery Range", "Trains ranged units\nArcher, Skirmisher")
 	elif entity is Stable:
-		_show_building_info("Stable", "Trains cavalry units\nScout Cavalry, Knight")
+		_show_building_info("Stable", "Trains cavalry units\nScout Cavalry, Cavalry Archer")
 	elif entity is Building:
 		_show_building_info(entity.building_name, "")
 	else:
@@ -491,6 +515,36 @@ func _show_archer_info(archer: Archer) -> void:
 			state_text = "Attacking"
 
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: %d" % [state_text, archer.current_hp, archer.max_hp, archer.attack_damage, int(archer.attack_range / 32)]
+	info_details.text = details
+	info_panel.visible = true
+
+func _show_skirmisher_info(skirmisher: Skirmisher) -> void:
+	info_title.text = "Skirmisher"
+	var state_text = ""
+	match skirmisher.current_state:
+		Skirmisher.State.IDLE:
+			state_text = "Idle"
+		Skirmisher.State.MOVING:
+			state_text = "Moving"
+		Skirmisher.State.ATTACKING:
+			state_text = "Attacking"
+
+	var details = "Status: %s\nHP: %d/%d\nAttack: %d (+%d vs archers)\nArmor: %d/%d\nRange: %d" % [state_text, skirmisher.current_hp, skirmisher.max_hp, skirmisher.attack_damage, skirmisher.bonus_vs_archers, skirmisher.melee_armor, skirmisher.pierce_armor, int(skirmisher.attack_range / 32)]
+	info_details.text = details
+	info_panel.visible = true
+
+func _show_cavalry_archer_info(cav_archer: CavalryArcher) -> void:
+	info_title.text = "Cavalry Archer"
+	var state_text = ""
+	match cav_archer.current_state:
+		CavalryArcher.State.IDLE:
+			state_text = "Idle"
+		CavalryArcher.State.MOVING:
+			state_text = "Moving"
+		CavalryArcher.State.ATTACKING:
+			state_text = "Attacking"
+
+	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: %d" % [state_text, cav_archer.current_hp, cav_archer.max_hp, cav_archer.attack_damage, int(cav_archer.attack_range / 32)]
 	info_details.text = details
 	info_panel.visible = true
 

@@ -13,6 +13,8 @@ extends Node
 ## - House increases population cap
 ## - Stable trains Scout Cavalry with correct costs
 ## - Barracks trains Spearman with correct costs
+## - Archery Range trains Skirmisher with correct costs
+## - Stable trains Cavalry Archer with correct costs
 
 class_name TestBuildings
 
@@ -59,6 +61,19 @@ func get_all_tests() -> Array[Callable]:
 		test_barracks_trains_spearman_costs_resources,
 		test_barracks_spearman_training_fails_if_no_food,
 		test_barracks_spearman_training_fails_if_no_wood,
+		# Archery Range Skirmisher training tests (Phase 2D)
+		test_archery_range_trains_skirmisher_costs_resources,
+		test_archery_range_skirmisher_training_fails_if_no_food,
+		test_archery_range_skirmisher_training_fails_if_no_wood,
+		test_archery_range_skirmisher_training_fails_if_pop_capped,
+		test_archery_range_cannot_train_skirmisher_while_training,
+		# Stable Cavalry Archer training tests (Phase 2D)
+		test_stable_trains_cavalry_archer_costs_resources,
+		test_stable_cavalry_archer_training_fails_if_no_wood,
+		test_stable_cavalry_archer_training_fails_if_no_gold,
+		test_stable_cavalry_archer_training_fails_if_pop_capped,
+		test_stable_cannot_train_cavalry_archer_while_training,
+		test_stable_spawns_cavalry_archer_with_correct_team,
 		# House tests
 		test_house_increases_population_cap,
 		# AI team tests (regression test for gotchas.md bug)
@@ -671,6 +686,275 @@ func test_barracks_spearman_training_fails_if_no_wood() -> Assertions.AssertResu
 	if success:
 		return Assertions.AssertResult.new(false,
 			"train_spearman should return false when can't afford wood")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Archery Range Skirmisher Training Tests (Phase 2D) ===
+
+func test_archery_range_trains_skirmisher_costs_resources() -> Assertions.AssertResult:
+	## Training Skirmisher should cost 25 food and 35 wood
+	var archery_range = runner.spawner.spawn_archery_range(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["food"] = 100
+	GameManager.resources["wood"] = 100
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var initial_food = GameManager.get_resource("food")
+	var initial_wood = GameManager.get_resource("wood")
+
+	var success = archery_range.train_skirmisher()
+
+	if not success:
+		return Assertions.AssertResult.new(false,
+			"train_skirmisher should return true when can afford")
+
+	var result = Assertions.assert_resource("food", initial_food - ArcheryRange.SKIRMISHER_FOOD_COST)
+	if not result.passed:
+		return result
+
+	result = Assertions.assert_resource("wood", initial_wood - ArcheryRange.SKIRMISHER_WOOD_COST)
+	if not result.passed:
+		return result
+
+	return Assertions.assert_true(archery_range.is_training,
+		"Archery Range should be in training state")
+
+
+func test_archery_range_skirmisher_training_fails_if_no_food() -> Assertions.AssertResult:
+	## Training Skirmisher should fail if not enough food
+	var archery_range = runner.spawner.spawn_archery_range(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["food"] = 10  # Not enough (need 25)
+	GameManager.resources["wood"] = 100
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var success = archery_range.train_skirmisher()
+
+	if success:
+		return Assertions.AssertResult.new(false,
+			"train_skirmisher should return false when can't afford food")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_archery_range_skirmisher_training_fails_if_no_wood() -> Assertions.AssertResult:
+	## Training Skirmisher should fail if not enough wood
+	var archery_range = runner.spawner.spawn_archery_range(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["food"] = 100
+	GameManager.resources["wood"] = 10  # Not enough (need 35)
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var success = archery_range.train_skirmisher()
+
+	if success:
+		return Assertions.AssertResult.new(false,
+			"train_skirmisher should return false when can't afford wood")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_archery_range_skirmisher_training_fails_if_pop_capped() -> Assertions.AssertResult:
+	## Training should fail if at population cap
+	var archery_range = runner.spawner.spawn_archery_range(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["food"] = 100
+	GameManager.resources["wood"] = 100
+	GameManager.population = 5
+	GameManager.population_cap = 5  # At cap
+
+	var success = archery_range.train_skirmisher()
+
+	if success:
+		return Assertions.AssertResult.new(false,
+			"train_skirmisher should return false when pop capped")
+
+	return Assertions.assert_true(not archery_range.is_training,
+		"Archery Range should not be training when pop capped")
+
+
+func test_archery_range_cannot_train_skirmisher_while_training() -> Assertions.AssertResult:
+	## Can't start a new training while one is in progress
+	var archery_range = runner.spawner.spawn_archery_range(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["food"] = 200
+	GameManager.resources["wood"] = 200
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var first_success = archery_range.train_skirmisher()
+	var second_success = archery_range.train_skirmisher()  # Should fail
+
+	if not first_success:
+		return Assertions.AssertResult.new(false,
+			"First train_skirmisher should succeed")
+
+	if second_success:
+		return Assertions.AssertResult.new(false,
+			"Second train_skirmisher should fail while training")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Stable Cavalry Archer Training Tests (Phase 2D) ===
+
+func test_stable_trains_cavalry_archer_costs_resources() -> Assertions.AssertResult:
+	## Training Cavalry Archer should cost 40 wood and 70 gold
+	var stable = runner.spawner.spawn_stable(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["wood"] = 100
+	GameManager.resources["gold"] = 100
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var initial_wood = GameManager.get_resource("wood")
+	var initial_gold = GameManager.get_resource("gold")
+
+	var success = stable.train_cavalry_archer()
+
+	if not success:
+		return Assertions.AssertResult.new(false,
+			"train_cavalry_archer should return true when can afford")
+
+	var result = Assertions.assert_resource("wood", initial_wood - Stable.CAVALRY_ARCHER_WOOD_COST)
+	if not result.passed:
+		return result
+
+	result = Assertions.assert_resource("gold", initial_gold - Stable.CAVALRY_ARCHER_GOLD_COST)
+	if not result.passed:
+		return result
+
+	return Assertions.assert_true(stable.is_training,
+		"Stable should be in training state after train_cavalry_archer()")
+
+
+func test_stable_cavalry_archer_training_fails_if_no_wood() -> Assertions.AssertResult:
+	## Training Cavalry Archer should fail if not enough wood
+	var stable = runner.spawner.spawn_stable(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["wood"] = 20  # Not enough (need 40)
+	GameManager.resources["gold"] = 100
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var success = stable.train_cavalry_archer()
+
+	if success:
+		return Assertions.AssertResult.new(false,
+			"train_cavalry_archer should return false when can't afford wood")
+
+	return Assertions.assert_true(not stable.is_training,
+		"Stable should not be training when can't afford")
+
+
+func test_stable_cavalry_archer_training_fails_if_no_gold() -> Assertions.AssertResult:
+	## Training Cavalry Archer should fail if not enough gold
+	var stable = runner.spawner.spawn_stable(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["wood"] = 100
+	GameManager.resources["gold"] = 50  # Not enough (need 70)
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var success = stable.train_cavalry_archer()
+
+	if success:
+		return Assertions.AssertResult.new(false,
+			"train_cavalry_archer should return false when can't afford gold")
+
+	return Assertions.assert_true(not stable.is_training,
+		"Stable should not be training when can't afford")
+
+
+func test_stable_cavalry_archer_training_fails_if_pop_capped() -> Assertions.AssertResult:
+	## Training Cavalry Archer should fail if at population cap
+	var stable = runner.spawner.spawn_stable(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["wood"] = 100
+	GameManager.resources["gold"] = 100
+	GameManager.population = 5
+	GameManager.population_cap = 5  # At cap
+
+	var success = stable.train_cavalry_archer()
+
+	if success:
+		return Assertions.AssertResult.new(false,
+			"train_cavalry_archer should return false when pop capped")
+
+	return Assertions.assert_true(not stable.is_training,
+		"Stable should not be training when pop capped")
+
+
+func test_stable_cannot_train_cavalry_archer_while_training() -> Assertions.AssertResult:
+	## Can't start a new training while one is in progress
+	var stable = runner.spawner.spawn_stable(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	GameManager.resources["wood"] = 200
+	GameManager.resources["gold"] = 200
+	GameManager.population = 0
+	GameManager.population_cap = 10
+
+	var first_success = stable.train_cavalry_archer()
+	var second_success = stable.train_cavalry_archer()  # Should fail
+
+	if not first_success:
+		return Assertions.AssertResult.new(false,
+			"First train_cavalry_archer should succeed")
+
+	if second_success:
+		return Assertions.AssertResult.new(false,
+			"Second train_cavalry_archer should fail while training")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_stable_spawns_cavalry_archer_with_correct_team() -> Assertions.AssertResult:
+	## Trained Cavalry Archer should inherit team from stable
+	var stable = runner.spawner.spawn_stable(Vector2(400, 400), 1)  # AI team
+	await runner.wait_frames(2)
+
+	GameManager.ai_resources["wood"] = 100
+	GameManager.ai_resources["gold"] = 100
+	GameManager.ai_population = 0
+	GameManager.ai_population_cap = 10
+
+	var success = stable.train_cavalry_archer()
+
+	if not success:
+		return Assertions.AssertResult.new(false,
+			"train_cavalry_archer should succeed for AI team")
+
+	# Verify training state is set correctly
+	if stable.current_training != Stable.TrainingType.CAVALRY_ARCHER:
+		return Assertions.AssertResult.new(false,
+			"Training type should be CAVALRY_ARCHER")
+
+	# Verify the stable has correct team (which will be inherited by spawned unit)
+	if stable.team != 1:
+		return Assertions.AssertResult.new(false,
+			"Stable should have team 1, got: %d" % stable.team)
+
+	# Test that spawned cavalry archer (via test spawner) gets correct team
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(500, 400), 1)
+	await runner.wait_frames(2)
+
+	if cavalry_archer.team != 1:
+		return Assertions.AssertResult.new(false,
+			"Spawned Cavalry Archer should have team 1 (AI), got: %d" % cavalry_archer.team)
 
 	return Assertions.AssertResult.new(true)
 

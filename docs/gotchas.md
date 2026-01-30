@@ -17,6 +17,8 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 | Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
 | Scout Cavalry | Unit | `assets/sprites/units/scout_cavalry.svg` | Orange mounted figure |
 | Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
+| Skirmisher | Unit | `assets/sprites/units/skirmisher.svg` | Light green figure with javelins |
+| Cavalry Archer | Unit | `assets/sprites/units/cavalry_archer.svg` | Mounted figure with bow |
 
 **Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
 

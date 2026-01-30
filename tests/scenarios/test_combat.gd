@@ -11,6 +11,8 @@ extends Node
 ## - Archer stats match AoE2 spec
 ## - Scout Cavalry stats and cavalry group membership
 ## - Spearman stats, infantry group, and anti-cavalry bonus
+## - Skirmisher stats, groups, and anti-archer bonus
+## - Cavalry Archer stats, dual group membership (cavalry + archers)
 
 class_name TestCombat
 
@@ -55,6 +57,23 @@ func get_all_tests() -> Array[Callable]:
 		test_spearman_state_changes_to_attacking,
 		test_spearman_deals_damage_to_unit,
 		test_spearman_stops_attacking_dead_unit,
+		# Skirmisher tests (Phase 2D)
+		test_skirmisher_has_correct_stats,
+		test_skirmisher_groups_membership,
+		test_skirmisher_command_attack_sets_target,
+		test_skirmisher_state_changes_to_attacking,
+		test_skirmisher_deals_damage_to_unit,
+		test_skirmisher_stops_attacking_dead_unit,
+		test_skirmisher_bonus_damage_vs_archers,
+		# Cavalry Archer tests (Phase 2D)
+		test_cavalry_archer_has_correct_stats,
+		test_cavalry_archer_groups_membership,
+		test_cavalry_archer_command_attack_sets_target,
+		test_cavalry_archer_state_changes_to_attacking,
+		test_cavalry_archer_deals_damage_to_unit,
+		test_cavalry_archer_stops_attacking_dead_unit,
+		test_cavalry_archer_takes_bonus_from_spearman,
+		test_cavalry_archer_takes_bonus_from_skirmisher,
 	]
 
 
@@ -690,3 +709,381 @@ func test_spearman_stops_attacking_dead_unit() -> Assertions.AssertResult:
 			"attack_target should be null after target dies")
 
 	return Assertions.assert_spearman_state(spearman, Spearman.State.IDLE)
+
+
+# === Skirmisher Tests (Phase 2D) ===
+
+func test_skirmisher_has_correct_stats() -> Assertions.AssertResult:
+	## Skirmisher should have AoE2 spec stats: 30 HP, 2 attack, 0/3 armor, 128px range
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if skirmisher.max_hp != 30:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher max_hp should be 30, got: %d" % skirmisher.max_hp)
+
+	if skirmisher.current_hp != 30:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher current_hp should be 30, got: %d" % skirmisher.current_hp)
+
+	if skirmisher.attack_damage != 2:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher attack_damage should be 2, got: %d" % skirmisher.attack_damage)
+
+	if skirmisher.melee_armor != 0:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher melee_armor should be 0, got: %d" % skirmisher.melee_armor)
+
+	if skirmisher.pierce_armor != 3:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher pierce_armor should be 3, got: %d" % skirmisher.pierce_armor)
+
+	if skirmisher.attack_range != 128.0:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher attack_range should be 128.0, got: %.1f" % skirmisher.attack_range)
+
+	if skirmisher.bonus_vs_archers != 3:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher bonus_vs_archers should be 3, got: %d" % skirmisher.bonus_vs_archers)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_skirmisher_groups_membership() -> Assertions.AssertResult:
+	## Skirmisher should belong to "military" and "archers" groups
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if not skirmisher.is_in_group("military"):
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should be in 'military' group")
+
+	if not skirmisher.is_in_group("archers"):
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should be in 'archers' group")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_skirmisher_command_attack_sets_target() -> Assertions.AssertResult:
+	## command_attack should set attack_target and change state
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)  # Enemy
+	await runner.wait_frames(2)
+
+	skirmisher.command_attack(target)
+	await runner.wait_frames(2)
+
+	if skirmisher.attack_target != target:
+		return Assertions.AssertResult.new(false,
+			"attack_target should be set to target unit")
+
+	return Assertions.assert_skirmisher_state(skirmisher, Skirmisher.State.ATTACKING)
+
+
+func test_skirmisher_state_changes_to_attacking() -> Assertions.AssertResult:
+	## Skirmisher should transition to ATTACKING state when commanded
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)
+	await runner.wait_frames(2)
+
+	# Verify initial state is IDLE
+	if skirmisher.current_state != Skirmisher.State.IDLE:
+		return Assertions.AssertResult.new(false,
+			"Initial state should be IDLE, got %d" % skirmisher.current_state)
+
+	skirmisher.command_attack(target)
+	await runner.wait_frames(2)
+
+	return Assertions.assert_skirmisher_state(skirmisher, Skirmisher.State.ATTACKING)
+
+
+func test_skirmisher_deals_damage_to_unit() -> Assertions.AssertResult:
+	## Skirmisher should deal damage to target unit over time
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)  # Within 128px range
+	await runner.wait_frames(2)
+
+	var initial_hp = target.current_hp
+
+	skirmisher.command_attack(target)
+
+	# Wait for attack cooldown (2.0 sec) + generous buffer
+	for i in range(300):
+		await runner.wait_frames(1)
+		if not is_instance_valid(target):
+			break
+		if target.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(target):
+		return Assertions.AssertResult.new(false,
+			"Target died unexpectedly during test")
+
+	if target.current_hp >= initial_hp:
+		return Assertions.AssertResult.new(false,
+			"Target HP should decrease. Initial: %d, Current: %d" % [initial_hp, target.current_hp])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_skirmisher_stops_attacking_dead_unit() -> Assertions.AssertResult:
+	## Skirmisher should return to IDLE when target dies
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)
+	await runner.wait_frames(2)
+
+	skirmisher.command_attack(target)
+	await runner.wait_frames(2)
+
+	# Kill the target directly
+	target.die()
+	await runner.wait_frames(5)  # Let state machine process
+
+	if skirmisher.attack_target != null:
+		return Assertions.AssertResult.new(false,
+			"attack_target should be null after target dies")
+
+	return Assertions.assert_skirmisher_state(skirmisher, Skirmisher.State.IDLE)
+
+
+func test_skirmisher_bonus_damage_vs_archers() -> Assertions.AssertResult:
+	## Skirmisher should deal +3 bonus damage to units in the archers group
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	var archer = runner.spawner.spawn_archer(Vector2(450, 400), 1)  # Archer target
+	await runner.wait_frames(2)
+
+	var initial_hp = archer.current_hp
+
+	skirmisher.command_attack(archer)
+
+	# Wait for attack cooldown (2.0 sec) + generous buffer
+	for i in range(300):
+		await runner.wait_frames(1)
+		if not is_instance_valid(archer):
+			break
+		if archer.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(archer):
+		return Assertions.AssertResult.new(false,
+			"Archer died unexpectedly during test")
+
+	# Skirmisher does 2 base pierce damage. Archer has 0 pierce armor.
+	# Bonus +3 vs archers, so total damage = 2 + 3 = 5
+	var expected_damage = 5
+	var actual_damage = initial_hp - archer.current_hp
+
+	if actual_damage != expected_damage:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should deal %d damage to archer (2 base + 3 bonus), dealt: %d" % [expected_damage, actual_damage])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Cavalry Archer Tests (Phase 2D) ===
+
+func test_cavalry_archer_has_correct_stats() -> Assertions.AssertResult:
+	## Cavalry Archer should have AoE2 spec stats: 50 HP, 6 attack, 0/0 armor, 96px range, 140 speed
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if cavalry_archer.max_hp != 50:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer max_hp should be 50, got: %d" % cavalry_archer.max_hp)
+
+	if cavalry_archer.current_hp != 50:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer current_hp should be 50, got: %d" % cavalry_archer.current_hp)
+
+	if cavalry_archer.attack_damage != 6:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer attack_damage should be 6, got: %d" % cavalry_archer.attack_damage)
+
+	if cavalry_archer.melee_armor != 0:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer melee_armor should be 0, got: %d" % cavalry_archer.melee_armor)
+
+	if cavalry_archer.pierce_armor != 0:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer pierce_armor should be 0, got: %d" % cavalry_archer.pierce_armor)
+
+	if cavalry_archer.attack_range != 96.0:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer attack_range should be 96.0, got: %.1f" % cavalry_archer.attack_range)
+
+	if cavalry_archer.move_speed != 140.0:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer move_speed should be 140.0, got: %.1f" % cavalry_archer.move_speed)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_cavalry_archer_groups_membership() -> Assertions.AssertResult:
+	## Cavalry Archer should belong to "military", "cavalry", and "archers" groups
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if not cavalry_archer.is_in_group("military"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'military' group")
+
+	if not cavalry_archer.is_in_group("cavalry"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'cavalry' group")
+
+	if not cavalry_archer.is_in_group("archers"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'archers' group")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_cavalry_archer_command_attack_sets_target() -> Assertions.AssertResult:
+	## command_attack should set attack_target and change state
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)  # Enemy
+	await runner.wait_frames(2)
+
+	cavalry_archer.command_attack(target)
+	await runner.wait_frames(2)
+
+	if cavalry_archer.attack_target != target:
+		return Assertions.AssertResult.new(false,
+			"attack_target should be set to target unit")
+
+	return Assertions.assert_cavalry_archer_state(cavalry_archer, CavalryArcher.State.ATTACKING)
+
+
+func test_cavalry_archer_state_changes_to_attacking() -> Assertions.AssertResult:
+	## Cavalry Archer should transition to ATTACKING state when commanded
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)
+	await runner.wait_frames(2)
+
+	# Verify initial state is IDLE
+	if cavalry_archer.current_state != CavalryArcher.State.IDLE:
+		return Assertions.AssertResult.new(false,
+			"Initial state should be IDLE, got %d" % cavalry_archer.current_state)
+
+	cavalry_archer.command_attack(target)
+	await runner.wait_frames(2)
+
+	return Assertions.assert_cavalry_archer_state(cavalry_archer, CavalryArcher.State.ATTACKING)
+
+
+func test_cavalry_archer_deals_damage_to_unit() -> Assertions.AssertResult:
+	## Cavalry Archer should deal damage to target unit over time
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)  # Within 96px range
+	await runner.wait_frames(2)
+
+	var initial_hp = target.current_hp
+
+	cavalry_archer.command_attack(target)
+
+	# Wait for attack cooldown (2.0 sec) + generous buffer
+	for i in range(300):
+		await runner.wait_frames(1)
+		if not is_instance_valid(target):
+			break
+		if target.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(target):
+		return Assertions.AssertResult.new(false,
+			"Target died unexpectedly during test")
+
+	if target.current_hp >= initial_hp:
+		return Assertions.AssertResult.new(false,
+			"Target HP should decrease. Initial: %d, Current: %d" % [initial_hp, target.current_hp])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_cavalry_archer_stops_attacking_dead_unit() -> Assertions.AssertResult:
+	## Cavalry Archer should return to IDLE when target dies
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)
+	await runner.wait_frames(2)
+
+	cavalry_archer.command_attack(target)
+	await runner.wait_frames(2)
+
+	# Kill the target directly
+	target.die()
+	await runner.wait_frames(5)  # Let state machine process
+
+	if cavalry_archer.attack_target != null:
+		return Assertions.AssertResult.new(false,
+			"attack_target should be null after target dies")
+
+	return Assertions.assert_cavalry_archer_state(cavalry_archer, CavalryArcher.State.IDLE)
+
+
+func test_cavalry_archer_takes_bonus_from_spearman() -> Assertions.AssertResult:
+	## Cavalry Archer should take +15 bonus damage from spearman (is in cavalry group)
+	var spearman = runner.spawner.spawn_spearman(Vector2(400, 400))
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(410, 400), 1)  # Enemy
+	await runner.wait_frames(2)
+
+	var initial_hp = cavalry_archer.current_hp
+
+	spearman.command_attack(cavalry_archer)
+
+	# Wait for attack cooldown (2.0 sec) + generous buffer
+	for i in range(300):
+		await runner.wait_frames(1)
+		if not is_instance_valid(cavalry_archer):
+			break
+		if cavalry_archer.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(cavalry_archer):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer died unexpectedly during test")
+
+	# Spearman does 3 base melee damage. Cavalry Archer has 0 melee armor.
+	# Bonus +15 vs cavalry, so total damage = 3 + 15 = 18
+	var expected_damage = 18
+	var actual_damage = initial_hp - cavalry_archer.current_hp
+
+	if actual_damage != expected_damage:
+		return Assertions.AssertResult.new(false,
+			"Spearman should deal %d damage to Cavalry Archer (3 base + 15 anti-cavalry bonus), dealt: %d" % [expected_damage, actual_damage])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_cavalry_archer_takes_bonus_from_skirmisher() -> Assertions.AssertResult:
+	## Cavalry Archer should take +3 bonus damage from skirmisher (is in archers group)
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	var cavalry_archer = runner.spawner.spawn_cavalry_archer(Vector2(450, 400), 1)  # Enemy, within 128px range
+	await runner.wait_frames(2)
+
+	var initial_hp = cavalry_archer.current_hp
+
+	skirmisher.command_attack(cavalry_archer)
+
+	# Wait for attack cooldown (2.0 sec) + generous buffer
+	for i in range(300):
+		await runner.wait_frames(1)
+		if not is_instance_valid(cavalry_archer):
+			break
+		if cavalry_archer.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(cavalry_archer):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer died unexpectedly during test")
+
+	# Skirmisher does 2 base pierce damage. Cavalry Archer has 0 pierce armor.
+	# Bonus +3 vs archers, so total damage = 2 + 3 = 5
+	var expected_damage = 5
+	var actual_damage = initial_hp - cavalry_archer.current_hp
+
+	if actual_damage != expected_damage:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should deal %d damage to Cavalry Archer (2 base + 3 anti-archer bonus), dealt: %d" % [expected_damage, actual_damage])
+
+	return Assertions.AssertResult.new(true)

@@ -16,6 +16,8 @@ const ARCHER_SCENE = preload("res://scenes/units/archer.tscn")
 const TRADE_CART_SCENE = preload("res://scenes/units/trade_cart.tscn")
 const SCOUT_CAVALRY_SCENE = preload("res://scenes/units/scout_cavalry.tscn")
 const SPEARMAN_SCENE = preload("res://scenes/units/spearman.tscn")
+const SKIRMISHER_SCENE = preload("res://scenes/units/skirmisher.tscn")
+const CAVALRY_ARCHER_SCENE = preload("res://scenes/units/cavalry_archer.tscn")
 
 # Scene paths - Buildings
 const TOWN_CENTER_SCENE = preload("res://scenes/buildings/town_center.tscn")
@@ -111,6 +113,24 @@ func spawn_spearman(position: Vector2, team: int = 0) -> Node:
 	units_container.add_child(spearman)
 	spawned_entities.append(spearman)
 	return spearman
+
+
+func spawn_skirmisher(position: Vector2, team: int = 0) -> Node:
+	var skirmisher = SKIRMISHER_SCENE.instantiate()
+	skirmisher.global_position = position
+	skirmisher.team = team
+	units_container.add_child(skirmisher)
+	spawned_entities.append(skirmisher)
+	return skirmisher
+
+
+func spawn_cavalry_archer(position: Vector2, team: int = 0) -> Node:
+	var cavalry_archer = CAVALRY_ARCHER_SCENE.instantiate()
+	cavalry_archer.global_position = position
+	cavalry_archer.team = team
+	units_container.add_child(cavalry_archer)
+	spawned_entities.append(cavalry_archer)
+	return cavalry_archer
 
 
 func spawn_town_center(position: Vector2, team: int = 0) -> Node:
