@@ -10,14 +10,30 @@ const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
 const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
 const MILL_SCENE_PATH = "res://scenes/buildings/mill.tscn"
 const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
+const FARM_SCENE_PATH = "res://scenes/buildings/farm.tscn"
+const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
+const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 
 const AI_TEAM: int = 1
 const AI_BASE_POSITION: Vector2 = Vector2(1700, 1700)
 const DECISION_INTERVAL: float = 1.5
-const ATTACK_THRESHOLD: int = 3
+
+# Economic thresholds
+const TARGET_VILLAGERS: int = 20  # Target villager count before heavy military
+const MIN_VILLAGERS_FOR_ATTACK: int = 15  # Minimum villagers before considering attack
+const MIN_MILITARY_FOR_ATTACK: int = 5  # Minimum military before attacking
+const TARGET_FARMS: int = 6  # Target number of farms for sustainable food
+
+# Villager allocation targets (approximate ratios)
+const FOOD_VILLAGERS: int = 6
+const WOOD_VILLAGERS: int = 5
+const GOLD_VILLAGERS: int = 3
+const STONE_VILLAGERS: int = 1
 
 var ai_tc: TownCenter = null
-var ai_barracks: Barracks = null
+var ai_barracks: Array[Barracks] = []  # Support multiple barracks
+var ai_archery_range: ArcheryRange = null
+var ai_stable: Stable = null
 var ai_lumber_camp: LumberCamp = null
 var ai_mining_camp: MiningCamp = null
 var ai_mill: Mill = null
@@ -60,43 +76,99 @@ func _process(delta: float) -> void:
 		_make_decisions()
 
 func _make_decisions() -> void:
-	# Check if AI TC still exists
+	# Check if AI TC still exists - try to find it if we lost reference
 	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
-		return
+		ai_tc = _find_ai_tc()
+		if ai_tc == null:
+			return  # No TC, AI has lost
 
-	# 1. Send idle villagers to gather (with priority)
-	_assign_idle_villagers()
+	var villager_count = _get_ai_villagers().size()
+	var military_count = _get_military_count()
 
-	# 2. Build house if pop capped
-	if _is_pop_capped() and GameManager.can_afford("wood", 25, AI_TEAM):
+	# === ECONOMY PHASE (Priority 1) ===
+
+	# 1. Train villagers continuously (critical for economy)
+	if villager_count < TARGET_VILLAGERS:
+		_train_villager()
+
+	# 2. Build house if pop capped or close to cap
+	var pop = GameManager.get_population(AI_TEAM)
+	var cap = GameManager.get_population_cap(AI_TEAM)
+	if pop >= cap - 2 and GameManager.can_afford("wood", 25, AI_TEAM):
 		_build_house()
 
-	# 3. Build camps near resources if villagers are gathering far from drop-offs
+	# 3. Assign idle villagers to gather
+	_assign_idle_villagers()
+
+	# 4. Build mill for food drop-off efficiency (before farms)
+	if not _has_mill() and GameManager.can_afford("wood", 100, AI_TEAM):
+		if villager_count >= 6:  # Wait until we have some villagers
+			_build_mill()
+
+	# 5. Build farms for sustainable food
+	if _should_build_farm():
+		_build_farm()
+
+	# 6. Build camps near resources
 	_consider_building_camps()
 
-	# 4. Build barracks if we don't have one
+	# === MILITARY PHASE (Priority 2) ===
+
+	# 7. Build barracks (first military building)
 	if not _has_barracks() and GameManager.can_afford("wood", 100, AI_TEAM):
-		_build_barracks()
+		if villager_count >= 8:  # Wait for basic economy
+			_build_barracks()
 
-	# 5. Train militia if we have barracks and can afford
-	if _has_barracks() and _can_train_militia():
-		_train_militia()
+	# 8. Build archery range (after barracks, for mixed army)
+	if not _has_archery_range() and _has_barracks() and GameManager.can_afford("wood", 175, AI_TEAM):
+		if villager_count >= 12:
+			_build_archery_range()
 
-	# 6. Build market if we have surplus resources and need gold, or vice versa
+	# 9. Build stable (after archery range, for full army composition)
+	if not _has_stable() and _has_archery_range() and GameManager.can_afford("wood", 175, AI_TEAM):
+		if villager_count >= 15:
+			_build_stable()
+
+	# 10. Build second barracks for production scaling
+	if _count_barracks() < 2 and villager_count >= 18 and GameManager.can_afford("wood", 100, AI_TEAM):
+		if GameManager.get_resource("wood", AI_TEAM) > 200:  # Only if floating resources
+			_build_barracks()
+
+	# 11. Train military units (mixed composition)
+	_train_military()
+
+	# === ECONOMY SUPPORT (Priority 3) ===
+
+	# 12. Build market if beneficial
 	if not _has_market() and GameManager.can_afford("wood", 175, AI_TEAM):
-		if _should_build_market():
+		if villager_count >= 15 and _should_build_market():
 			_build_market()
 
-	# 7. Use market to balance resources if we have one
+	# 13. Use market to balance resources
 	if _has_market():
 		_use_market()
 
-	# 8. Attack when we have enough military (reset flag if military depleted)
-	var military_count = _get_military_count()
-	if military_count < ATTACK_THRESHOLD:
+	# 14. Rebuild destroyed critical buildings
+	_consider_rebuilding()
+
+	# === ATTACK PHASE (Priority 4) ===
+
+	# 15. Attack when economy is established and military is ready
+	if military_count < MIN_MILITARY_FOR_ATTACK:
 		has_attacked = false
-	if military_count >= ATTACK_THRESHOLD and not has_attacked:
+	if _should_attack():
 		_attack_player()
+
+func _train_villager() -> void:
+	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
+		return
+	if ai_tc.is_training:
+		return
+	if not GameManager.can_add_population(AI_TEAM):
+		return
+	if not GameManager.can_afford("food", 50, AI_TEAM):
+		return
+	ai_tc.train_villager()
 
 func _assign_idle_villagers() -> void:
 	var ai_villagers = _get_ai_villagers()
@@ -109,43 +181,208 @@ func _assign_idle_villagers() -> void:
 	if idle_villagers.is_empty():
 		return
 
-	# Determine what we need most (priority: food > wood > gold > stone)
-	var needed_resource = _get_priority_resource()
+	# Count current villager allocation
+	var allocation = _count_villager_allocation()
 
 	for villager in idle_villagers:
+		# Determine what resource this villager should gather based on allocation
+		var needed_resource = _get_needed_resource(allocation)
+
 		# First priority: hunt nearby animals for food (if we need food)
 		if needed_resource == "food":
 			var animal = _find_huntable_animal(villager.global_position)
 			if animal:
 				villager.command_hunt(animal)
+				allocation["food"] += 1
 				continue
 
 		var resource = _find_resource_of_type(villager.global_position, needed_resource)
 		if resource:
 			villager.command_gather(resource)
+			allocation[needed_resource] += 1
 		else:
 			# Fallback to any nearby resource
 			resource = _find_nearest_resource(villager.global_position)
 			if resource:
 				villager.command_gather(resource)
+				var res_type = resource.get_resource_type()
+				allocation[res_type] += 1
 
-func _get_priority_resource() -> String:
-	# Food is always priority for villagers and military
+func _count_villager_allocation() -> Dictionary:
+	var allocation = {"food": 0, "wood": 0, "gold": 0, "stone": 0}
+	var ai_villagers = _get_ai_villagers()
+
+	for villager in ai_villagers:
+		# Hunting always means food
+		if villager.current_state == Villager.State.HUNTING:
+			allocation["food"] += 1
+		elif villager.current_state == Villager.State.GATHERING or villager.current_state == Villager.State.RETURNING:
+			var res_type = villager.carried_resource_type
+			if res_type in allocation:
+				allocation[res_type] += 1
+
+	return allocation
+
+func _get_needed_resource(allocation: Dictionary) -> String:
+	# Calculate how far each resource is from its target ratio
+	var total_gatherers = allocation["food"] + allocation["wood"] + allocation["gold"] + allocation["stone"]
+	if total_gatherers == 0:
+		return "food"  # Default to food if no one is gathering
+
+	# Calculate deficit for each resource (target - current)
+	var food_deficit = FOOD_VILLAGERS - allocation["food"]
+	var wood_deficit = WOOD_VILLAGERS - allocation["wood"]
+	var gold_deficit = GOLD_VILLAGERS - allocation["gold"]
+	var stone_deficit = STONE_VILLAGERS - allocation["stone"]
+
+	# Also consider absolute resource levels (emergency needs)
 	var food = GameManager.get_resource("food", AI_TEAM)
 	var wood = GameManager.get_resource("wood", AI_TEAM)
 	var gold = GameManager.get_resource("gold", AI_TEAM)
 
-	# Need food for villagers (50) and militia (60)
-	if food < 100:
+	# Emergency thresholds - override normal allocation
+	if food < 50:
 		return "food"
-	# Need wood for buildings and militia
-	if wood < 150:
+	if wood < 50:
 		return "wood"
-	# Gold for advanced units (less important in MVP)
-	if gold < 50:
-		return "gold"
-	# Default to food
-	return "food"
+
+	# Return resource with highest deficit
+	var max_deficit = food_deficit
+	var needed = "food"
+
+	if wood_deficit > max_deficit:
+		max_deficit = wood_deficit
+		needed = "wood"
+	if gold_deficit > max_deficit:
+		max_deficit = gold_deficit
+		needed = "gold"
+	if stone_deficit > max_deficit:
+		max_deficit = stone_deficit
+		needed = "stone"
+
+	return needed
+
+# Mill and Farm building functions
+func _has_mill() -> bool:
+	if is_instance_valid(ai_mill) and not ai_mill.is_destroyed:
+		return true
+	var mills = get_tree().get_nodes_in_group("mills")
+	for m in mills:
+		if m.team == AI_TEAM and not m.is_destroyed:
+			ai_mill = m
+			return true
+	return false
+
+func _build_mill() -> void:
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
+		return
+
+	var scene = load(MILL_SCENE_PATH)
+	ai_mill = scene.instantiate()
+
+	# Build mill near TC for farm clustering
+	var offset = _find_building_spot(Vector2(64, 64))
+	ai_mill.global_position = AI_BASE_POSITION + offset
+	ai_mill.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_mill)
+
+func _count_farms() -> int:
+	var count = 0
+	var farms = get_tree().get_nodes_in_group("farms")
+	for farm in farms:
+		if farm.team == AI_TEAM and not farm.is_destroyed:
+			count += 1
+	return count
+
+func _should_build_farm() -> bool:
+	# Don't build too many farms
+	if _count_farms() >= TARGET_FARMS:
+		return false
+
+	# Need wood for farm (50)
+	if not GameManager.can_afford("wood", 50, AI_TEAM):
+		return false
+
+	# Build farms when:
+	# 1. Natural food sources are depleted
+	# 2. We have villagers but low food income
+	var food = GameManager.get_resource("food", AI_TEAM)
+	var villager_count = _get_ai_villagers().size()
+
+	# Check if natural food sources are scarce
+	var has_natural_food = _has_natural_food_sources()
+
+	# Build farm if: no natural food, or we have 10+ villagers and fewer farms than needed
+	if not has_natural_food:
+		return true
+	if villager_count >= 10 and _count_farms() < 4:
+		return true
+	if villager_count >= 15 and _count_farms() < 6:
+		return true
+
+	return false
+
+func _has_natural_food_sources() -> bool:
+	# Check for huntable animals
+	var animals = get_tree().get_nodes_in_group("animals")
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		if animal is Wolf:
+			continue
+		# Check if animal is reasonably close to AI base
+		if animal.global_position.distance_to(AI_BASE_POSITION) < 600:
+			return true
+
+	# Check for berry bushes
+	var resources = get_tree().get_nodes_in_group("resources")
+	for resource in resources:
+		if resource is Farm:
+			continue
+		if resource.get_resource_type() == "food" and resource.has_resources():
+			if resource.global_position.distance_to(AI_BASE_POSITION) < 500:
+				return true
+
+	return false
+
+func _build_farm() -> void:
+	if not GameManager.spend_resource("wood", 50, AI_TEAM):
+		return
+
+	var scene = load(FARM_SCENE_PATH)
+	var farm = scene.instantiate()
+
+	# Find position near mill (if exists) or TC
+	var base_pos = AI_BASE_POSITION
+	if is_instance_valid(ai_mill) and not ai_mill.is_destroyed:
+		base_pos = ai_mill.global_position
+
+	var pos = _find_farm_position(base_pos)
+	farm.global_position = pos
+	farm.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(farm)
+
+func _find_farm_position(near_pos: Vector2) -> Vector2:
+	# Farms are 2x2 (64x64 pixels)
+	var farm_size = Vector2(64, 64)
+
+	# Try positions in a grid around the base position
+	var offsets = [
+		Vector2(70, 0), Vector2(-70, 0), Vector2(0, 70), Vector2(0, -70),
+		Vector2(70, 70), Vector2(-70, 70), Vector2(70, -70), Vector2(-70, -70),
+		Vector2(140, 0), Vector2(-140, 0), Vector2(0, 140), Vector2(0, -140),
+		Vector2(140, 70), Vector2(-140, 70), Vector2(140, -70), Vector2(-140, -70),
+	]
+
+	for offset in offsets:
+		var pos = near_pos + offset
+		if _is_valid_building_position(pos, farm_size):
+			return pos
+
+	# Fallback
+	return near_pos + Vector2(80, 80)
 
 func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> Node:  # Returns ResourceNode or Farm
 	var resources = get_tree().get_nodes_in_group("resources")
@@ -381,56 +618,164 @@ func _build_house() -> void:
 	# Team color and population cap handled by House._ready()
 
 func _has_barracks() -> bool:
-	if is_instance_valid(ai_barracks) and not ai_barracks.is_destroyed:
-		return true
+	_refresh_barracks_list()
+	return ai_barracks.size() > 0
 
-	# Check if we have any barracks
+func _count_barracks() -> int:
+	_refresh_barracks_list()
+	return ai_barracks.size()
+
+func _refresh_barracks_list() -> void:
+	# Remove invalid/destroyed barracks from list
+	ai_barracks = ai_barracks.filter(func(b): return is_instance_valid(b) and not b.is_destroyed)
+
+	# Add any barracks we don't have in our list
 	var barracks_list = get_tree().get_nodes_in_group("barracks")
 	for b in barracks_list:
 		if b.team == AI_TEAM and not b.is_destroyed:
-			ai_barracks = b
-			return true
-	return false
+			if not ai_barracks.has(b):
+				ai_barracks.append(b)
 
 func _build_barracks() -> void:
 	if not GameManager.spend_resource("wood", 100, AI_TEAM):
 		return
 
 	var barracks_scene = load(BARRACKS_SCENE_PATH)
-	ai_barracks = barracks_scene.instantiate()
+	var new_barracks = barracks_scene.instantiate()
 
 	# Find a spot near the TC
 	var offset = _find_building_spot(Vector2(96, 96))
-	ai_barracks.global_position = AI_BASE_POSITION + offset
-	ai_barracks.team = AI_TEAM
+	new_barracks.global_position = AI_BASE_POSITION + offset
+	new_barracks.team = AI_TEAM
 
-	get_parent().get_node("Buildings").add_child(ai_barracks)
-	# Team color handled by Building._ready()
+	get_parent().get_node("Buildings").add_child(new_barracks)
+	ai_barracks.append(new_barracks)
 
-func _can_train_militia() -> bool:
-	if not is_instance_valid(ai_barracks):
-		return false
-	if ai_barracks.is_training:
-		return false
-	if not GameManager.can_add_population(AI_TEAM):
-		return false
-	if not GameManager.can_afford("food", 60, AI_TEAM):
-		return false
-	if not GameManager.can_afford("wood", 20, AI_TEAM):
-		return false
-	return true
+# Archery Range functions
+func _has_archery_range() -> bool:
+	if is_instance_valid(ai_archery_range) and not ai_archery_range.is_destroyed:
+		return true
+	var ranges = get_tree().get_nodes_in_group("archery_ranges")
+	for r in ranges:
+		if r.team == AI_TEAM and not r.is_destroyed:
+			ai_archery_range = r
+			return true
+	return false
 
-func _train_militia() -> void:
-	if not is_instance_valid(ai_barracks):
+func _build_archery_range() -> void:
+	if not GameManager.spend_resource("wood", 175, AI_TEAM):
 		return
-	# Barracks handles resource spending and population based on team
-	ai_barracks.train_militia()
+
+	var scene = load(ARCHERY_RANGE_SCENE_PATH)
+	ai_archery_range = scene.instantiate()
+
+	var offset = _find_building_spot(Vector2(96, 96))
+	ai_archery_range.global_position = AI_BASE_POSITION + offset
+	ai_archery_range.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_archery_range)
+
+# Stable functions
+func _has_stable() -> bool:
+	if is_instance_valid(ai_stable) and not ai_stable.is_destroyed:
+		return true
+	var stables = get_tree().get_nodes_in_group("stables")
+	for s in stables:
+		if s.team == AI_TEAM and not s.is_destroyed:
+			ai_stable = s
+			return true
+	return false
+
+func _build_stable() -> void:
+	if not GameManager.spend_resource("wood", 175, AI_TEAM):
+		return
+
+	var scene = load(STABLE_SCENE_PATH)
+	ai_stable = scene.instantiate()
+
+	var offset = _find_building_spot(Vector2(96, 96))
+	ai_stable.global_position = AI_BASE_POSITION + offset
+	ai_stable.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(ai_stable)
+
+# Military training (mixed army composition)
+func _train_military() -> void:
+	if not GameManager.can_add_population(AI_TEAM):
+		return
+
+	# Get current military composition
+	var militia_count = 0
+	var spearman_count = 0
+	var archer_count = 0
+	var scout_count = 0
+
+	var military = get_tree().get_nodes_in_group("military")
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit is Militia:
+			militia_count += 1
+		elif unit is Spearman:
+			spearman_count += 1
+		elif unit is Archer:
+			archer_count += 1
+		elif unit is ScoutCavalry:
+			scout_count += 1
+
+	# Training priority based on what we have:
+	# - Militia: baseline infantry (from Barracks)
+	# - Spearman: anti-cavalry (from Barracks)
+	# - Archer: ranged damage (from Archery Range)
+	# - Scout Cavalry: fast harass (from Stable)
+
+	# Try to maintain rough balance: 40% infantry (militia/spearman), 40% ranged, 20% cavalry
+
+	# Train from available buildings
+	_refresh_barracks_list()
+
+	# Train archers if we have archery range and need ranged units
+	if _has_archery_range() and not ai_archery_range.is_training:
+		var total_military = militia_count + spearman_count + archer_count + scout_count
+		if total_military == 0 or archer_count < total_military * 0.4:
+			if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
+				ai_archery_range.train_archer()
+				return
+
+	# Train scouts if we have stable and need cavalry
+	if _has_stable() and not ai_stable.is_training:
+		var total_military = militia_count + spearman_count + archer_count + scout_count
+		if scout_count < 2 or (total_military > 0 and scout_count < total_military * 0.2):
+			if GameManager.can_afford("food", 80, AI_TEAM):
+				ai_stable.train_scout_cavalry()
+				return
+
+	# Train from barracks (militia or spearman)
+	for barracks in ai_barracks:
+		if not is_instance_valid(barracks) or barracks.is_destroyed:
+			continue
+		if barracks.is_training:
+			continue
+
+		# Decide between militia and spearman
+		# Spearmen are good vs cavalry, militia is general purpose
+		# For now, train mostly militia with some spearmen mixed in
+		if spearman_count < militia_count * 0.5 and spearman_count < 3:
+			# Train spearman
+			if GameManager.can_afford("food", 35, AI_TEAM) and GameManager.can_afford("wood", 25, AI_TEAM):
+				barracks.train_spearman()
+				return
+		else:
+			# Train militia
+			if GameManager.can_afford("food", 60, AI_TEAM) and GameManager.can_afford("wood", 20, AI_TEAM):
+				barracks.train_militia()
+				return
 
 func _get_military_count() -> int:
 	var count = 0
-	var militias = get_tree().get_nodes_in_group("military")
-	for militia in militias:
-		if militia.team == AI_TEAM:
+	var military_units = get_tree().get_nodes_in_group("military")
+	for unit in military_units:
+		if unit.team == AI_TEAM:
 			count += 1
 	return count
 
@@ -449,10 +794,10 @@ func _attack_player() -> void:
 		return
 
 	# Send all AI military to attack
-	var militias = get_tree().get_nodes_in_group("military")
-	for militia in militias:
-		if militia.team == AI_TEAM:
-			militia.command_attack(player_tc)
+	var military_units = get_tree().get_nodes_in_group("military")
+	for unit in military_units:
+		if unit.team == AI_TEAM:
+			unit.command_attack(player_tc)
 
 func _get_ai_villagers() -> Array:
 	var result = []
@@ -573,3 +918,62 @@ func _use_market() -> void:
 		if food < 50:
 			ai_market.buy_resource("food")
 			return
+
+# Attack decision
+func _should_attack() -> bool:
+	var villager_count = _get_ai_villagers().size()
+	var military_count = _get_military_count()
+
+	# Don't attack if economy isn't established
+	if villager_count < MIN_VILLAGERS_FOR_ATTACK:
+		return false
+
+	# Don't attack without sufficient military
+	if military_count < MIN_MILITARY_FOR_ATTACK:
+		return false
+
+	# Don't attack if we've already attacked and military is still engaged
+	if has_attacked:
+		return false
+
+	# Attack if we have a good military force
+	return true
+
+# Rebuilding destroyed buildings
+func _consider_rebuilding() -> void:
+	# Check if critical buildings need rebuilding
+
+	# Rebuild barracks if all destroyed
+	if not _has_barracks() and GameManager.can_afford("wood", 100, AI_TEAM):
+		var villager_count = _get_ai_villagers().size()
+		if villager_count >= 5:  # Only rebuild if we have economy
+			_build_barracks()
+			return
+
+	# Rebuild archery range if destroyed and we had one
+	if not _has_archery_range() and _has_barracks() and GameManager.can_afford("wood", 175, AI_TEAM):
+		var villager_count = _get_ai_villagers().size()
+		if villager_count >= 10:
+			_build_archery_range()
+			return
+
+	# Rebuild stable if destroyed and we had one
+	if not _has_stable() and _has_archery_range() and GameManager.can_afford("wood", 175, AI_TEAM):
+		var villager_count = _get_ai_villagers().size()
+		if villager_count >= 12:
+			_build_stable()
+			return
+
+	# Rebuild mill if destroyed
+	if not _has_mill() and GameManager.can_afford("wood", 100, AI_TEAM):
+		if _count_farms() > 0:  # Only if we have farms that need it
+			_build_mill()
+			return
+
+# Find AI TC if we lost reference
+func _find_ai_tc() -> TownCenter:
+	var tcs = get_tree().get_nodes_in_group("town_centers")
+	for tc in tcs:
+		if tc.team == AI_TEAM and not tc.is_destroyed:
+			return tc
+	return null

@@ -22,6 +22,17 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 
 ---
 
+## Missing UI Feedback
+
+Track mechanics that work in code but have no visual feedback for the player. Address in Phase 10 (Polish & UX).
+
+| Mechanic | Status | What's Missing |
+|----------|--------|----------------|
+| Armor system | Working (Phase 2B) | No armor values shown in unit info panel, no damage numbers, no indication of melee vs pierce attack type |
+| Bonus damage | Working (Phase 2B) | Spearman +15 vs cavalry works but player can't see bonus being applied |
+
+---
+
 ## Project Structure
 
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
