@@ -203,6 +203,24 @@ static func assert_militia_state(militia: Node, expected_state: int) -> AssertRe
 	return AssertResult.new(true)
 
 
+static func assert_archer_state(archer: Node, expected_state: int) -> AssertResult:
+	## Check archer's current state enum
+	if not is_instance_valid(archer):
+		return AssertResult.new(false, "Archer was freed unexpectedly")
+
+	if not archer is Archer:
+		return AssertResult.new(false, "Node is not an Archer")
+
+	var actual = archer.current_state
+	if actual != expected_state:
+		var state_keys = Archer.State.keys()
+		var expected_name = state_keys[expected_state] if expected_state < state_keys.size() else str(expected_state)
+		var actual_name = state_keys[actual] if actual < state_keys.size() else str(actual)
+		return AssertResult.new(false,
+			"Archer state: expected %s, got %s" % [expected_name, actual_name])
+	return AssertResult.new(true)
+
+
 static func assert_unit_hp(unit: Node, expected_hp: int) -> AssertResult:
 	## Check unit's current HP
 	if not is_instance_valid(unit):

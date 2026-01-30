@@ -12,6 +12,7 @@ class_name TestSpawner
 # Scene paths - Units
 const VILLAGER_SCENE = preload("res://scenes/units/villager.tscn")
 const MILITIA_SCENE = preload("res://scenes/units/militia.tscn")
+const ARCHER_SCENE = preload("res://scenes/units/archer.tscn")
 const TRADE_CART_SCENE = preload("res://scenes/units/trade_cart.tscn")
 
 # Scene paths - Buildings
@@ -23,6 +24,7 @@ const LUMBER_CAMP_SCENE = preload("res://scenes/buildings/lumber_camp.tscn")
 const MINING_CAMP_SCENE = preload("res://scenes/buildings/mining_camp.tscn")
 const MARKET_SCENE = preload("res://scenes/buildings/market.tscn")
 const FARM_SCENE = preload("res://scenes/buildings/farm.tscn")
+const ARCHERY_RANGE_SCENE = preload("res://scenes/buildings/archery_range.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -79,6 +81,15 @@ func spawn_trade_cart(position: Vector2, team: int = 0, home_market: Node = null
 	units_container.add_child(cart)
 	spawned_entities.append(cart)
 	return cart
+
+
+func spawn_archer(position: Vector2, team: int = 0) -> Node:
+	var archer = ARCHER_SCENE.instantiate()
+	archer.global_position = position
+	archer.team = team
+	units_container.add_child(archer)
+	spawned_entities.append(archer)
+	return archer
 
 
 func spawn_town_center(position: Vector2, team: int = 0) -> Node:
@@ -151,6 +162,15 @@ func spawn_farm(position: Vector2, team: int = 0) -> Node:
 	buildings_container.add_child(farm)
 	spawned_entities.append(farm)
 	return farm
+
+
+func spawn_archery_range(position: Vector2, team: int = 0) -> Node:
+	var archery_range = ARCHERY_RANGE_SCENE.instantiate()
+	archery_range.global_position = position
+	archery_range.team = team
+	buildings_container.add_child(archery_range)
+	spawned_entities.append(archery_range)
+	return archery_range
 
 
 func spawn_tree(position: Vector2, amount: int = 100) -> Node:

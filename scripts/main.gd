@@ -7,9 +7,10 @@ const MILL_SCENE_PATH = "res://scenes/buildings/mill.tscn"
 const LUMBER_CAMP_SCENE_PATH = "res://scenes/buildings/lumber_camp.tscn"
 const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
 const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
+const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -59,6 +60,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_tc_panel()
 		hud.hide_barracks_panel()
 		hud.hide_market_panel()
+		hud.hide_archery_range_panel()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -72,6 +74,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_tc_panel()
 		hud.hide_barracks_panel()
 		hud.hide_market_panel()
+		hud.hide_archery_range_panel()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -81,6 +84,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Market:
 			hud.show_market_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is ArcheryRange:
+			hud.show_archery_range_panel(clicked_building)
+			hud.show_info(clicked_building)
 		else:
 			hud.show_info(clicked_building)
 		return
@@ -88,6 +94,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	hud.hide_tc_panel()
 	hud.hide_barracks_panel()
 	hud.hide_market_panel()
+	hud.hide_archery_range_panel()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -169,7 +176,8 @@ func _issue_command(world_pos: Vector2) -> void:
 	var target_unit = _get_unit_at_position(world_pos)
 	if target_unit and target_unit.team != 0:  # Only attack enemy team units
 		for unit in GameManager.selected_units:
-			if unit is Militia:
+			# Use military group check - all military units implement command_attack
+			if unit.is_in_group("military") and unit.has_method("command_attack"):
 				unit.command_attack(target_unit)
 		return
 
@@ -177,7 +185,8 @@ func _issue_command(world_pos: Vector2) -> void:
 	var target_building = _get_building_at_position(world_pos)
 	if target_building and target_building.team != 0:  # Only attack enemy buildings
 		for unit in GameManager.selected_units:
-			if unit is Militia:
+			# Use military group check - all military units implement command_attack
+			if unit.is_in_group("military") and unit.has_method("command_attack"):
 				unit.command_attack(target_building)
 		return
 
@@ -328,6 +337,17 @@ func start_market_placement() -> void:
 	current_building_type = BuildingType.MARKET
 	GameManager.start_building_placement(load(MARKET_SCENE_PATH), building_ghost)
 
+func start_archery_range_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.4, 0.6, 0.3, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.ARCHERY_RANGE
+	GameManager.start_building_placement(load(ARCHERY_RANGE_SCENE_PATH), building_ghost)
+
 func _handle_building_placement_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if building_ghost:
@@ -398,6 +418,8 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.MINING_CAMP:
 			return Vector2(64, 64)
 		BuildingType.MARKET:
+			return Vector2(96, 96)
+		BuildingType.ARCHERY_RANGE:
 			return Vector2(96, 96)
 		_:
 			return Vector2(64, 64)

@@ -1,5 +1,5 @@
 extends Node
-## Combat Tests - Tests for Militia attack mechanics
+## Combat Tests - Tests for Militia and Archer attack mechanics
 ##
 ## These tests verify:
 ## - Militia can attack another unit
@@ -7,6 +7,8 @@ extends Node
 ## - Militia stops attacking when target dies/destroyed
 ## - Militia state transitions during combat
 ## - Attack cooldown prevents instant kills
+## - Archer ranged attack behavior
+## - Archer stats match AoE2 spec
 
 class_name TestCombat
 
@@ -28,6 +30,15 @@ func get_all_tests() -> Array[Callable]:
 		test_militia_stops_attacking_destroyed_building,
 		test_militia_attack_cooldown,
 		test_militia_chases_out_of_range_target,
+		# Archer tests (Phase 2A)
+		test_archer_has_correct_stats,
+		test_archer_command_attack_sets_target,
+		test_archer_state_changes_to_attacking,
+		test_archer_attacks_from_range,
+		test_archer_deals_damage_to_unit,
+		test_archer_deals_damage_to_building,
+		test_archer_stops_attacking_dead_unit,
+		test_archer_groups_membership,
 	]
 
 
@@ -209,5 +220,192 @@ func test_militia_chases_out_of_range_target() -> Assertions.AssertResult:
 	if new_distance >= initial_distance:
 		return Assertions.AssertResult.new(false,
 			"Attacker should move closer to target. Initial dist: %.1f, Current: %.1f" % [initial_distance, new_distance])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Archer Tests (Phase 2A) ===
+
+func test_archer_has_correct_stats() -> Assertions.AssertResult:
+	## Archer should have AoE2 spec stats: 30 HP, 4 attack, 128px range
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if archer.max_hp != 30:
+		return Assertions.AssertResult.new(false,
+			"Archer max_hp should be 30, got: %d" % archer.max_hp)
+
+	if archer.current_hp != 30:
+		return Assertions.AssertResult.new(false,
+			"Archer current_hp should be 30, got: %d" % archer.current_hp)
+
+	if archer.attack_damage != 4:
+		return Assertions.AssertResult.new(false,
+			"Archer attack_damage should be 4, got: %d" % archer.attack_damage)
+
+	if archer.attack_range != 128.0:
+		return Assertions.AssertResult.new(false,
+			"Archer attack_range should be 128.0, got: %.1f" % archer.attack_range)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_archer_command_attack_sets_target() -> Assertions.AssertResult:
+	## command_attack should set attack_target and change state
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)  # Enemy
+	await runner.wait_frames(2)
+
+	archer.command_attack(target)
+	await runner.wait_frames(2)
+
+	if archer.attack_target != target:
+		return Assertions.AssertResult.new(false,
+			"attack_target should be set to target unit")
+
+	return Assertions.assert_archer_state(archer, Archer.State.ATTACKING)
+
+
+func test_archer_state_changes_to_attacking() -> Assertions.AssertResult:
+	## Archer should transition to ATTACKING state when commanded
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)
+	await runner.wait_frames(2)
+
+	# Verify initial state is IDLE
+	if archer.current_state != Archer.State.IDLE:
+		return Assertions.AssertResult.new(false,
+			"Initial state should be IDLE, got %d" % archer.current_state)
+
+	archer.command_attack(target)
+	await runner.wait_frames(2)
+
+	return Assertions.assert_archer_state(archer, Archer.State.ATTACKING)
+
+
+func test_archer_attacks_from_range() -> Assertions.AssertResult:
+	## Archer should attack from range without closing to melee distance
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	# Place target within archer range (128px) but far from melee range
+	var target = runner.spawner.spawn_militia(Vector2(500, 400), 1)  # 100px away, within 128px range
+	await runner.wait_frames(2)
+
+	var initial_archer_pos = archer.global_position
+	var initial_target_hp = target.current_hp
+
+	archer.command_attack(target)
+
+	# Wait for attack cooldown (2.0 sec) + buffer
+	for i in range(180):
+		await runner.wait_frames(1)
+		if not is_instance_valid(target):
+			break
+		if target.current_hp < initial_target_hp:
+			break
+
+	# Archer should NOT have moved much (it's already in range)
+	var move_distance = archer.global_position.distance_to(initial_archer_pos)
+	if move_distance > 20.0:  # Allow small movement tolerance
+		return Assertions.AssertResult.new(false,
+			"Archer should attack from range, not close distance. Moved: %.1f px" % move_distance)
+
+	# Target should have taken damage
+	if is_instance_valid(target) and target.current_hp >= initial_target_hp:
+		return Assertions.AssertResult.new(false,
+			"Target should have taken damage from ranged attack")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_archer_deals_damage_to_unit() -> Assertions.AssertResult:
+	## Archer should deal damage to target unit over time
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)  # Within 128px range
+	await runner.wait_frames(2)
+
+	var initial_hp = target.current_hp
+
+	archer.command_attack(target)
+
+	# Wait for attack cooldown (2.0 sec) + generous buffer
+	for i in range(180):
+		await runner.wait_frames(1)
+		if not is_instance_valid(target):
+			break
+		if target.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(target):
+		return Assertions.AssertResult.new(false,
+			"Target died unexpectedly during test")
+
+	if target.current_hp >= initial_hp:
+		return Assertions.AssertResult.new(false,
+			"Target HP should decrease. Initial: %d, Current: %d" % [initial_hp, target.current_hp])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_archer_deals_damage_to_building() -> Assertions.AssertResult:
+	## Archer should be able to attack buildings
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	var target_building = runner.spawner.spawn_house(Vector2(450, 400), 1)  # Enemy building
+	await runner.wait_frames(2)
+
+	var initial_hp = target_building.current_hp
+
+	archer.command_attack(target_building)
+
+	# Wait for attack with generous buffer and early exit
+	for i in range(180):
+		await runner.wait_frames(1)
+		if not is_instance_valid(target_building):
+			break
+		if target_building.current_hp < initial_hp:
+			break
+
+	if not is_instance_valid(target_building):
+		return Assertions.AssertResult.new(false,
+			"Building destroyed unexpectedly during test")
+
+	if target_building.current_hp >= initial_hp:
+		return Assertions.AssertResult.new(false,
+			"Building HP should decrease. Initial: %d, Current: %d" % [initial_hp, target_building.current_hp])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_archer_stops_attacking_dead_unit() -> Assertions.AssertResult:
+	## Archer should return to IDLE when target dies
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	var target = runner.spawner.spawn_militia(Vector2(450, 400), 1)
+	await runner.wait_frames(2)
+
+	archer.command_attack(target)
+	await runner.wait_frames(2)
+
+	# Kill the target directly
+	target.die()
+	await runner.wait_frames(5)  # Let state machine process
+
+	if archer.attack_target != null:
+		return Assertions.AssertResult.new(false,
+			"attack_target should be null after target dies")
+
+	return Assertions.assert_archer_state(archer, Archer.State.IDLE)
+
+
+func test_archer_groups_membership() -> Assertions.AssertResult:
+	## Archer should belong to "military" and "archers" groups
+	var archer = runner.spawner.spawn_archer(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if not archer.is_in_group("military"):
+		return Assertions.AssertResult.new(false,
+			"Archer should be in 'military' group")
+
+	if not archer.is_in_group("archers"):
+		return Assertions.AssertResult.new(false,
+			"Archer should be in 'archers' group")
 
 	return Assertions.AssertResult.new(true)

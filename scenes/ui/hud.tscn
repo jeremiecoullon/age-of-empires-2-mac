@@ -79,6 +79,10 @@ text = "Build Mining Camp (100 Wood)"
 layout_mode = 2
 text = "Build Market (175 Wood)"
 
+[node name="BuildArcheryRangeButton" type="Button" parent="BuildPanel/VBoxContainer"]
+layout_mode = 2
+text = "Build Archery Range (175 Wood)"
+
 [node name="TCPanel" type="PanelContainer" parent="."]
 visible = false
 offset_left = 970.0
@@ -204,6 +208,31 @@ visible = false
 layout_mode = 2
 value = 50.0
 
+[node name="ArcheryRangePanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 970.0
+offset_top = 210.0
+offset_right = 1270.0
+offset_bottom = 330.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ArcheryRangePanel"]
+layout_mode = 2
+
+[node name="ArcheryRangeLabel" type="Label" parent="ArcheryRangePanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Archery Range"
+horizontal_alignment = 1
+
+[node name="TrainArcherButton" type="Button" parent="ArcheryRangePanel/VBoxContainer"]
+layout_mode = 2
+text = "Train Archer (25 Wood, 45 Gold)"
+
+[node name="ArcheryRangeTrainProgress" type="ProgressBar" parent="ArcheryRangePanel/VBoxContainer"]
+visible = false
+layout_mode = 2
+value = 50.0
+
 [node name="InfoPanel" type="PanelContainer" parent="."]
 visible = false
 offset_left = 970.0
@@ -271,6 +300,7 @@ text = "Play Again"
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildLumberCampButton" to="." method="_on_build_lumber_camp_pressed"]
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMiningCampButton" to="." method="_on_build_mining_camp_pressed"]
 [connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMarketButton" to="." method="_on_build_market_pressed"]
+[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildArcheryRangeButton" to="." method="_on_build_archery_range_pressed"]
 [connection signal="pressed" from="TCPanel/VBoxContainer/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
 [connection signal="pressed" from="BarracksPanel/VBoxContainer/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
 [connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
@@ -280,4 +310,5 @@ text = "Play Again"
 [connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellFoodButton" to="." method="_on_sell_food_pressed"]
 [connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton" to="." method="_on_sell_stone_pressed"]
 [connection signal="pressed" from="MarketPanel/VBoxContainer/TrainTradeCartButton" to="." method="_on_train_trade_cart_pressed"]
+[connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/TrainArcherButton" to="." method="_on_train_archer_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

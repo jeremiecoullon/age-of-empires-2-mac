@@ -12,6 +12,8 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 |--------|------|---------------------|-------|
 | Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle |
 | Market | Building | `assets/sprites/buildings/market.svg` | Orange rectangle with "M" |
+| Archery Range | Building | `assets/sprites/buildings/archery_range.svg` | Building with target |
+| Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
 
 **Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
 
@@ -112,6 +114,14 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 - **Preload() pattern for runtime spawning**: Several existing files still use `load()` at runtime (barracks.gd, town_center.gd, ai_controller.gd). Phase 1E market.gd was fixed to use preload(). The pattern should be applied consistently - use `const SceneName: PackedScene = preload("path")` rather than `const PATH = "path"` + `load(PATH)`. This is a known tech debt to address.
 
 - **Click selection priority (units > buildings)**: Selection logic is split across two functions in main.gd. `_start_selection()` runs on mouse press and handles building panel display. `_click_select()` runs on mouse release and handles unit/resource selection. Units must be checked in BOTH functions to ensure they have priority over buildings (otherwise clicking a militia near a building selects the building). The fix: `_start_selection()` checks for units first and skips building handling if one is found.
+
+### Phase 2A - Ranged Combat Foundation
+
+- **Preload textures for static sprites:** When using static sprites (SVG placeholders, single images), use `const TEXTURE = preload("path")` at class level instead of `load()` at runtime. Avoids file I/O during gameplay.
+
+- **Group-based attack dispatch:** Use `unit.is_in_group("military")` instead of explicit type checks (`is Militia or is Archer`) for attack command handling in main.gd. More extensible as new military units are added.
+
+- **Static sprite loader pattern:** For units without 8-dir animations, use `_load_static_sprite(texture)` helper that creates a single-frame SpriteFrames from the preloaded texture.
 
 ### Pre-Phase Tests (MVP)
 
