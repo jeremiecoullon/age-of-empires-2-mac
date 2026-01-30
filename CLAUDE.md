@@ -1,5 +1,17 @@
 # Age of Empires 2 Clone
 
+> **FIRST STEPS — Read Before Doing Anything**
+>
+> 1. **Always read `README.md` first** to understand the project.
+> 2. **If doing development work**, also read:
+>    - `docs/phase_checkpoints/` — Latest checkpoint = current project state
+>    - `docs/roadmap.md` — Architecture and phase details
+>    - `docs/gotchas.md` — Known pitfalls to avoid
+>
+> This applies to every new session. Don't start coding until you've read these.
+
+---
+
 ## Git Policy
 
 **Never perform git operations.** No commits, no pushes, no branch operations. The user handles all git manually.
@@ -51,7 +63,11 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 1. **Propose a split.** Read the phase spec in `docs/roadmap.md`, analyze the scope, and propose sub-phases (e.g., 2A, 2B, 2C). Explain what each sub-phase covers and why. Get user approval once upfront.
 
-2. **Execute sub-phase.** Do the full workflow for the current sub-phase:
+2. **Persist the split.** After approval, update `docs/roadmap.md` with the sub-phase breakdown under that phase's section. Add a "Sub-phases" block with date and brief description of each sub-phase. This is the source of truth for future sessions.
+
+   **Sub-phase descriptions must include both entities AND systems.** Don't just list units/buildings—also list any new mechanics or systems being introduced (e.g., "armor system", "fog of war", "stance system"). If a previous checkpoint deferred something to this phase, it should appear in the description.
+
+3. **Execute sub-phase.** Do the full workflow for the current sub-phase:
    - Refactor check
    - Build features
    - Run spec-check on new units/buildings/techs
@@ -59,9 +75,9 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
    - Run test agent
    - Write checkpoint doc
 
-3. **Signal for context clear.** Say: "2A complete. Clear context now." (Claude cannot clear its own context.)
+4. **Signal for context clear.** Say: "2A complete. Clear context now." (Claude cannot clear its own context.)
 
-4. **Continue automatically.** When user clears context and says "continue", read checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
+5. **Continue automatically.** When user clears context and says "continue", read the sub-phase breakdown in `roadmap.md` and checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
 
 After the initial split approval, Claude executes autonomously. The only user actions needed are context clears and saying "continue".
 
@@ -107,6 +123,20 @@ godot --headless --path . tests/test_scene.tscn
 ```
 
 Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures.
+
+---
+
+## Sprites & Assets
+
+**When creating new buildings/units without available sprites:**
+
+1. **Never use another entity's sprite as a fallback.** Don't use the barracks sprite for a stable, or militia sprite for an archer. This causes confusion and visual bugs.
+
+2. **Create an SVG placeholder instead.** SVGs are simple XML that Godot imports natively. Create a basic colored rectangle/shape with text indicating what it represents. See `assets/sprites/buildings/farm.svg` or `market.svg` for examples.
+
+3. **Document the missing sprite** in `docs/gotchas.md` under the "Missing Sprites" section. This ensures Phase 9 (Polish) knows what to replace.
+
+Existing SVG placeholders: farm, market. All other buildings/units have AoE sprites.
 
 ---
 

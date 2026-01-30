@@ -207,6 +207,12 @@ Before starting each phase, follow this process:
 ## Phase 2: Military Foundation + Fog of War
 **Goal:** Rock-paper-scissors combat with counter-units and information warfare
 
+**Sub-phases (approved 2026-01-30):**
+- **2A**: Archery Range + Archer (ranged combat foundation) — *Complete*
+- **2B**: Stable + Scout Cavalry + Spearman + armor system + bonus damage system
+- **2C**: Skirmisher + Cavalry Archer (complete combat triangle)
+- **2D**: Fog of War + basic stances + AI military behavior + attack notifications
+
 | Feature | Type | Notes |
 |---------|------|-------|
 | Archer | Unit | Ranged, beats infantry at distance |

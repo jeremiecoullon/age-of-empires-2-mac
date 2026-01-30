@@ -10,6 +10,8 @@ const AI_COLOR = Color(0.9, 0.2, 0.2, 1)  # Red
 @export var food_cost: int = 0
 @export var team: int = 0  # 0 = player, 1 = AI
 @export var max_hp: int = 200
+@export var melee_armor: int = 0  # Reduces melee damage (most buildings have 0)
+@export var pierce_armor: int = 0  # Reduces pierce damage (most buildings have 0)
 # Resource types this building accepts for drop-off (empty = not a drop-off point)
 @export var accepts_resources: Array[String] = []
 
@@ -39,8 +41,14 @@ func get_building_name() -> String:
 func is_drop_off_for(resource_type: String) -> bool:
 	return accepts_resources.has(resource_type)
 
-func take_damage(amount: int) -> void:
-	current_hp -= amount
+## Take damage with armor calculation.
+## attack_type: "melee" or "pierce" - determines which armor applies
+## bonus_damage: Extra damage that ignores armor (e.g., rams vs buildings)
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
+	var armor = melee_armor if attack_type == "melee" else pierce_armor
+	var base_damage = max(1, amount - armor)  # Minimum 1 damage
+	var final_damage = base_damage + bonus_damage
+	current_hp -= final_damage
 	if current_hp <= 0:
 		_destroy()
 

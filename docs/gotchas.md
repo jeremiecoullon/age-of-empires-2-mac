@@ -4,6 +4,24 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 
 ---
 
+## Missing Sprites
+
+Track placeholder sprites here for replacement in Phase 9 (Polish). When creating a new entity without an available sprite, add it to this list.
+
+| Entity | Type | Current Placeholder | Notes |
+|--------|------|---------------------|-------|
+| Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle |
+| Market | Building | `assets/sprites/buildings/market.svg` | Orange rectangle with "M" |
+| Archery Range | Building | `assets/sprites/buildings/archery_range.svg` | Building with target |
+| Stable | Building | `assets/sprites/buildings/stable.svg` | Brown rectangle with horseshoe |
+| Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
+| Scout Cavalry | Unit | `assets/sprites/units/scout_cavalry.svg` | Orange mounted figure |
+| Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
+
+**Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
+
+---
+
 ## Project Structure
 
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
@@ -99,6 +117,22 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 - **Preload() pattern for runtime spawning**: Several existing files still use `load()` at runtime (barracks.gd, town_center.gd, ai_controller.gd). Phase 1E market.gd was fixed to use preload(). The pattern should be applied consistently - use `const SceneName: PackedScene = preload("path")` rather than `const PATH = "path"` + `load(PATH)`. This is a known tech debt to address.
 
 - **Click selection priority (units > buildings)**: Selection logic is split across two functions in main.gd. `_start_selection()` runs on mouse press and handles building panel display. `_click_select()` runs on mouse release and handles unit/resource selection. Units must be checked in BOTH functions to ensure they have priority over buildings (otherwise clicking a militia near a building selects the building). The fix: `_start_selection()` checks for units first and skips building handling if one is found.
+
+### Phase 2A - Ranged Combat Foundation
+
+- **Preload textures for static sprites:** When using static sprites (SVG placeholders, single images), use `const TEXTURE = preload("path")` at class level instead of `load()` at runtime. Avoids file I/O during gameplay.
+
+- **Group-based attack dispatch:** Use `unit.is_in_group("military")` instead of explicit type checks (`is Militia or is Archer`) for attack command handling in main.gd. More extensible as new military units are added.
+
+- **Static sprite loader pattern:** For units without 8-dir animations, use `_load_static_sprite(texture)` helper that creates a single-frame SpriteFrames from the preloaded texture.
+
+### Phase 2B - Stable, Cavalry & Infantry
+
+- **preload() vs load() for new assets:** New asset files (SVGs, scenes) that haven't been imported by Godot yet will cause `preload()` to fail at parse time. This breaks the entire class resolution chain - if `stable.gd` preloads `scout_cavalry.tscn` which references `scout_cavalry.gd` which preloads an unimported SVG, the whole chain fails and `Stable` class can't be registered. **Fix:** Use `load()` at runtime for newly created assets until they're imported. Run `godot --headless --import --path .` to force Godot to import all assets before running tests.
+
+- **Armor system signature:** `take_damage(amount, attack_type, bonus_damage)` where `attack_type` is "melee" or "pierce". Armor reduces base damage (min 1), then bonus damage is added. This matches AoE2's damage formula.
+
+- **Bonus damage via groups:** Spearman's anti-cavalry bonus checks `target.is_in_group("cavalry")`. When adding new unit types, add them to appropriate groups (cavalry, infantry, archer, siege) for bonus damage targeting.
 
 ### Pre-Phase Tests (MVP)
 

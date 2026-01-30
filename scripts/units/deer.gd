@@ -21,12 +21,12 @@ func _ready() -> void:
 	# 25 frames total, 8 directions = ~3 frames per direction
 	_load_directional_animations("res://assets/sprites/units/deer_frames", "Deerstand", 25)
 
-func take_damage(amount: int) -> void:
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
 	# Store position of attacker before taking damage
 	# We'll use our current position since we don't have direct attacker reference
 	last_attacker_position = global_position
 
-	super.take_damage(amount)
+	super.take_damage(amount, attack_type, bonus_damage)
 
 	# Flee if still alive
 	if not is_dead and current_state != State.FLEEING:

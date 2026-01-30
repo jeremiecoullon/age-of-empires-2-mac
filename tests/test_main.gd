@@ -20,6 +20,7 @@ const TestVictoryScript = preload("res://tests/scenarios/test_victory.gd")
 const TestResourcesScript = preload("res://tests/scenarios/test_resources.gd")
 const TestAnimalsScript = preload("res://tests/scenarios/test_animals.gd")
 const TestDirectionsScript = preload("res://tests/scenarios/test_directions.gd")
+const TestArmorScript = preload("res://tests/scenarios/test_armor.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -98,6 +99,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING DIRECTION TESTS ===\n")
 	var direction_tests = TestDirectionsScript.new(test_runner)
 	await test_runner.run_all_tests(direction_tests.get_all_tests())
+
+	# Armor tests (Phase 2B)
+	print("\n=== RUNNING ARMOR TESTS ===\n")
+	var armor_tests = TestArmorScript.new(test_runner)
+	await test_runner.run_all_tests(armor_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)

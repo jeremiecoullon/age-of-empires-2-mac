@@ -4,6 +4,44 @@ This document records key design decisions for the AoE2 clone project, including
 
 ---
 
+## DD-006: Defer terrain elevation bonuses to Phase 9
+
+**Date:** 2026-01-30
+**Status:** Accepted
+
+### Context
+
+Phase 2 roadmap includes "Terrain bonuses: Units firing from elevation get attack bonus; units below get penalty." However, the current map system is a flat grass ColorRect with no elevation data.
+
+### Options Considered
+
+| Option | Description |
+|--------|-------------|
+| **A** | Implement elevation system now (tilemap with height layers, elevation detection) |
+| **B** | Defer to Phase 9 (Polish) when map types are added |
+
+### Decision
+
+**Option B** - Defer terrain elevation bonuses to Phase 9.
+
+### Rationale
+
+1. **MVP map is flat**: No elevation exists. Would need to build terrain height system from scratch.
+
+2. **Phase 9 adds map types**: Roadmap lists "Multiple map types" (Arabia, Black Forest, Rivers, etc.) in Phase 9. Elevation is better implemented alongside proper terrain variety.
+
+3. **Combat triangle works without elevation**: The core Phase 2 goal (unit composition matters) is achievable without elevation bonuses. Archers vs skirmishers vs cavalry triangle provides tactical depth.
+
+4. **Scope management**: Phase 2 already has significant new systems (ranged combat, cavalry, fog of war, stances, AI improvements). Adding terrain elevation would increase risk.
+
+### Implications
+
+- Phase 2 implements combat triangle, fog of war, stances without elevation
+- Terrain elevation bonuses move to Phase 9 alongside map type system
+- Document in Phase 2 checkpoint that elevation is deferred
+
+---
+
 ## DD-005: Explicit building panels over generic abstraction
 
 **Date:** 2026-01-28

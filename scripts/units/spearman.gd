@@ -1,11 +1,17 @@
 extends Unit
-class_name Militia
+class_name Spearman
+
+## Spearman - cheap anti-cavalry infantry.
+## AoE2 spec: 35F + 25W cost, 45 HP, 3 attack, 0/0 armor, +15 bonus vs cavalry
 
 enum State { IDLE, MOVING, ATTACKING }
 
-@export var attack_damage: int = 5
+@export var attack_damage: int = 3
 @export var attack_range: float = 30.0
-@export var attack_cooldown: float = 1.0
+@export var attack_cooldown: float = 2.0
+@export var bonus_vs_cavalry: int = 15  # Extra damage vs cavalry group
+
+const SPEARMAN_TEXTURE: Texture2D = preload("res://assets/sprites/units/spearman.svg")
 
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
@@ -15,10 +21,25 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("infantry")
-	max_hp = 50
+	max_hp = 45
 	current_hp = max_hp
-	# 30 frames total, 8 directions = ~4 frames per direction
-	_load_directional_animations("res://assets/sprites/units/militia_frames", "Militiastand", 30)
+	move_speed = 96.0  # Same as archer, slower than militia
+	melee_armor = 0
+	pierce_armor = 0
+	if SPEARMAN_TEXTURE:
+		_load_static_sprite(SPEARMAN_TEXTURE)
+
+func _load_static_sprite(texture: Texture2D) -> void:
+	if not sprite or not texture:
+		return
+	var sprite_frames = SpriteFrames.new()
+	sprite_frames.remove_animation("default")
+	sprite_frames.add_animation("idle")
+	sprite_frames.set_animation_loop("idle", true)
+	sprite_frames.add_frame("idle", texture)
+	sprite.sprite_frames = sprite_frames
+	sprite.play("idle")
+	sprite.scale = Vector2(0.5, 0.5)  # Scale down 64px SVG
 
 func _physics_process(delta: float) -> void:
 	match current_state:
@@ -30,7 +51,6 @@ func _physics_process(delta: float) -> void:
 			_process_attacking(delta)
 
 func _process_moving(delta: float) -> void:
-	# Use NavigationAgent2D for proper pathfinding
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
 		velocity = Vector2.ZERO
@@ -70,7 +90,6 @@ func _process_attacking(delta: float) -> void:
 		velocity = direction * move_speed
 		move_and_slide()
 		_update_facing_direction()
-		# Don't increment attack timer when out of range
 		return
 
 	# In range, stop and attack
@@ -79,7 +98,18 @@ func _process_attacking(delta: float) -> void:
 
 	if attack_timer >= attack_cooldown:
 		attack_timer = 0.0
-		attack_target.take_damage(attack_damage, "melee")
+		_deal_damage()
+
+func _deal_damage() -> void:
+	if not is_instance_valid(attack_target):
+		return
+
+	var bonus = 0
+	# Apply bonus damage vs cavalry
+	if attack_target is Unit and attack_target.is_in_group("cavalry"):
+		bonus = bonus_vs_cavalry
+
+	attack_target.take_damage(attack_damage, "melee", bonus)
 
 func command_attack(target: Node2D) -> void:
 	attack_target = target

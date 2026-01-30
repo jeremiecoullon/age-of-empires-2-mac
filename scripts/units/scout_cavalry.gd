@@ -1,11 +1,16 @@
 extends Unit
-class_name Militia
+class_name ScoutCavalry
+
+## Scout Cavalry - fast melee unit with good LOS and pierce armor.
+## AoE2 spec: 80F cost, 45 HP, 3 attack, 0/2 armor (pierce resistant)
 
 enum State { IDLE, MOVING, ATTACKING }
 
-@export var attack_damage: int = 5
+@export var attack_damage: int = 3
 @export var attack_range: float = 30.0
-@export var attack_cooldown: float = 1.0
+@export var attack_cooldown: float = 2.0
+
+const SCOUT_CAVALRY_TEXTURE: Texture2D = preload("res://assets/sprites/units/scout_cavalry.svg")
 
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
@@ -14,11 +19,26 @@ var attack_timer: float = 0.0
 func _ready() -> void:
 	super._ready()
 	add_to_group("military")
-	add_to_group("infantry")
-	max_hp = 50
+	add_to_group("cavalry")
+	max_hp = 45
 	current_hp = max_hp
-	# 30 frames total, 8 directions = ~4 frames per direction
-	_load_directional_animations("res://assets/sprites/units/militia_frames", "Militiastand", 30)
+	move_speed = 150.0  # Medium speed cavalry (AoE2 spec: M)
+	melee_armor = 0
+	pierce_armor = 2  # Resistant to ranged attacks
+	if SCOUT_CAVALRY_TEXTURE:
+		_load_static_sprite(SCOUT_CAVALRY_TEXTURE)
+
+func _load_static_sprite(texture: Texture2D) -> void:
+	if not sprite or not texture:
+		return
+	var sprite_frames = SpriteFrames.new()
+	sprite_frames.remove_animation("default")
+	sprite_frames.add_animation("idle")
+	sprite_frames.set_animation_loop("idle", true)
+	sprite_frames.add_frame("idle", texture)
+	sprite.sprite_frames = sprite_frames
+	sprite.play("idle")
+	sprite.scale = Vector2(0.5, 0.5)  # Scale down 64px SVG
 
 func _physics_process(delta: float) -> void:
 	match current_state:
@@ -30,7 +50,6 @@ func _physics_process(delta: float) -> void:
 			_process_attacking(delta)
 
 func _process_moving(delta: float) -> void:
-	# Use NavigationAgent2D for proper pathfinding
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
 		velocity = Vector2.ZERO
@@ -70,7 +89,6 @@ func _process_attacking(delta: float) -> void:
 		velocity = direction * move_speed
 		move_and_slide()
 		_update_facing_direction()
-		# Don't increment attack timer when out of range
 		return
 
 	# In range, stop and attack
