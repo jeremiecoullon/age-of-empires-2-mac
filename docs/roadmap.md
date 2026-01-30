@@ -1,6 +1,6 @@
 # AoE2 Clone - Roadmap
 
-**Last updated:** 2026-01-29 (refactored MVP into Phase 0)
+**Last updated:** 2026-01-30 (added Phase 3: Strong AI, renumbered subsequent phases)
 
 ## Goal
 
@@ -11,7 +11,7 @@ We're happy to stop earlier if we reach diminishing returns (e.g., obscure featu
 ## Design Principles
 
 1. **Each phase = playable game** - Never break what works
-2. **Gameplay before polish** - Colored rectangles are fine until Phase 9
+2. **Gameplay before polish** - Colored rectangles are fine until Phase 10
 3. **AI reproduces original behavior** - Match AoE2's AI as closely as possible
 4. **All 4 ages** - Dark, Feudal, Castle, Imperial (added incrementally)
 
@@ -97,17 +97,18 @@ Before starting each phase, follow this process:
 | 0 | MVP | Playable foundation: 2 resources, basic units, AI opponent, win condition |
 | 1 | Complete Economy | 4 resources, drop-off buildings, trading |
 | 2 | Military Foundation | Combat triangle, fog of war, counter-units |
-| 3 | Age System | Dark → Feudal → Castle progression |
-| 4 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
-| 5 | Monks & Relics | Conversion, healing, relic victory |
-| 6 | Walls & Basic Defense | Walls, gates, basic towers, garrison |
-| 7 | Advanced Defense & Siege | University, siege units, advanced towers |
-| 8 | Imperial Age | 4th age, late-game units, Wonder victory |
-| 9 | Polish & UX | Minimap, control groups, formations, audio |
-| 10 | Naval Economy | Dock, fishing, transport (Optional) |
-| 11 | Naval Combat | Warships, water maps (Optional) |
-| 12 | Civilizations | 13 civs, unique units, tech trees (Optional) |
-| 13 | Team Games & Allied AI | Multiple AI, team battles, allied mechanics (Optional) |
+| 3 | Strong AI | Competitive AI: build orders, scouting, counter-play, micro |
+| 4 | Age System | Dark → Feudal → Castle progression |
+| 5 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
+| 6 | Monks & Relics | Conversion, healing, relic victory |
+| 7 | Walls & Basic Defense | Walls, gates, basic towers, garrison |
+| 8 | Advanced Defense & Siege | University, siege units, advanced towers |
+| 9 | Imperial Age | 4th age, late-game units, Wonder victory |
+| 10 | Polish & UX | Minimap, control groups, formations, audio |
+| 11 | Naval Economy | Dock, fishing, transport (Optional) |
+| 12 | Naval Combat | Warships, water maps (Optional) |
+| 13 | Civilizations | 13 civs, unique units, tech trees (Optional) |
+| 14 | Team Games & Allied AI | Multiple AI, team battles, allied mechanics (Optional) |
 
 ---
 
@@ -207,25 +208,28 @@ Before starting each phase, follow this process:
 ## Phase 2: Military Foundation + Fog of War
 **Goal:** Rock-paper-scissors combat with counter-units and information warfare
 
-**Sub-phases (approved 2026-01-30):**
+**Sub-phases (approved 2026-01-30, updated 2026-01-30):**
 - **2A**: Archery Range + Archer (ranged combat foundation) — *Complete*
-- **2B**: Stable + Scout Cavalry + Spearman + armor system + bonus damage system
-- **2C**: Skirmisher + Cavalry Archer (complete combat triangle)
-- **2D**: Fog of War + basic stances + AI military behavior + attack notifications
+- **2B**: Stable + Scout Cavalry + Spearman + armor system + bonus damage system — *Complete*
+- **2C**: AI Economic Foundation (make AI functional with existing features)
+- **2D**: Skirmisher + Cavalry Archer (complete combat triangle)
+- **2E**: Fog of War + basic stances + AI military behavior + attack notifications
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Archer | Unit | Ranged, beats infantry at distance |
-| Archery Range | Building | Trains archers, skirmishers |
-| Skirmisher | Unit | Anti-archer unit, cheap, bonus vs archers |
-| Spearman | Unit | At Barracks, cheap counter to cavalry |
-| Scout Cavalry | Unit | Fast, good LOS, resistant to conversion. **Starting unit in Random Map games** |
-| Stable | Building | Trains cavalry units |
-| Cavalry Archer | Unit | Mobile ranged, hit-and-run |
-| Fog of War | System | Unexplored = black, explored but unseen = fog (frozen view), visible = clear |
-| Basic stances | Mechanic | Aggressive, Defensive, Stand Ground, No Attack |
-| Terrain bonuses | Mechanic | Units firing from elevation get attack bonus; units below get penalty |
-| Attack notifications | Audio | Horn sound for military under attack, bell for villagers/buildings |
+**All Phase 2 Features:**
+
+| Feature | Type | Sub-phase | Notes |
+|---------|------|-----------|-------|
+| Archer | Unit | 2A | Ranged, beats infantry at distance |
+| Archery Range | Building | 2A | Trains archers, skirmishers |
+| Spearman | Unit | 2B | At Barracks, cheap counter to cavalry |
+| Scout Cavalry | Unit | 2B | Fast, good LOS, resistant to conversion |
+| Stable | Building | 2B | Trains cavalry units |
+| Skirmisher | Unit | 2D | Anti-archer unit, cheap, bonus vs archers |
+| Cavalry Archer | Unit | 2D | Mobile ranged, hit-and-run |
+| Fog of War | System | 2E | Unexplored = black, explored but unseen = fog, visible = clear |
+| Basic stances | Mechanic | 2E | Aggressive, Defensive, Stand Ground, No Attack |
+| Terrain bonuses | Mechanic | 2E | Units firing from elevation get attack bonus |
+| Attack notifications | Audio | 2E | Horn for military under attack, bell for villagers/buildings |
 
 **Combat triangle:**
 ```
@@ -243,8 +247,102 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 3: Age System
+### Sub-phase 2C: AI Economic Foundation
+
+Makes the AI functional by using all available Phase 0-2B features. Without this, the AI auto-loses because it never grows its economy.
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Train villagers continuously | Critical | Target 20+ villagers before heavy military |
+| Build farms | Critical | Sustainable food when berries/sheep depleted |
+| Build mills | High | Drop-off efficiency for food/farms |
+| Economic growth targets | High | Don't attack until economy established |
+| Build multiple barracks | Medium | Scale military production |
+| Build multiple camps | Medium | Expand to new resource areas |
+| Rebuild destroyed buildings | Medium | Recover from raids |
+| Build Archery Range + train archers | Medium | Use Phase 2A content |
+| Build Stable + train scouts/spearmen | Medium | Use Phase 2B content |
+| Villager allocation ratios | Medium | Balance gatherers across resources |
+| Trade cart usage | Low | Passive gold when market exists |
+
+**2C Done when:** AI booms to 20+ villagers, builds farms, uses all military buildings, presents a real challenge.
+
+---
+
+## Phase 3: Strong AI
+**Goal:** Transform AI from functional to competitive - a real challenge for players
+
+This phase makes the AI play well, not just play. Phase 2C made the AI use available features; this phase makes it use them intelligently.
+
+**3A: Macro & Build Orders**
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Build order system | System | Configurable sequence of actions (e.g., 6 vils on sheep → 4 on wood → ...) |
+| Dark Age build order | AI | Optimized opening: scout sheep, queue villagers, build houses on time |
+| Feudal transition timing | AI | Know when to click up based on vil count and resources |
+| Continuous villager production | AI | Never idle TC (unless intentional) |
+| Production building scaling | AI | Build 2nd/3rd barracks/range when floating resources |
+| Idle villager reassignment | AI | Detect and fix idle villagers immediately |
+
+**3B: Scouting & Information**
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Early game scouting | AI | Scout finds sheep, boar, enemy base, gold/stone locations |
+| Scout patrol patterns | AI | Circle own base → expand outward → find enemy |
+| Enemy base tracking | AI | Remember where enemy TC/buildings are |
+| Army composition tracking | AI | Estimate what units enemy is making |
+| Threat assessment | AI | Know when enemy is attacking, with how much |
+
+**3C: Combat Intelligence**
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Counter-unit production | AI | See archers → make skirmishers; see cavalry → make spearmen |
+| Army composition goals | AI | Target ratios (e.g., 60% main unit, 40% counter) |
+| Attack timing | AI | Attack when ahead or when enemy is vulnerable |
+| Target prioritization | AI | Kill villagers > siege > military > buildings (contextual) |
+| Retreat behavior | AI | Pull back badly damaged units, don't suicide |
+| Focus fire | AI | Concentrate attacks on single targets |
+
+**3D: Micro & Tactics**
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Ranged unit kiting | AI | Archers back away while attacking melee |
+| Villager flee behavior | AI | Villagers run to TC when attacked |
+| TC garrison under attack | AI | Use Town Bell equivalent when raided |
+| Split attention | AI | Can harass + defend simultaneously |
+| Reinforcement waves | AI | Send new units to join existing army |
+
+**3E: Economic Intelligence**
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Resource balance targets | AI | Know how many vils on each resource for current goal |
+| Floating resource detection | AI | If gold > 500 and not spending, reallocate or spend |
+| Farm placement optimization | AI | Farms around TC/Mill, not random locations |
+| Forward building | AI | Build military buildings closer to enemy for faster reinforcement |
+| Expansion behavior | AI | Build 2nd TC / expand to new resources when safe |
+
+**Difficulty Levels (optional)**
+
+| Level | Behavior |
+|-------|----------|
+| Easy | Slower decisions, no micro, attacks late |
+| Medium | Standard build orders, basic counter-play |
+| Hard | Optimized builds, good micro, aggressive timing |
+| Hardest | Near-perfect execution, reads player strategy |
+
+**Done when:** Playing against Hard AI feels like playing against a competent human opponent. The AI should win sometimes.
+
+---
+
+## Phase 4: Age System
 **Goal:** Implement age progression infrastructure (Dark → Feudal → Castle)
+
+**AI Competency (cumulative):** By end of this phase, AI must do everything from Phases 0-3, plus: research age advancement when economically ready, respect age-gating for buildings/units.
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -271,7 +369,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 4: Tech Research & Upgrades
+## Phase 5: Tech Research & Upgrades
 **Goal:** Full technology and unit upgrade system
 
 | Feature | Type | Notes |
@@ -314,7 +412,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 5: Monks, Relics & Monastery
+## Phase 6: Monks, Relics & Monastery
 **Goal:** Add conversion mechanics and alternative victory/income
 
 | Feature | Type | Notes |
@@ -336,7 +434,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 6: Walls & Basic Defense
+## Phase 7: Walls & Basic Defense
 **Goal:** Positional play with walls and basic static defenses
 
 | Feature | Type | Notes |
@@ -373,7 +471,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 7: Advanced Defense & Siege
+## Phase 8: Advanced Defense & Siege
 **Goal:** Siege warfare breaks defensive positions
 
 | Feature | Type | Notes |
@@ -398,7 +496,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 8: Imperial Age & Advanced
+## Phase 9: Imperial Age & Advanced
 **Goal:** Complete age system with late-game power units
 
 | Feature | Type | Notes |
@@ -425,7 +523,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 9: Polish & UX
+## Phase 10: Polish & UX
 **Goal:** Quality of life improvements for playability
 
 | Feature | Type | Notes |
@@ -464,7 +562,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 10: Naval Economy (Optional)
+## Phase 11: Naval Economy (Optional)
 **Goal:** Water-based economic gameplay
 
 | Feature | Type | Notes |
@@ -485,7 +583,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 11: Naval Combat (Optional)
+## Phase 12: Naval Combat (Optional)
 **Goal:** Naval warfare for water map control
 
 | Feature | Type | Notes |
@@ -509,7 +607,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 12: Civilizations (Optional)
+## Phase 13: Civilizations (Optional)
 **Goal:** Asymmetric gameplay through civilization bonuses
 
 | Feature | Type | Notes |
@@ -543,7 +641,7 @@ Cavalry Archers -> mobile ranged, weak to skirmishers
 
 ---
 
-## Phase 13: Team Games & Allied AI (Optional)
+## Phase 14: Team Games & Allied AI (Optional)
 **Goal:** 1 human + AI allies vs AI enemies (team battles)
 
 | Feature | Type | Notes |
@@ -767,134 +865,134 @@ All technologies organized by building and phase.
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Loom | Dark | 50G | +15 villager HP, +1/+1 armor | 4 |
-| Town Watch | Feudal | 75F | +4 building LOS | 4 |
-| Town Patrol | Castle | 300F, 200G | +4 building LOS | 7 |
-| Wheelbarrow | Feudal | 175F, 50W | +10% villager speed, +25% carry | 4 |
-| Hand Cart | Castle | 300F, 200W | +10% villager speed, +50% carry | 7 |
+| Loom | Dark | 50G | +15 villager HP, +1/+1 armor | 5 |
+| Town Watch | Feudal | 75F | +4 building LOS | 5 |
+| Town Patrol | Castle | 300F, 200G | +4 building LOS | 8 |
+| Wheelbarrow | Feudal | 175F, 50W | +10% villager speed, +25% carry | 5 |
+| Hand Cart | Castle | 300F, 200W | +10% villager speed, +50% carry | 8 |
 
 ### Mill Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Horse Collar | Feudal | 75F, 75W | Farm +75 food | 4 |
-| Heavy Plow | Castle | 125F, 125W | Farm +125 food, +1 carry | 7 |
-| Crop Rotation | Imperial | 250F, 250W | Farm +175 food | 8 |
+| Horse Collar | Feudal | 75F, 75W | Farm +75 food | 5 |
+| Heavy Plow | Castle | 125F, 125W | Farm +125 food, +1 carry | 8 |
+| Crop Rotation | Imperial | 250F, 250W | Farm +175 food | 9 |
 
 ### Lumber Camp Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Double-Bit Axe | Feudal | 100F, 50W | +20% wood chopping | 4 |
-| Bow Saw | Castle | 150F, 100W | +20% wood chopping | 7 |
-| Two-Man Saw | Imperial | 300F, 200W | +10% wood chopping | 8 |
+| Double-Bit Axe | Feudal | 100F, 50W | +20% wood chopping | 5 |
+| Bow Saw | Castle | 150F, 100W | +20% wood chopping | 8 |
+| Two-Man Saw | Imperial | 300F, 200W | +10% wood chopping | 9 |
 
 ### Mining Camp Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Gold Mining | Feudal | 100F, 75W | +15% gold mining | 4 |
-| Stone Mining | Feudal | 100F, 75W | +15% stone mining | 4 |
-| Gold Shaft Mining | Castle | 200F, 150W | +15% gold mining | 7 |
-| Stone Shaft Mining | Castle | 200F, 150W | +15% stone mining | 7 |
+| Gold Mining | Feudal | 100F, 75W | +15% gold mining | 5 |
+| Stone Mining | Feudal | 100F, 75W | +15% stone mining | 5 |
+| Gold Shaft Mining | Castle | 200F, 150W | +15% gold mining | 8 |
+| Stone Shaft Mining | Castle | 200F, 150W | +15% stone mining | 8 |
 
 ### Market Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Coinage | Feudal | 150F, 50G | Tribute fee 30% → 20% | 4 |
-| Banking | Castle | 200F, 100G | No tribute fee | 7 |
-| Guilds | Imperial | 300F, 200G | Trading fee → 15% | 8 |
-| Cartography | Feudal | 100F, 100G | Share ally exploration | 4 |
+| Coinage | Feudal | 150F, 50G | Tribute fee 30% → 20% | 5 |
+| Banking | Castle | 200F, 100G | No tribute fee | 8 |
+| Guilds | Imperial | 300F, 200G | Trading fee → 15% | 9 |
+| Cartography | Feudal | 100F, 100G | Share ally exploration | 5 |
 
 ### Blacksmith Technologies (Infantry)
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Forging | Feudal | 150F | +1 infantry/cavalry attack | 4 |
-| Iron Casting | Castle | 220F, 120G | +1 infantry/cavalry attack | 7 |
-| Blast Furnace | Imperial | 275F, 225G | +2 infantry/cavalry attack | 8 |
-| Scale Mail Armor | Feudal | 100F | +1/+1P infantry armor | 4 |
-| Chain Mail Armor | Castle | 200F, 100G | +1/+1P infantry armor | 7 |
-| Plate Mail Armor | Imperial | 300F, 150G | +1/+2P infantry armor | 8 |
+| Forging | Feudal | 150F | +1 infantry/cavalry attack | 5 |
+| Iron Casting | Castle | 220F, 120G | +1 infantry/cavalry attack | 8 |
+| Blast Furnace | Imperial | 275F, 225G | +2 infantry/cavalry attack | 9 |
+| Scale Mail Armor | Feudal | 100F | +1/+1P infantry armor | 5 |
+| Chain Mail Armor | Castle | 200F, 100G | +1/+1P infantry armor | 8 |
+| Plate Mail Armor | Imperial | 300F, 150G | +1/+2P infantry armor | 9 |
 
 ### Blacksmith Technologies (Archers)
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Fletching | Feudal | 100F, 50G | +1 attack/range for archers, towers | 4 |
-| Bodkin Arrow | Castle | 200F, 100G | +1 attack/range for archers, towers | 7 |
-| Bracer | Imperial | 300F, 200G | +1 attack/range for archers, towers | 8 |
-| Padded Archer Armor | Feudal | 100F | +1/+1P archer armor | 4 |
-| Leather Archer Armor | Castle | 150F, 150G | +1/+1P archer armor | 7 |
-| Ring Archer Armor | Imperial | 250F, 250G | +1/+2P archer armor | 8 |
+| Fletching | Feudal | 100F, 50G | +1 attack/range for archers, towers | 5 |
+| Bodkin Arrow | Castle | 200F, 100G | +1 attack/range for archers, towers | 8 |
+| Bracer | Imperial | 300F, 200G | +1 attack/range for archers, towers | 9 |
+| Padded Archer Armor | Feudal | 100F | +1/+1P archer armor | 5 |
+| Leather Archer Armor | Castle | 150F, 150G | +1/+1P archer armor | 8 |
+| Ring Archer Armor | Imperial | 250F, 250G | +1/+2P archer armor | 9 |
 
 ### Blacksmith Technologies (Cavalry)
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Scale Barding Armor | Feudal | 150F | +1/+1P cavalry armor | 4 |
-| Chain Barding Armor | Castle | 250F, 150G | +1/+1P cavalry armor | 7 |
-| Plate Barding Armor | Imperial | 350F, 200G | +1/+2P cavalry armor | 8 |
+| Scale Barding Armor | Feudal | 150F | +1/+1P cavalry armor | 5 |
+| Chain Barding Armor | Castle | 250F, 150G | +1/+1P cavalry armor | 8 |
+| Plate Barding Armor | Imperial | 350F, 200G | +1/+2P cavalry armor | 9 |
 
 ### Barracks Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Tracking | Feudal | 75F | +2 infantry LOS | 4 |
-| Squires | Castle | 200F | +10% infantry speed | 7 |
+| Tracking | Feudal | 75F | +2 infantry LOS | 5 |
+| Squires | Castle | 200F | +10% infantry speed | 8 |
 
 ### Stable Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Husbandry | Castle | 250F | +10% cavalry speed | 7 |
+| Husbandry | Castle | 250F | +10% cavalry speed | 8 |
 
 ### University Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Masonry | Castle | 175W, 150S | Building HP/armor + | 7 |
-| Architecture | Imperial | 200W, 300S | Building HP/armor ++ | 8 |
-| Ballistics | Castle | 300W, 175G | Archers/towers track moving targets | 7 |
-| Murder Holes | Castle | 200F, 200S | No minimum tower/Castle range | 7 |
-| Heated Shot | Castle | 350F, 100G | +50% tower attack vs ships | 10 |
-| Chemistry | Imperial | 300F, 200G | +1 missile attack, enables gunpowder | 8 |
-| Siege Engineers | Imperial | 500F, 600W | +1 siege range, +20% vs buildings | 8 |
-| Treadmill Crane | Castle | 200W, 300S | +20% villager build speed | 7 |
-| Guard Tower | Castle | 100F, 250S | Upgrade Watch Tower | 7 |
-| Keep | Imperial | 500F, 350S | Upgrade Guard Tower | 8 |
-| Fortified Wall | Castle | 200F, 100S | Upgrade Stone Wall | 7 |
-| Bombard Tower | Imperial | 800F, 400W | Enables Bombard Tower | 8 |
+| Masonry | Castle | 175W, 150S | Building HP/armor + | 8 |
+| Architecture | Imperial | 200W, 300S | Building HP/armor ++ | 9 |
+| Ballistics | Castle | 300W, 175G | Archers/towers track moving targets | 8 |
+| Murder Holes | Castle | 200F, 200S | No minimum tower/Castle range | 8 |
+| Heated Shot | Castle | 350F, 100G | +50% tower attack vs ships | 11 |
+| Chemistry | Imperial | 300F, 200G | +1 missile attack, enables gunpowder | 9 |
+| Siege Engineers | Imperial | 500F, 600W | +1 siege range, +20% vs buildings | 9 |
+| Treadmill Crane | Castle | 200W, 300S | +20% villager build speed | 8 |
+| Guard Tower | Castle | 100F, 250S | Upgrade Watch Tower | 8 |
+| Keep | Imperial | 500F, 350S | Upgrade Guard Tower | 9 |
+| Fortified Wall | Castle | 200F, 100S | Upgrade Stone Wall | 8 |
+| Bombard Tower | Imperial | 800F, 400W | Enables Bombard Tower | 9 |
 
 ### Monastery Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Redemption | Castle | 475G | Convert buildings, siege | 5 |
-| Atonement | Castle | 325G | Convert enemy Monks | 5 |
-| Fervor | Castle | 140G | +15% Monk speed | 5 |
-| Sanctity | Castle | 120G | +50% Monk HP | 5 |
-| Illumination | Imperial | 120G | +50% rejuvenation speed | 8 |
-| Block Printing | Imperial | 200G | +3 conversion range | 8 |
-| Faith | Imperial | 750F, 1000G | +50% conversion resistance | 8 |
+| Redemption | Castle | 475G | Convert buildings, siege | 6 |
+| Atonement | Castle | 325G | Convert enemy Monks | 6 |
+| Fervor | Castle | 140G | +15% Monk speed | 6 |
+| Sanctity | Castle | 120G | +50% Monk HP | 6 |
+| Illumination | Imperial | 120G | +50% rejuvenation speed | 9 |
+| Block Printing | Imperial | 200G | +3 conversion range | 9 |
+| Faith | Imperial | 750F, 1000G | +50% conversion resistance | 9 |
 
 ### Castle Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Hoardings | Imperial | 400W, 400S | +1000 Castle HP | 8 |
-| Conscription | Imperial | 150F, 150G | +33% military creation speed | 8 |
-| Sappers | Imperial | 400F, 200G | Villagers +15 attack vs buildings | 8 |
-| Spies/Treason | Imperial | 200G/enemy villager | See enemy LOS | 8 |
+| Hoardings | Imperial | 400W, 400S | +1000 Castle HP | 9 |
+| Conscription | Imperial | 150F, 150G | +33% military creation speed | 9 |
+| Sappers | Imperial | 400F, 200G | Villagers +15 attack vs buildings | 9 |
+| Spies/Treason | Imperial | 200G/enemy villager | See enemy LOS | 9 |
 
 ### Dock Technologies
 
 | Tech | Age | Cost | Effect | Phase |
 |------|-----|------|--------|-------|
-| Careening | Castle | 250F, 150G | +1P ship armor, +5 Transport capacity | 10 |
-| Dry Dock | Imperial | 600F, 400G | +15% ship speed, +10 Transport capacity | 11 |
-| Shipwright | Imperial | 1000F, 300G | -20% ship wood cost | 11 |
+| Careening | Castle | 250F, 150G | +1P ship armor, +5 Transport capacity | 11 |
+| Dry Dock | Imperial | 600F, 400G | +15% ship speed, +10 Transport capacity | 12 |
+| Shipwright | Imperial | 1000F, 300G | -20% ship wood cost | 12 |
 
 ---
 

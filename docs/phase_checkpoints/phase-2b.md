@@ -106,8 +106,10 @@ No AI changes this phase. AI will be updated in a later phase to build Stables a
 
 ## Context for Next Phase
 
-Critical information for Phase 2C (Siege & Advanced Combat):
+Critical information for Phase 2C (AI Economic Foundation) and beyond:
 
+- **Next sub-phase (2C):** AI catch-up phase - make AI train villagers, build farms, use all existing buildings. See roadmap for full 2C spec.
+- **After 2C:** Phase 2D adds Skirmisher + Cavalry Archer to complete the combat triangle.
 - **Armor system established:** Units have melee_armor and pierce_armor. Damage formula: `final = max(1, base - armor) + bonus`. All existing units updated.
 - **Group-based bonus damage:** Check `target.is_in_group("group_name")` for applying bonus damage. Current groups: cavalry, infantry, military, archers.
 - **Building panels:** Stable panel added following same pattern. Use explicit panels per building type.
