@@ -1,5 +1,17 @@
 # Age of Empires 2 Clone
 
+> **FIRST STEPS — Read Before Doing Anything**
+>
+> 1. **Always read `README.md` first** to understand the project.
+> 2. **If doing development work**, also read:
+>    - `docs/phase_checkpoints/` — Latest checkpoint = current project state
+>    - `docs/roadmap.md` — Architecture and phase details
+>    - `docs/gotchas.md` — Known pitfalls to avoid
+>
+> This applies to every new session. Don't start coding until you've read these.
+
+---
+
 ## Git Policy
 
 **Never perform git operations.** No commits, no pushes, no branch operations. The user handles all git manually.
