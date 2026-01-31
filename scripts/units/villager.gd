@@ -68,7 +68,7 @@ func _find_drop_off(resource_type: String) -> Building:
 func _physics_process(delta: float) -> void:
 	match current_state:
 		State.IDLE:
-			velocity = Vector2.ZERO
+			_stop_and_stay()
 		State.MOVING:
 			_process_moving(delta)
 		State.GATHERING:
@@ -80,6 +80,17 @@ func _physics_process(delta: float) -> void:
 		State.BUILDING:
 			_process_building(delta)
 
+## Stop movement completely and prevent avoidance from pushing us around
+func _stop_and_stay() -> void:
+	velocity = Vector2.ZERO
+	nav_agent.target_position = global_position  # Clear navigation target
+	nav_agent.avoidance_enabled = false  # Disable avoidance while stationary
+	move_and_slide()
+
+## Re-enable avoidance and apply movement (call before _apply_movement when resuming movement)
+func _resume_movement() -> void:
+	nav_agent.avoidance_enabled = true
+
 func _process_moving(delta: float) -> void:
 	var distance = global_position.distance_to(move_target)
 	if distance < 5:
@@ -88,6 +99,7 @@ func _process_moving(delta: float) -> void:
 		return
 
 	var direction = global_position.direction_to(move_target)
+	_resume_movement()
 	_apply_movement(direction * move_speed)
 
 func _process_gathering(delta: float) -> void:
@@ -109,11 +121,12 @@ func _process_gathering(delta: float) -> void:
 	if distance > 40:
 		# Move closer
 		var direction = global_position.direction_to(target_resource.global_position)
+		_resume_movement()
 		_apply_movement(direction * move_speed)
 		return
 
-	# We're close enough, gather
-	velocity = Vector2.ZERO
+	# We're close enough, gather - stop completely to prevent avoidance drift
+	_stop_and_stay()
 	gather_timer += delta
 
 	# Use resource's gather rate if available (farms are slower)
@@ -136,7 +149,7 @@ func _process_returning(delta: float) -> void:
 		drop_off_building = _find_drop_off(carried_resource_type)
 		if drop_off_building == null:
 			# No drop-off available, wait in place (don't lose resources)
-			velocity = Vector2.ZERO
+			_stop_and_stay()
 			return
 
 	# Check if close enough to deposit
@@ -147,6 +160,7 @@ func _process_returning(delta: float) -> void:
 
 	# Keep moving toward drop-off
 	var direction = global_position.direction_to(drop_off_building.global_position)
+	_resume_movement()
 	_apply_movement(direction * move_speed)
 
 func _return_to_drop_off() -> void:
@@ -177,11 +191,12 @@ func _process_hunting(delta: float) -> void:
 		nav_agent.target_position = target_animal.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
 		_apply_movement(direction * move_speed)
 		return
 
-	# In range, attack
-	velocity = Vector2.ZERO
+	# In range, attack - stop completely to prevent avoidance drift
+	_stop_and_stay()
 	attack_timer += delta
 
 	if attack_timer >= attack_cooldown:
@@ -295,11 +310,12 @@ func _process_building(delta: float) -> void:
 		nav_agent.target_position = target_construction.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
 		_apply_movement(direction * move_speed)
 		return
 
-	# We're close enough - stop and build
-	velocity = Vector2.ZERO
+	# We're close enough - stop and build (prevent avoidance drift)
+	_stop_and_stay()
 
 	# Progress construction
 	var completed = target_construction.progress_construction(delta)
