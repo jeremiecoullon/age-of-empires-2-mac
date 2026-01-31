@@ -3,7 +3,7 @@ class_name TownCenter
 
 const VILLAGER_COST: int = 50
 const TRAIN_TIME: float = 3.0
-const VILLAGER_SCENE_PATH: String = "res://scenes/units/villager.tscn"
+const VillagerScene: PackedScene = preload("res://scenes/units/villager.tscn")
 
 var is_training: bool = false
 var train_timer: float = 0.0
@@ -20,6 +20,7 @@ func _ready() -> void:
 	size = Vector2i(3, 3)
 	max_hp = 500
 	current_hp = max_hp
+	sight_range = 256.0  # Town Centers have large LOS (~8 tiles)
 	accepts_resources.assign(["wood", "food", "gold", "stone"])
 
 func _destroy() -> void:
@@ -62,13 +63,11 @@ func _complete_training() -> void:
 	is_training = false
 	train_timer = 0.0
 
-	var villager_scene = load(VILLAGER_SCENE_PATH)
-	if villager_scene:
-		var villager = villager_scene.instantiate()
-		villager.global_position = global_position + spawn_point_offset
-		villager.team = team
-		get_parent().add_child(villager)
-		GameManager.add_population(1, team)
+	var villager = VillagerScene.instantiate()
+	villager.global_position = global_position + spawn_point_offset
+	villager.team = team
+	get_parent().add_child(villager)
+	GameManager.add_population(1, team)
 
 	training_completed.emit()
 

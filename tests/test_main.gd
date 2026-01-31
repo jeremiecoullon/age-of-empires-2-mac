@@ -22,6 +22,7 @@ const TestAnimalsScript = preload("res://tests/scenarios/test_animals.gd")
 const TestDirectionsScript = preload("res://tests/scenarios/test_directions.gd")
 const TestArmorScript = preload("res://tests/scenarios/test_armor.gd")
 const TestAIScript = preload("res://tests/scenarios/test_ai.gd")
+const TestFogOfWarScript = preload("res://tests/scenarios/test_fog_of_war.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -110,6 +111,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING AI TESTS ===\n")
 	var ai_tests = TestAIScript.new(test_runner)
 	await test_runner.run_all_tests(ai_tests.get_all_tests())
+
+	# Fog of War tests (Phase 2E)
+	print("\n=== RUNNING FOG OF WAR TESTS ===\n")
+	var fog_of_war_tests = TestFogOfWarScript.new(test_runner)
+	await test_runner.run_all_tests(fog_of_war_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)

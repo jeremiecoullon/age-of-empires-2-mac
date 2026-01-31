@@ -26,8 +26,14 @@ signal population_changed
 signal game_over(winner: int)  # 0 = player wins, 1 = AI wins
 signal villager_idle(villager: Node, reason: String)  # Emitted when player villager goes idle
 signal market_prices_changed  # Emitted when market prices update
+signal player_under_attack(attack_type: String)  # "military", "villager", or "building"
 
 var game_ended: bool = false
+
+# Attack notification throttling
+const ATTACK_NOTIFY_COOLDOWN: float = 5.0  # Don't spam notifications
+var _last_military_attack_time: float = -ATTACK_NOTIFY_COOLDOWN
+var _last_civilian_attack_time: float = -ATTACK_NOTIFY_COOLDOWN
 
 # Selected units
 var selected_units: Array = []
@@ -224,3 +230,54 @@ func reset() -> void:
 	building_to_place = null
 	building_ghost = null
 	reset_market_prices()
+	_last_military_attack_time = -ATTACK_NOTIFY_COOLDOWN
+	_last_civilian_attack_time = -ATTACK_NOTIFY_COOLDOWN
+	# Reset fog of war if it exists
+	var fog = get_tree().get_first_node_in_group("fog_of_war") if get_tree() else null
+	if fog and fog.has_method("reset"):
+		fog.reset()
+
+## Called when a unit takes damage. Emits player_under_attack signal if player unit attacked.
+## Automatically connected to unit.damaged signal when units are registered.
+func notify_unit_damaged(unit: Node, amount: int, attacker: Node2D) -> void:
+	if not is_instance_valid(unit):
+		return
+	if unit.team != 0:  # Only notify for player units
+		return
+	if game_ended:
+		return
+
+	var current_time = Time.get_ticks_msec() / 1000.0
+	var attack_type: String
+
+	# Determine attack type based on unit type
+	if unit.is_in_group("military"):
+		attack_type = "military"
+		if current_time - _last_military_attack_time < ATTACK_NOTIFY_COOLDOWN:
+			return  # Throttled
+		_last_military_attack_time = current_time
+	else:
+		attack_type = "villager"
+		if current_time - _last_civilian_attack_time < ATTACK_NOTIFY_COOLDOWN:
+			return  # Throttled
+		_last_civilian_attack_time = current_time
+
+	player_under_attack.emit(attack_type)
+
+## Called when a building takes damage. Emits player_under_attack signal if player building attacked.
+func notify_building_damaged(building: Node, amount: int, attacker: Node2D) -> void:
+	if not is_instance_valid(building):
+		return
+	if building.team != 0:  # Only notify for player buildings
+		return
+	if game_ended:
+		return
+
+	var current_time = Time.get_ticks_msec() / 1000.0
+
+	# Buildings use civilian attack notification
+	if current_time - _last_civilian_attack_time < ATTACK_NOTIFY_COOLDOWN:
+		return  # Throttled
+	_last_civilian_attack_time = current_time
+
+	player_under_attack.emit("building")

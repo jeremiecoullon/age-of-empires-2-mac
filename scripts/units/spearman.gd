@@ -16,6 +16,10 @@ const SPEARMAN_TEXTURE: Texture2D = preload("res://assets/sprites/units/spearman
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
+var aggro_check_timer: float = 0.0
+const AGGRO_CHECK_INTERVAL: float = 0.3
+var original_position: Vector2 = Vector2.ZERO
+const DEFENSIVE_CHASE_RANGE: float = 200.0
 
 func _ready() -> void:
 	super._ready()
@@ -45,10 +49,30 @@ func _physics_process(delta: float) -> void:
 	match current_state:
 		State.IDLE:
 			velocity = Vector2.ZERO
+			_check_auto_aggro(delta)
 		State.MOVING:
 			_process_moving(delta)
 		State.ATTACKING:
 			_process_attacking(delta)
+
+func _check_auto_aggro(delta: float) -> void:
+	if stance == Stance.NO_ATTACK:
+		return
+
+	aggro_check_timer += delta
+	if aggro_check_timer < AGGRO_CHECK_INTERVAL:
+		return
+	aggro_check_timer = 0.0
+
+	var enemy = find_enemy_in_sight()
+	if enemy:
+		if stance == Stance.STAND_GROUND:
+			var dist = global_position.distance_to(enemy.global_position)
+			if dist <= attack_range:
+				command_attack(enemy)
+		else:
+			original_position = global_position
+			command_attack(enemy)
 
 func _process_moving(delta: float) -> void:
 	if nav_agent.is_navigation_finished():
@@ -83,6 +107,21 @@ func _process_attacking(delta: float) -> void:
 	var distance = global_position.distance_to(attack_target.global_position)
 
 	if distance > attack_range:
+		# Check stance restrictions
+		if stance == Stance.STAND_GROUND:
+			attack_target = null
+			current_state = State.IDLE
+			velocity = Vector2.ZERO
+			return
+
+		if stance == Stance.DEFENSIVE and original_position != Vector2.ZERO:
+			var dist_from_origin = global_position.distance_to(original_position)
+			if dist_from_origin > DEFENSIVE_CHASE_RANGE:
+				attack_target = null
+				current_state = State.IDLE
+				velocity = Vector2.ZERO
+				return
+
 		# Move closer to target using nav_agent
 		nav_agent.target_position = attack_target.global_position
 		var next_path_position = nav_agent.get_next_path_position()
@@ -109,7 +148,7 @@ func _deal_damage() -> void:
 	if attack_target is Unit and attack_target.is_in_group("cavalry"):
 		bonus = bonus_vs_cavalry
 
-	attack_target.take_damage(attack_damage, "melee", bonus)
+	attack_target.take_damage(attack_damage, "melee", bonus, self)
 
 func command_attack(target: Node2D) -> void:
 	attack_target = target

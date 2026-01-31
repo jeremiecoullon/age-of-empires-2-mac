@@ -21,27 +21,34 @@ func _ready() -> void:
 	# 25 frames total, 8 directions = ~3 frames per direction
 	_load_directional_animations("res://assets/sprites/units/deer_frames", "Deerstand", 25)
 
-func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
-	# Store position of attacker before taking damage
-	# We'll use our current position since we don't have direct attacker reference
-	last_attacker_position = global_position
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0, attacker: Node2D = null) -> void:
+	# Store position of attacker before taking damage (keep as ZERO if no attacker)
+	if is_instance_valid(attacker):
+		last_attacker_position = attacker.global_position
+	# Don't set to global_position - leave as ZERO so _flee_from_danger uses random direction
 
-	super.take_damage(amount, attack_type, bonus_damage)
+	super.take_damage(amount, attack_type, bonus_damage, attacker)
 
 	# Flee if still alive
 	if not is_dead and current_state != State.FLEEING:
 		_flee_from_danger()
 
 func _flee_from_danger() -> void:
-	# Flee in a random direction away from where damage came from
-	# Since we don't know exact attacker position, flee in a random direction
-	var flee_direction = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
+	# Flee away from the attacker position
+	var flee_direction: Vector2
+	if last_attacker_position != Vector2.ZERO:
+		# Flee away from attacker
+		flee_direction = global_position.direction_to(last_attacker_position).rotated(PI)
+	else:
+		# No attacker known, flee in random direction
+		flee_direction = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
+
 	var flee_distance = 250.0
-	var flee_target = global_position + flee_direction * flee_distance
+	var flee_target_pos = global_position + flee_direction * flee_distance
 
 	# Clamp to map bounds
-	flee_target.x = clamp(flee_target.x, 50, 1870)
-	flee_target.y = clamp(flee_target.y, 50, 1870)
+	flee_target_pos.x = clamp(flee_target_pos.x, 50, 1870)
+	flee_target_pos.y = clamp(flee_target_pos.y, 50, 1870)
 
-	nav_agent.target_position = flee_target
+	nav_agent.target_position = flee_target_pos
 	current_state = State.FLEEING

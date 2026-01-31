@@ -17,6 +17,8 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 | Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
 | Scout Cavalry | Unit | `assets/sprites/units/scout_cavalry.svg` | Orange mounted figure |
 | Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
+| Skirmisher | Unit | `assets/sprites/units/skirmisher.svg` | Light green figure with javelins |
+| Cavalry Archer | Unit | `assets/sprites/units/cavalry_archer.svg` | Mounted figure with bow |
 
 **Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
 
@@ -154,3 +156,17 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 ### Resource Gathering Interface
 
 - **Farm duck-types ResourceNode interface**: Farm extends Building (for placement, HP, team ownership) but implements the same gathering interface as ResourceNode: `harvest(amount) -> int`, `get_resource_type() -> String`, `has_resources() -> bool`, plus `gather_rate` property. Villager's `target_resource` and `command_gather()` use `Node` type (not `ResourceNode`) to accept both via duck typing. When adding new gatherable building types (e.g., Fish Trap), ensure they implement these methods and add themselves to the "resources" group.
+
+### Phase 2E - Fog of War & Stances
+
+- **Fog of war needs throttling**: Updating visibility every frame is expensive. Use a timer (0.2s interval) to throttle updates. Even so, iterating all units/buildings and all tiles (60x60 = 3600) can be costly in late game.
+
+- **Neutral entities need special fog handling**: Team -1 (wild animals) should be visible in EXPLORED or VISIBLE tiles, not hidden like enemy units. Check for `NEUTRAL_TEAM` separately from enemy team.
+
+- **AI defense should check all building positions**: When detecting threats, don't just check distance from spawn position (AI_BASE_POSITION). Buildings may spread out, and outlying structures need defense too. Iterate all AI buildings.
+
+- **Stance system integrates with existing state machines**: Military units already have state machines (IDLE, MOVING, ATTACKING). The stance system affects the auto-aggro check in IDLE state and the chase distance in ATTACKING state. No need for a separate stance state.
+
+- **Attack notification throttling**: Use separate cooldowns for military vs civilian attacks. 5 seconds is a good interval to prevent spam while still alerting the player. The signal emits the attack type ("military", "villager", "building") so UI can differentiate.
+
+- **preload() for town center villager scene**: TownCenter was using `load()` for the villager scene at runtime. Changed to `preload()` for consistency with project conventions. This applies to all scene spawning in production code.

@@ -1,15 +1,18 @@
 extends Building
 class_name ArcheryRange
 
-# AoE2 spec: 175W cost, trains archers (25W, 45G) and skirmishers
+# AoE2 spec: 175W cost, trains archers (25W, 45G) and skirmishers (25F, 35W)
 const ARCHER_WOOD_COST: int = 25
 const ARCHER_GOLD_COST: int = 45
 const ARCHER_TRAIN_TIME: float = 6.0
 const ARCHER_SCENE: PackedScene = preload("res://scenes/units/archer.tscn")
 
-# Skirmisher will be added in Phase 2B
+const SKIRMISHER_FOOD_COST: int = 25
+const SKIRMISHER_WOOD_COST: int = 35
+const SKIRMISHER_TRAIN_TIME: float = 5.0
+const SKIRMISHER_SCENE: PackedScene = preload("res://scenes/units/skirmisher.tscn")
 
-enum TrainingType { NONE, ARCHER }
+enum TrainingType { NONE, ARCHER, SKIRMISHER }
 
 var is_training: bool = false
 var train_timer: float = 0.0
@@ -39,6 +42,8 @@ func _get_current_train_time() -> float:
 	match current_training:
 		TrainingType.ARCHER:
 			return ARCHER_TRAIN_TIME
+		TrainingType.SKIRMISHER:
+			return SKIRMISHER_TRAIN_TIME
 		_:
 			return 1.0
 
@@ -63,12 +68,35 @@ func train_archer() -> bool:
 	training_started.emit()
 	return true
 
+func train_skirmisher() -> bool:
+	if is_training:
+		return false
+
+	# Check resources based on team
+	if not GameManager.can_add_population(team):
+		return false
+	if not GameManager.can_afford("food", SKIRMISHER_FOOD_COST, team):
+		return false
+	if not GameManager.can_afford("wood", SKIRMISHER_WOOD_COST, team):
+		return false
+
+	GameManager.spend_resource("food", SKIRMISHER_FOOD_COST, team)
+	GameManager.spend_resource("wood", SKIRMISHER_WOOD_COST, team)
+
+	is_training = true
+	train_timer = 0.0
+	current_training = TrainingType.SKIRMISHER
+	training_started.emit()
+	return true
+
 func _complete_training() -> void:
 	var scene: PackedScene = null
 
 	match current_training:
 		TrainingType.ARCHER:
 			scene = ARCHER_SCENE
+		TrainingType.SKIRMISHER:
+			scene = SKIRMISHER_SCENE
 
 	is_training = false
 	train_timer = 0.0

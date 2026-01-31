@@ -183,7 +183,7 @@ func _process_hunting(delta: float) -> void:
 
 	if attack_timer >= attack_cooldown:
 		attack_timer = 0.0
-		target_animal.take_damage(attack_damage, "melee")
+		target_animal.take_damage(attack_damage, "melee", 0, self)
 
 func _find_carcass_near(pos: Vector2) -> ResourceNode:
 	var carcasses = get_tree().get_nodes_in_group("carcasses")

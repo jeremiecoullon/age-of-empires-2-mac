@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://cmain000001"]
+[gd_scene load_steps=18 format=3 uid="uid://cmain000001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cmap0000001" path="res://scenes/map.tscn" id="2_map"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://cboar0001" path="res://scenes/units/boar.tscn" id="14_boar"]
 [ext_resource type="PackedScene" uid="uid://cwolf0001" path="res://scenes/units/wolf.tscn" id="15_wolf"]
 [ext_resource type="PackedScene" path="res://scenes/units/pelican_bicycle.tscn" id="16_pelican"]
+[ext_resource type="Script" path="res://scripts/fog_of_war.gd" id="17_fog"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -138,6 +139,9 @@ position = Vector2(1400, 1600)
 position = Vector2(1450, 1650)
 
 [node name="HUD" parent="." instance=ExtResource("3_hud")]
+
+[node name="FogOfWar" type="CanvasLayer" parent="."]
+script = ExtResource("17_fog")
 
 [node name="AIController" type="Node" parent="."]
 script = ExtResource("9_ai")

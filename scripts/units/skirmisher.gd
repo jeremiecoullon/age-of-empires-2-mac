@@ -1,28 +1,49 @@
 extends Unit
-class_name Militia
+class_name Skirmisher
+
+## Skirmisher - cheap anti-archer ranged unit.
+## AoE2 spec: 25F + 35W cost, 30 HP, 2 attack, 0/3 armor, range 4, +3 bonus vs archers
 
 enum State { IDLE, MOVING, ATTACKING }
 
-@export var attack_damage: int = 5
-@export var attack_range: float = 30.0
-@export var attack_cooldown: float = 1.0
+@export var attack_damage: int = 2
+@export var attack_range: float = 128.0  # ~4 tiles at 32px/tile
+@export var attack_cooldown: float = 2.0
+@export var bonus_vs_archers: int = 3  # Extra damage vs archer group
+
+const SKIRMISHER_TEXTURE: Texture2D = preload("res://assets/sprites/units/skirmisher.svg")
 
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
 var aggro_check_timer: float = 0.0
-const AGGRO_CHECK_INTERVAL: float = 0.3  # Check for enemies every 0.3 sec
-var original_position: Vector2 = Vector2.ZERO  # For DEFENSIVE stance distance limit
-const DEFENSIVE_CHASE_RANGE: float = 200.0  # Max chase distance for DEFENSIVE stance
+const AGGRO_CHECK_INTERVAL: float = 0.3
+var original_position: Vector2 = Vector2.ZERO
+const DEFENSIVE_CHASE_RANGE: float = 200.0
 
 func _ready() -> void:
 	super._ready()
 	add_to_group("military")
-	add_to_group("infantry")
-	max_hp = 50
+	add_to_group("archers")  # Counts as archer-type for targeting
+	max_hp = 30
 	current_hp = max_hp
-	# 30 frames total, 8 directions = ~4 frames per direction
-	_load_directional_animations("res://assets/sprites/units/militia_frames", "Militiastand", 30)
+	move_speed = 96.0
+	melee_armor = 0
+	pierce_armor = 3  # High pierce armor - resists arrows
+	if SKIRMISHER_TEXTURE:
+		_load_static_sprite(SKIRMISHER_TEXTURE)
+
+func _load_static_sprite(texture: Texture2D) -> void:
+	if not sprite or not texture:
+		return
+	var sprite_frames = SpriteFrames.new()
+	sprite_frames.remove_animation("default")
+	sprite_frames.add_animation("idle")
+	sprite_frames.set_animation_loop("idle", true)
+	sprite_frames.add_frame("idle", texture)
+	sprite.sprite_frames = sprite_frames
+	sprite.play("idle")
+	sprite.scale = Vector2(0.5, 0.5)  # Scale down 64px SVG
 
 func _physics_process(delta: float) -> void:
 	match current_state:
@@ -36,28 +57,24 @@ func _physics_process(delta: float) -> void:
 
 func _check_auto_aggro(delta: float) -> void:
 	if stance == Stance.NO_ATTACK:
-		return  # Never auto-attack
+		return
 
 	aggro_check_timer += delta
 	if aggro_check_timer < AGGRO_CHECK_INTERVAL:
 		return
 	aggro_check_timer = 0.0
 
-	# Find enemy in sight
 	var enemy = find_enemy_in_sight()
 	if enemy:
-		# For STAND_GROUND, only attack if already in range
 		if stance == Stance.STAND_GROUND:
 			var dist = global_position.distance_to(enemy.global_position)
 			if dist <= attack_range:
 				command_attack(enemy)
 		else:
-			# AGGRESSIVE or DEFENSIVE - chase and attack
-			original_position = global_position  # Remember where we started
+			original_position = global_position
 			command_attack(enemy)
 
 func _process_moving(delta: float) -> void:
-	# Use NavigationAgent2D for proper pathfinding
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
 		velocity = Vector2.ZERO
@@ -90,41 +107,48 @@ func _process_attacking(delta: float) -> void:
 	var distance = global_position.distance_to(attack_target.global_position)
 
 	if distance > attack_range:
-		# Check stance restrictions on movement
+		# Check stance restrictions
 		if stance == Stance.STAND_GROUND:
-			# Don't move, give up attack if target moved out of range
 			attack_target = null
 			current_state = State.IDLE
 			velocity = Vector2.ZERO
 			return
 
 		if stance == Stance.DEFENSIVE and original_position != Vector2.ZERO:
-			# Check if we've chased too far from original position
 			var dist_from_origin = global_position.distance_to(original_position)
 			if dist_from_origin > DEFENSIVE_CHASE_RANGE:
-				# Give up chase and return
 				attack_target = null
 				current_state = State.IDLE
 				velocity = Vector2.ZERO
 				return
 
-		# Move closer to target using nav_agent
+		# Move closer to get in range
 		nav_agent.target_position = attack_target.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
 		velocity = direction * move_speed
 		move_and_slide()
 		_update_facing_direction()
-		# Don't increment attack timer when out of range
 		return
 
-	# In range, stop and attack
+	# In range - stop and attack
 	velocity = Vector2.ZERO
 	attack_timer += delta
 
 	if attack_timer >= attack_cooldown:
 		attack_timer = 0.0
-		attack_target.take_damage(attack_damage, "melee", 0, self)
+		_fire_at_target()
+
+func _fire_at_target() -> void:
+	if not is_instance_valid(attack_target):
+		return
+
+	var bonus = 0
+	# Apply bonus damage vs archers
+	if attack_target is Unit and attack_target.is_in_group("archers"):
+		bonus = bonus_vs_archers
+
+	attack_target.take_damage(attack_damage, "pierce", bonus, self)
 
 func command_attack(target: Node2D) -> void:
 	attack_target = target

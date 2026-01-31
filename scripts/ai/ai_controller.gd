@@ -39,7 +39,9 @@ var ai_mining_camp: MiningCamp = null
 var ai_mill: Mill = null
 var ai_market: Market = null
 var decision_timer: float = 0.0
-var has_attacked: bool = false
+var attack_cooldown: float = 0.0  # Time until AI can attack again
+const ATTACK_COOLDOWN_TIME: float = 30.0  # Seconds between attacks
+var defending: bool = false  # True if AI military is responding to a threat
 
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
@@ -69,6 +71,10 @@ func _spawn_ai_base() -> void:
 func _process(delta: float) -> void:
 	if GameManager.game_ended:
 		return
+
+	# Update attack cooldown
+	if attack_cooldown > 0:
+		attack_cooldown -= delta
 
 	decision_timer += delta
 	if decision_timer >= DECISION_INTERVAL:
@@ -151,12 +157,15 @@ func _make_decisions() -> void:
 	# 14. Rebuild destroyed critical buildings
 	_consider_rebuilding()
 
-	# === ATTACK PHASE (Priority 4) ===
+	# === DEFENSE PHASE (Priority 4) ===
 
-	# 15. Attack when economy is established and military is ready
-	if military_count < MIN_MILITARY_FOR_ATTACK:
-		has_attacked = false
-	if _should_attack():
+	# 15. Check for threats and defend
+	_check_and_defend()
+
+	# === ATTACK PHASE (Priority 5) ===
+
+	# 16. Attack when economy is established and military is ready
+	if not defending and _should_attack():
 		_attack_player()
 
 func _train_villager() -> void:
@@ -708,7 +717,9 @@ func _train_military() -> void:
 	var militia_count = 0
 	var spearman_count = 0
 	var archer_count = 0
+	var skirmisher_count = 0
 	var scout_count = 0
+	var cavalry_archer_count = 0
 
 	var military = get_tree().get_nodes_in_group("military")
 	for unit in military:
@@ -718,8 +729,12 @@ func _train_military() -> void:
 			militia_count += 1
 		elif unit is Spearman:
 			spearman_count += 1
+		elif unit is Skirmisher:
+			skirmisher_count += 1
 		elif unit is Archer:
 			archer_count += 1
+		elif unit is CavalryArcher:
+			cavalry_archer_count += 1
 		elif unit is ScoutCavalry:
 			scout_count += 1
 
@@ -727,28 +742,46 @@ func _train_military() -> void:
 	# - Militia: baseline infantry (from Barracks)
 	# - Spearman: anti-cavalry (from Barracks)
 	# - Archer: ranged damage (from Archery Range)
+	# - Skirmisher: anti-archer (from Archery Range)
 	# - Scout Cavalry: fast harass (from Stable)
+	# - Cavalry Archer: mobile ranged (from Stable)
 
-	# Try to maintain rough balance: 40% infantry (militia/spearman), 40% ranged, 20% cavalry
+	# Try to maintain rough balance: 40% infantry, 40% ranged (archers+skirms), 20% cavalry
 
 	# Train from available buildings
 	_refresh_barracks_list()
 
-	# Train archers if we have archery range and need ranged units
-	if _has_archery_range() and not ai_archery_range.is_training:
-		var total_military = militia_count + spearman_count + archer_count + scout_count
-		if total_military == 0 or archer_count < total_military * 0.4:
-			if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
-				ai_archery_range.train_archer()
-				return
+	var total_ranged = archer_count + skirmisher_count
+	var total_cavalry = scout_count + cavalry_archer_count
+	var total_military = militia_count + spearman_count + total_ranged + total_cavalry
 
-	# Train scouts if we have stable and need cavalry
+	# Train from archery range (archers or skirmishers)
+	if _has_archery_range() and not ai_archery_range.is_training:
+		if total_military == 0 or total_ranged < total_military * 0.4:
+			# Decide between archer and skirmisher
+			# Mix in some skirmishers (about 1/3 of ranged units)
+			if skirmisher_count < archer_count * 0.5 and skirmisher_count < 2:
+				if GameManager.can_afford("food", 25, AI_TEAM) and GameManager.can_afford("wood", 35, AI_TEAM):
+					ai_archery_range.train_skirmisher()
+					return
+			else:
+				if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
+					ai_archery_range.train_archer()
+					return
+
+	# Train from stable (scouts or cavalry archers)
 	if _has_stable() and not ai_stable.is_training:
-		var total_military = militia_count + spearman_count + archer_count + scout_count
-		if scout_count < 2 or (total_military > 0 and scout_count < total_military * 0.2):
-			if GameManager.can_afford("food", 80, AI_TEAM):
-				ai_stable.train_scout_cavalry()
-				return
+		if total_cavalry < 2 or (total_military > 0 and total_cavalry < total_military * 0.2):
+			# Decide between scout and cavalry archer
+			# Mix in some cavalry archers for ranged harassment
+			if cavalry_archer_count < scout_count and cavalry_archer_count < 2:
+				if GameManager.can_afford("wood", 40, AI_TEAM) and GameManager.can_afford("gold", 70, AI_TEAM):
+					ai_stable.train_cavalry_archer()
+					return
+			else:
+				if GameManager.can_afford("food", 80, AI_TEAM):
+					ai_stable.train_scout_cavalry()
+					return
 
 	# Train from barracks (militia or spearman)
 	for barracks in ai_barracks:
@@ -780,24 +813,66 @@ func _get_military_count() -> int:
 	return count
 
 func _attack_player() -> void:
-	has_attacked = true
+	attack_cooldown = ATTACK_COOLDOWN_TIME
 
-	# Find player TC
-	var player_tc: TownCenter = null
-	var tcs = get_tree().get_nodes_in_group("town_centers")
-	for tc in tcs:
-		if tc.team == 0:
-			player_tc = tc
-			break
-
-	if not player_tc:
+	# Find primary attack target
+	var target = _find_attack_target()
+	if not target:
 		return
 
-	# Send all AI military to attack
+	# Send all idle AI military to attack
 	var military_units = get_tree().get_nodes_in_group("military")
 	for unit in military_units:
-		if unit.team == AI_TEAM:
-			unit.command_attack(player_tc)
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		# Only send units that aren't actively defending
+		if _is_unit_idle_or_patrolling(unit):
+			unit.command_attack(target)
+
+## Find the best target to attack
+func _find_attack_target() -> Node2D:
+	# Priority 1: Player military units near AI base (threats)
+	var threats = _get_player_units_near_base(300.0)
+	if not threats.is_empty():
+		return threats[0]
+
+	# Priority 2: Player villagers (cripple economy)
+	var player_villagers = _get_player_villagers()
+	if not player_villagers.is_empty():
+		# Find closest villager to AI base
+		var nearest: Node2D = null
+		var nearest_dist: float = INF
+		for v in player_villagers:
+			var dist = v.global_position.distance_to(AI_BASE_POSITION)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest = v
+		if nearest:
+			return nearest
+
+	# Priority 3: Player TC (win condition)
+	var tcs = get_tree().get_nodes_in_group("town_centers")
+	for tc in tcs:
+		if tc.team == 0 and not tc.is_destroyed:
+			return tc
+
+	# Priority 4: Any player building
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	for building in buildings:
+		if building.team == 0 and not building.is_destroyed:
+			return building
+
+	return null
+
+## Check if a unit is idle or just standing around
+func _is_unit_idle_or_patrolling(unit: Node2D) -> bool:
+	if unit.has_method("get") and "current_state" in unit:
+		var state = unit.current_state
+		# Most military units have State.IDLE = 0
+		return state == 0  # IDLE state
+	return true  # Assume idle if we can't check
 
 func _get_ai_villagers() -> Array:
 	var result = []
@@ -919,6 +994,86 @@ func _use_market() -> void:
 			ai_market.buy_resource("food")
 			return
 
+# Defense functions
+func _check_and_defend() -> void:
+	# Check if there are enemy units near our base or attacking our stuff
+	var threats = _get_player_units_near_base(400.0)
+
+	if threats.is_empty():
+		defending = false
+		return
+
+	# We have threats! Rally military to defend
+	defending = true
+
+	# Find nearest threat
+	var nearest_threat: Node2D = null
+	var nearest_dist: float = INF
+	for threat in threats:
+		var dist = threat.global_position.distance_to(AI_BASE_POSITION)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_threat = threat
+
+	if not nearest_threat:
+		defending = false
+		return
+
+	# Send military to defend
+	var military_units = get_tree().get_nodes_in_group("military")
+	for unit in military_units:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		# Only redirect idle units or units far from threats
+		if _is_unit_idle_or_patrolling(unit):
+			unit.command_attack(nearest_threat)
+
+## Get player units near any AI building (threats)
+func _get_player_units_near_base(radius: float) -> Array:
+	var threats = []
+	var ai_buildings = get_tree().get_nodes_in_group("buildings")
+	var ai_building_positions: Array[Vector2] = []
+
+	# Collect AI building positions
+	for building in ai_buildings:
+		if building.team == AI_TEAM and not building.is_destroyed:
+			ai_building_positions.append(building.global_position)
+
+	# Also include the TC position as fallback
+	if ai_building_positions.is_empty():
+		ai_building_positions.append(AI_BASE_POSITION)
+
+	# Check player military units near any AI building
+	var military = get_tree().get_nodes_in_group("military")
+	for unit in military:
+		if unit.team == 0 and not unit.is_dead:
+			for pos in ai_building_positions:
+				if unit.global_position.distance_to(pos) < radius:
+					threats.append(unit)
+					break  # Don't add same unit twice
+
+	# Check player villagers near buildings (could be scouting or building)
+	var villagers = get_tree().get_nodes_in_group("villagers")
+	for v in villagers:
+		if v.team == 0 and not v.is_dead:
+			for pos in ai_building_positions:
+				if v.global_position.distance_to(pos) < radius:
+					threats.append(v)
+					break  # Don't add same villager twice
+
+	return threats
+
+## Get all player villagers
+func _get_player_villagers() -> Array:
+	var result = []
+	var villagers = get_tree().get_nodes_in_group("villagers")
+	for v in villagers:
+		if v.team == 0 and not v.is_dead:
+			result.append(v)
+	return result
+
 # Attack decision
 func _should_attack() -> bool:
 	var villager_count = _get_ai_villagers().size()
@@ -932,8 +1087,8 @@ func _should_attack() -> bool:
 	if military_count < MIN_MILITARY_FOR_ATTACK:
 		return false
 
-	# Don't attack if we've already attacked and military is still engaged
-	if has_attacked:
+	# Don't attack if on cooldown
+	if attack_cooldown > 0:
 		return false
 
 	# Attack if we have a good military force

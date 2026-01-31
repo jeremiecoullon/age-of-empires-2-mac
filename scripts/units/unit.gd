@@ -8,6 +8,9 @@ const AI_COLOR = Color(0.9, 0.2, 0.2, 1)  # Red
 enum Direction { SW, W, NW, N, NE, E, SE, S }
 const DIRECTION_NAMES = ["sw", "w", "nw", "n", "ne", "e", "se", "s"]
 
+# Combat stances - affects auto-attack behavior
+enum Stance { AGGRESSIVE, DEFENSIVE, STAND_GROUND, NO_ATTACK }
+
 # Cache for loaded SpriteFrames to avoid repeated file I/O
 static var _sprite_frames_cache: Dictionary = {}
 
@@ -16,6 +19,9 @@ static var _sprite_frames_cache: Dictionary = {}
 @export var team: int = 0  # 0 = player, 1 = AI
 @export var melee_armor: int = 0  # Reduces melee damage
 @export var pierce_armor: int = 0  # Reduces pierce/ranged damage
+@export var sight_range: float = 128.0  # How far unit can see (for auto-aggro), ~4 tiles
+
+var stance: int = Stance.AGGRESSIVE  # Default stance for all units
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
@@ -27,6 +33,7 @@ var is_dead: bool = false
 var current_direction: int = Direction.S  # Default facing south
 
 signal died
+signal damaged(amount: int, attacker: Node2D)  # Emitted when unit takes damage
 
 func _ready() -> void:
 	add_to_group("units")
@@ -35,6 +42,8 @@ func _ready() -> void:
 	nav_agent.target_desired_distance = 4.0
 	selection_indicator.visible = false
 	_apply_team_color()
+	# Connect to attack notification system
+	damaged.connect(_on_damaged_for_notification)
 
 func _apply_team_color() -> void:
 	if sprite:
@@ -237,11 +246,13 @@ func stop_movement() -> void:
 ## Take damage with armor calculation.
 ## attack_type: "melee" or "pierce" - determines which armor applies
 ## bonus_damage: Extra damage that ignores armor (e.g., spearman vs cavalry)
-func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
+## attacker: The node that dealt the damage (optional, for notification/response)
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0, attacker: Node2D = null) -> void:
 	var armor = melee_armor if attack_type == "melee" else pierce_armor
 	var base_damage = max(1, amount - armor)  # Minimum 1 damage
 	var final_damage = base_damage + bonus_damage
 	current_hp -= final_damage
+	damaged.emit(final_damage, attacker)
 	if current_hp <= 0:
 		die()
 
@@ -254,3 +265,60 @@ func die() -> void:
 		GameManager.deselect_unit(self)
 	GameManager.remove_population(1, team)
 	queue_free()
+
+## Called when this unit takes damage - notifies GameManager for attack alerts
+func _on_damaged_for_notification(amount: int, attacker: Node2D) -> void:
+	GameManager.notify_unit_damaged(self, amount, attacker)
+
+## Set the unit's combat stance
+func set_stance(new_stance: int) -> void:
+	stance = new_stance
+
+## Find nearest enemy unit within sight range. Returns null if none found.
+## Only finds units that can be attacked (not same team, not dead).
+func find_enemy_in_sight() -> Unit:
+	if stance == Stance.NO_ATTACK:
+		return null  # Never auto-attack in NO_ATTACK stance
+
+	var units = get_tree().get_nodes_in_group("units")
+	var nearest: Unit = null
+	var nearest_dist: float = sight_range
+
+	for unit in units:
+		if unit == self:
+			continue
+		if unit.team == team:
+			continue  # Same team
+		if unit.is_dead:
+			continue
+		if unit is Animal:
+			continue  # Don't auto-attack animals
+
+		var dist = global_position.distance_to(unit.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = unit
+
+	return nearest
+
+## Find nearest enemy building within sight range. Returns null if none found.
+func find_enemy_building_in_sight() -> Building:
+	if stance == Stance.NO_ATTACK:
+		return null
+
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	var nearest: Building = null
+	var nearest_dist: float = sight_range
+
+	for building in buildings:
+		if building.team == team:
+			continue
+		if building.is_destroyed:
+			continue
+
+		var dist = global_position.distance_to(building.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = building
+
+	return nearest

@@ -117,7 +117,7 @@ func _process_attacking(delta: float) -> void:
 
 	if attack_timer >= attack_cooldown:
 		attack_timer = 0.0
-		attack_target.take_damage(attack_damage, "melee")
+		attack_target.take_damage(attack_damage, "melee", 0, self)
 
 func _start_wandering() -> void:
 	# Pick random point within wander_range of spawn
@@ -161,10 +161,10 @@ func _find_nearby_enemy() -> Unit:
 func on_damaged(attacker: Node2D) -> void:
 	pass  # Subclasses override this
 
-func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
-	super.take_damage(amount, attack_type, bonus_damage)
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0, attacker: Node2D = null) -> void:
+	super.take_damage(amount, attack_type, bonus_damage, attacker)
 	# Notify subclass about damage (for flee/aggro behavior)
-	# Note: attacker tracking would need to be added if needed
+	on_damaged(attacker)
 
 func die() -> void:
 	if is_dead:
