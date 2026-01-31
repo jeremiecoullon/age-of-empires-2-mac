@@ -43,6 +43,7 @@ theme_override_font_sizes/font_size = 18
 text = "Pop: 3/5"
 
 [node name="BuildPanel" type="PanelContainer" parent="."]
+visible = false
 offset_left = 970.0
 offset_top = 10.0
 offset_right = 1270.0

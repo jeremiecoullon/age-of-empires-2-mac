@@ -35,6 +35,7 @@ func _ready() -> void:
 	building_name = "Stable"
 	size = Vector2i(3, 3)
 	wood_cost = 175  # AoE2 spec
+	build_time = 50.0
 
 func _process(delta: float) -> void:
 	if is_training:

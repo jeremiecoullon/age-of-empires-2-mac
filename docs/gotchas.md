@@ -179,3 +179,19 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 - **Production queue pattern (AoE2-style)**: Resources deducted immediately when queueing (not when training starts). Cancel removes last queued item (not currently training unit) and refunds resources. This prevents queue-and-cancel exploits and matches AoE2 behavior.
 
 - **Consolidate static sprite loading in base class**: The `_load_static_sprite(texture, scale)` method in Unit base class handles single-image sprites (SVG placeholders). Subclasses don't need to duplicate this code.
+
+### Phase 2.5B - Villager-Based Building Construction
+
+- **is_functional() pattern**: Use `is_functional()` instead of just `is_constructed` when checking if a building is usable. A building may be constructed but destroyed (from combat), or under construction but not yet usable. The pattern: `return is_constructed and not is_destroyed`.
+
+- **Builder cleanup on villager death**: Villagers must remove themselves from their target building's builder list in `die()` before calling `super.die()`. Otherwise the building's builder count becomes wrong and may prevent the building from completing if it's waiting for builders.
+
+- **AoE2 partial refund on cancel**: When a player cancels an under-construction building, AoE2 refunds the unbuilt portion: `refund = cost * (1.0 - construction_progress)`. A building at 25% returns 75% of resources. A completed building returns nothing.
+
+- **Multi-builder diminishing returns**: Additional villagers building the same structure follow a harmonic series, not linear scaling. Builder 1 = 1.0x, Builder 2 = +0.5x (1.5x total), Builder 3 = +0.25x (1.75x total), etc. This discourages stacking many villagers on one building.
+
+- **HP scales with construction progress**: Buildings start at 1 HP and scale linearly to max_hp as construction progresses. Formula: `current_hp = 1 + int(progress * (max_hp - 1))`. This makes unfinished buildings vulnerable to raids.
+
+- **Build panel visibility**: The build panel should only show when a villager is selected, not always visible. Check selection in HUD update and hide panel when no villagers are selected.
+
+- **AI builder assignment**: AI should cap builders per building (2 is a good limit) to avoid over-committing villagers to construction. Use `_manage_construction()` in the AI decision loop to assign idle villagers.

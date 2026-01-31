@@ -72,6 +72,7 @@ func _ready() -> void:
 	_update_market_prices()
 	_setup_attack_notification()
 	_setup_stance_buttons()
+	build_panel.visible = false  # Only show when villager selected
 	tc_panel.visible = false
 	barracks_panel.visible = false
 	market_panel.visible = false
@@ -166,7 +167,7 @@ func show_tc_panel(tc: TownCenter) -> void:
 
 	selected_tc = tc
 	tc_panel.visible = true
-	build_panel.visible = false
+	build_panel.visible = false  # Hide build panel when showing building panel
 	if not tc.training_completed.is_connected(_on_training_completed):
 		tc.training_completed.connect(_on_training_completed)
 
@@ -176,7 +177,7 @@ func hide_tc_panel() -> void:
 			selected_tc.training_completed.disconnect(_on_training_completed)
 	selected_tc = null
 	tc_panel.visible = false
-	build_panel.visible = true
+	# Don't auto-show build_panel - only shows when villager selected
 
 func show_barracks_panel(barracks: Barracks) -> void:
 	# Disconnect previous barracks signal if exists
@@ -196,7 +197,7 @@ func hide_barracks_panel() -> void:
 			selected_barracks.training_completed.disconnect(_on_barracks_training_completed)
 	selected_barracks = null
 	barracks_panel.visible = false
-	build_panel.visible = true
+	# Don't auto-show build_panel - only shows when villager selected
 
 func show_market_panel(market: Market) -> void:
 	# Disconnect previous market signal if exists
@@ -218,7 +219,7 @@ func hide_market_panel() -> void:
 			selected_market.training_completed.disconnect(_on_market_training_completed)
 	selected_market = null
 	market_panel.visible = false
-	build_panel.visible = true
+	# Don't auto-show build_panel - only shows when villager selected
 
 func show_archery_range_panel(archery_range: ArcheryRange) -> void:
 	# Disconnect previous archery range signal if exists
@@ -240,7 +241,7 @@ func hide_archery_range_panel() -> void:
 			selected_archery_range.training_completed.disconnect(_on_archery_range_training_completed)
 	selected_archery_range = null
 	archery_range_panel.visible = false
-	build_panel.visible = true
+	# Don't auto-show build_panel - only shows when villager selected
 
 func show_stable_panel(stable: Stable) -> void:
 	# Disconnect previous stable signal if exists
@@ -263,7 +264,7 @@ func hide_stable_panel() -> void:
 			selected_stable.training_completed.disconnect(_on_stable_training_completed)
 	selected_stable = null
 	stable_panel.visible = false
-	build_panel.visible = true
+	# Don't auto-show build_panel - only shows when villager selected
 
 func _on_training_completed() -> void:
 	train_progress.visible = false
@@ -545,12 +546,20 @@ func _show_villager_info(villager: Villager) -> void:
 			state_text = "Returning to drop-off"
 		Villager.State.HUNTING:
 			state_text = "Hunting"
+		Villager.State.BUILDING:
+			state_text = "Building"
 
 	var details = "Status: %s" % state_text
 	if villager.carried_amount > 0:
 		details += "\nCarrying: %d %s" % [villager.carried_amount, villager.carried_resource_type]
 	info_details.text = details
 	info_panel.visible = true
+
+	# Show build panel only for player villagers
+	if villager.team == 0:
+		build_panel.visible = true
+	else:
+		build_panel.visible = false
 
 func _show_militia_info(militia: Militia) -> void:
 	info_title.text = "Militia"
@@ -689,15 +698,86 @@ func _show_animal_info(animal: Animal, title: String, description: String) -> vo
 
 func _show_building_info(title: String, details: String, building: Building = null) -> void:
 	var display_title = title
-	if building and building.team != 0:
-		display_title = title + " (Enemy)"
+	if building:
+		if building.team != 0:
+			display_title = title + " (Enemy)"
+		elif not building.is_constructed:
+			display_title = title + " (Building...)"
 	info_title.text = display_title
-	info_details.text = details
+
+	var display_details = details
+	if building:
+		if not building.is_constructed:
+			display_details = "Construction: %d%%\nHP: %d/%d\nBuilders: %d\n[Press DEL to cancel]" % [
+				building.get_construction_percent(),
+				building.current_hp,
+				building.max_hp,
+				building.get_builder_count()
+			]
+		else:
+			display_details = "HP: %d/%d" % [building.current_hp, building.max_hp]
+			if details != "":
+				display_details += "\n" + details
+
+	info_details.text = display_details
 	info_panel.visible = true
+
+## Delete a selected building under construction (partial refund per AoE2)
+## AoE2 refunds "the resources from the unbuilt portion of the building"
+func delete_selected_building() -> bool:
+	if not is_instance_valid(selected_info_entity):
+		return false
+
+	if not selected_info_entity is Building:
+		return false
+
+	var building = selected_info_entity as Building
+
+	# Only allow deleting player's under-construction buildings
+	if building.team != 0:
+		_show_error("Cannot delete enemy buildings!")
+		return false
+
+	if building.is_constructed:
+		_show_error("Cannot delete completed buildings!")
+		return false
+
+	# Calculate refund - AoE2 refunds the unbuilt portion
+	var refund_ratio = 1.0 - building.construction_progress
+	var wood_refund = int(building.wood_cost * refund_ratio)
+	var food_refund = int(building.food_cost * refund_ratio)
+
+	# Refund resources
+	if wood_refund > 0:
+		GameManager.add_resource("wood", wood_refund, 0)
+	if food_refund > 0:
+		GameManager.add_resource("food", food_refund, 0)
+
+	# Release all builders properly
+	for builder in building.builders.duplicate():  # Duplicate to avoid modifying during iteration
+		if is_instance_valid(builder):
+			building.remove_builder(builder)
+			builder.target_construction = null
+			builder.current_state = Villager.State.IDLE
+
+	# Destroy the building
+	building.queue_free()
+
+	# Clear selection
+	selected_info_entity = null
+	info_panel.visible = false
+
+	var total_refund = wood_refund + food_refund
+	if total_refund > 0:
+		_show_notification("Construction cancelled (refunded %d resources)" % total_refund)
+	else:
+		_show_notification("Construction cancelled")
+	return true
 
 func hide_info() -> void:
 	selected_info_entity = null
 	info_panel.visible = false
+	build_panel.visible = false
 	hide_stance_ui()
 
 ## Update info panel for selected entity (called every frame for live updates)
@@ -736,7 +816,12 @@ func _update_selected_entity_info() -> void:
 			_show_animal_info(selected_info_entity, "Wolf", "Hostile! Attacks on sight.\nNo food yield.")
 		elif selected_info_entity is PelicanBicycle:
 			_show_animal_info(selected_info_entity, "Pelican on Bicycle", "A rare sight! Herdable.\nHow did it learn to ride?")
-	# Note: Resources and buildings don't need live updates as frequently
+	elif selected_info_entity is Building:
+		# Update building info (especially during construction)
+		var building = selected_info_entity as Building
+		if not building.is_constructed:
+			# Re-show building info to update construction progress
+			_show_building_info(building.building_name, "", building)
 
 func _on_game_over(winner: int) -> void:
 	game_over_panel.visible = true

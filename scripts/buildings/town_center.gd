@@ -17,12 +17,12 @@ signal training_progress(progress: float)
 signal queue_changed(queue_size: int)  # Emitted when queue changes
 
 func _ready() -> void:
+	max_hp = 500  # Set before super._ready() so it uses correct max
 	super._ready()
 	add_to_group("town_centers")
 	building_name = "Town Center"
 	size = Vector2i(3, 3)
-	max_hp = 500
-	current_hp = max_hp
+	build_time = 150.0  # TCs take a long time to build
 	sight_range = 256.0  # Town Centers have large LOS (~8 tiles)
 	accepts_resources.assign(["wood", "food", "gold", "stone"])
 

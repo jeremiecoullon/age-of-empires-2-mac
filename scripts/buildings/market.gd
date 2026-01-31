@@ -19,12 +19,13 @@ signal trade_completed(resource_type: String, is_buy: bool, amount: int, gold_am
 signal queue_changed(queue_size: int)
 
 func _ready() -> void:
+	max_hp = 2100  # Set before super._ready() so it uses correct max
 	super._ready()
 	add_to_group("markets")
 	building_name = "Market"
 	size = Vector2i(3, 3)
 	wood_cost = 175  # From AoE2 spec
-	max_hp = 2100  # From AoE2 spec
+	build_time = 60.0
 
 func _process(delta: float) -> void:
 	if is_training:
