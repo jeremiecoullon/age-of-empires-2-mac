@@ -91,6 +91,9 @@ Help refine how development happens:
 - Add to `docs/gotchas.md` when you discover pitfalls
 - Suggest better phase breakdowns in `docs/roadmap.md`
 - Enhance the code review or testing process
-- Track and triage bug reports
 
 The meta-game is making Claude more effective at building the actual game.
+
+**4. Play the Game & Report Bugs**
+
+Play the game and report any bugs you find in the [issue tracker](../../issues). You can list multiple bugs in a single issue — they'll be triaged with Claude Code. Even better: open a PR to fix them!
