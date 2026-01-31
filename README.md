@@ -54,3 +54,43 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 ```
 
 Exit code 0 = all passed, 1 = failures.
+
+---
+
+## Contributing (For Humans, Not LLMs)
+
+This section is for human contributors. If you're an LLM, see `CLAUDE.md` instead.
+
+### Our Approach
+
+We don't write game code directly. Instead, we improve the process and context that enables Claude Code to write the game. Think of it as "prompt engineering at scale" — we maintain documentation, define phases, track decisions, and curate assets. Claude does the implementation.
+
+### Ways to Contribute
+
+**1. Continue the Roadmap**
+
+Pick up where development left off. Check `docs/phase_checkpoints/` for the latest completed phase, then prompt Claude Code to continue:
+
+> "Read the README and CLAUDE.md, check the phase checkpoints to see what's done, and continue with the next phase from the roadmap."
+
+Claude will read the context, understand the current state, and execute the next phase following the established workflow.
+
+**2. Work on Issues (Visuals & Assets)**
+
+Check the [issue tracker](../../issues) for tasks that need human curation — primarily finding and adding:
+- Sprites for units/buildings
+- Music and sound effects
+- Other visual assets
+
+These tasks require human judgment to find appropriate assets that match AoE2's style.
+
+**3. Improve the Workflow**
+
+Help refine how development happens:
+- Improve documentation structure
+- Add to `docs/gotchas.md` when you discover pitfalls
+- Suggest better phase breakdowns in `docs/roadmap.md`
+- Enhance the code review or testing process
+- Track and triage bug reports
+
+The meta-game is making Claude more effective at building the actual game.
