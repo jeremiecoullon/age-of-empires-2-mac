@@ -32,6 +32,14 @@ extends CanvasLayer
 @onready var game_over_label: Label = $GameOverPanel/VBoxContainer/GameOverLabel
 @onready var restart_button: Button = $GameOverPanel/VBoxContainer/RestartButton
 
+# Attack notification label (created dynamically if not in scene)
+var attack_notification_label: Label = null
+
+# Stance UI (created dynamically)
+var stance_container: HBoxContainer = null
+var stance_buttons: Array[Button] = []
+var selected_military_unit: Unit = null  # Track currently selected military unit for stance changes
+
 var selected_tc: TownCenter = null
 var selected_barracks: Barracks = null
 var selected_market: Market = null
@@ -44,9 +52,12 @@ func _ready() -> void:
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.villager_idle.connect(_on_villager_idle)
 	GameManager.market_prices_changed.connect(_update_market_prices)
+	GameManager.player_under_attack.connect(_on_player_under_attack)
 	_update_resources()
 	_update_population()
 	_update_market_prices()
+	_setup_attack_notification()
+	_setup_stance_buttons()
 	tc_panel.visible = false
 	barracks_panel.visible = false
 	market_panel.visible = false
@@ -502,6 +513,7 @@ func _show_militia_info(militia: Militia) -> void:
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d" % [state_text, militia.current_hp, militia.max_hp, militia.attack_damage]
 	info_details.text = details
 	info_panel.visible = true
+	show_stance_ui(militia)
 
 func _show_archer_info(archer: Archer) -> void:
 	info_title.text = "Archer"
@@ -517,6 +529,7 @@ func _show_archer_info(archer: Archer) -> void:
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: %d" % [state_text, archer.current_hp, archer.max_hp, archer.attack_damage, int(archer.attack_range / 32)]
 	info_details.text = details
 	info_panel.visible = true
+	show_stance_ui(archer)
 
 func _show_skirmisher_info(skirmisher: Skirmisher) -> void:
 	info_title.text = "Skirmisher"
@@ -532,6 +545,7 @@ func _show_skirmisher_info(skirmisher: Skirmisher) -> void:
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d (+%d vs archers)\nArmor: %d/%d\nRange: %d" % [state_text, skirmisher.current_hp, skirmisher.max_hp, skirmisher.attack_damage, skirmisher.bonus_vs_archers, skirmisher.melee_armor, skirmisher.pierce_armor, int(skirmisher.attack_range / 32)]
 	info_details.text = details
 	info_panel.visible = true
+	show_stance_ui(skirmisher)
 
 func _show_cavalry_archer_info(cav_archer: CavalryArcher) -> void:
 	info_title.text = "Cavalry Archer"
@@ -547,6 +561,7 @@ func _show_cavalry_archer_info(cav_archer: CavalryArcher) -> void:
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: %d" % [state_text, cav_archer.current_hp, cav_archer.max_hp, cav_archer.attack_damage, int(cav_archer.attack_range / 32)]
 	info_details.text = details
 	info_panel.visible = true
+	show_stance_ui(cav_archer)
 
 func _show_scout_cavalry_info(cavalry: ScoutCavalry) -> void:
 	info_title.text = "Scout Cavalry"
@@ -562,6 +577,7 @@ func _show_scout_cavalry_info(cavalry: ScoutCavalry) -> void:
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nArmor: %d/%d" % [state_text, cavalry.current_hp, cavalry.max_hp, cavalry.attack_damage, cavalry.melee_armor, cavalry.pierce_armor]
 	info_details.text = details
 	info_panel.visible = true
+	show_stance_ui(cavalry)
 
 func _show_spearman_info(spearman: Spearman) -> void:
 	info_title.text = "Spearman"
@@ -577,6 +593,7 @@ func _show_spearman_info(spearman: Spearman) -> void:
 	var details = "Status: %s\nHP: %d/%d\nAttack: %d (+%d vs cav)" % [state_text, spearman.current_hp, spearman.max_hp, spearman.attack_damage, spearman.bonus_vs_cavalry]
 	info_details.text = details
 	info_panel.visible = true
+	show_stance_ui(spearman)
 
 func _show_trade_cart_info(cart: TradeCart) -> void:
 	info_title.text = "Trade Cart"
@@ -624,6 +641,7 @@ func _show_building_info(title: String, details: String) -> void:
 
 func hide_info() -> void:
 	info_panel.visible = false
+	hide_stance_ui()
 
 func _on_game_over(winner: int) -> void:
 	game_over_panel.visible = true
@@ -642,3 +660,98 @@ func _on_restart_pressed() -> void:
 	selected_stable = null
 	GameManager.reset()
 	get_tree().reload_current_scene()
+
+## Setup attack notification label (created dynamically)
+func _setup_attack_notification() -> void:
+	attack_notification_label = Label.new()
+	attack_notification_label.name = "AttackNotification"
+	attack_notification_label.text = ""
+	attack_notification_label.visible = false
+	attack_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	attack_notification_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	attack_notification_label.add_theme_font_size_override("font_size", 24)
+	attack_notification_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
+	# Position at top center of screen
+	attack_notification_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	attack_notification_label.position = Vector2(-150, 50)
+	attack_notification_label.custom_minimum_size = Vector2(300, 40)
+	add_child(attack_notification_label)
+
+## Called when player units/buildings are under attack
+func _on_player_under_attack(attack_type: String) -> void:
+	var message: String
+	match attack_type:
+		"military":
+			message = "⚔ YOUR UNITS ARE UNDER ATTACK! ⚔"
+		"villager":
+			message = "🔔 YOUR VILLAGERS ARE UNDER ATTACK! 🔔"
+		"building":
+			message = "🏰 YOUR BUILDINGS ARE UNDER ATTACK! 🏰"
+		_:
+			message = "⚠ YOU ARE UNDER ATTACK! ⚠"
+
+	attack_notification_label.text = message
+	attack_notification_label.visible = true
+
+	# Auto-hide after 3 seconds
+	var tween = create_tween()
+	tween.tween_interval(2.5)
+	tween.tween_callback(func(): attack_notification_label.modulate.a = 1.0)
+	tween.tween_property(attack_notification_label, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(func():
+		attack_notification_label.visible = false
+		attack_notification_label.modulate.a = 1.0
+	)
+
+## Setup stance buttons (added to info panel dynamically)
+func _setup_stance_buttons() -> void:
+	stance_container = HBoxContainer.new()
+	stance_container.name = "StanceContainer"
+	stance_container.visible = false
+	stance_container.custom_minimum_size = Vector2(0, 30)
+
+	var stance_names = ["AGG", "DEF", "SG", "NA"]
+	var stance_tooltips = ["Aggressive: Chase and attack enemies", "Defensive: Attack nearby, limited chase", "Stand Ground: Attack in range only", "No Attack: Never auto-attack"]
+
+	for i in range(4):
+		var btn = Button.new()
+		btn.text = stance_names[i]
+		btn.tooltip_text = stance_tooltips[i]
+		btn.custom_minimum_size = Vector2(40, 25)
+		btn.pressed.connect(_on_stance_button_pressed.bind(i))
+		stance_container.add_child(btn)
+		stance_buttons.append(btn)
+
+	# Add to info panel's VBoxContainer
+	var vbox = info_panel.get_node("VBoxContainer")
+	vbox.add_child(stance_container)
+
+## Called when a stance button is pressed
+func _on_stance_button_pressed(stance_index: int) -> void:
+	if not is_instance_valid(selected_military_unit):
+		return
+
+	selected_military_unit.set_stance(stance_index)
+	_update_stance_button_highlight()
+
+## Update stance button highlighting to show current stance
+func _update_stance_button_highlight() -> void:
+	if not is_instance_valid(selected_military_unit):
+		return
+
+	for i in range(stance_buttons.size()):
+		if i == selected_military_unit.stance:
+			stance_buttons[i].add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+		else:
+			stance_buttons[i].remove_theme_color_override("font_color")
+
+## Show stance UI for a military unit
+func show_stance_ui(unit: Unit) -> void:
+	selected_military_unit = unit
+	stance_container.visible = true
+	_update_stance_button_highlight()
+
+## Hide stance UI
+func hide_stance_ui() -> void:
+	selected_military_unit = null
+	stance_container.visible = false

@@ -306,7 +306,7 @@ func test_should_attack_false_without_military() -> Assertions.AssertResult:
 
 
 func test_should_attack_false_after_attacking() -> Assertions.AssertResult:
-	## Should not attack again while has_attacked is true
+	## Should not attack again while attack cooldown is active
 	var controller = _create_ai_controller()
 	await runner.wait_frames(2)
 
@@ -317,8 +317,8 @@ func test_should_attack_false_after_attacking() -> Assertions.AssertResult:
 		runner.spawner.spawn_militia(Vector2(1600, 1600 + i * 20), AI_TEAM)
 	await runner.wait_frames(2)
 
-	# Mark as already attacked
-	controller.has_attacked = true
+	# Set attack cooldown active (means AI recently attacked)
+	controller.attack_cooldown = 10.0  # 10 seconds remaining on cooldown
 
 	var should_attack = controller._should_attack()
 
@@ -326,7 +326,7 @@ func test_should_attack_false_after_attacking() -> Assertions.AssertResult:
 
 	if should_attack:
 		return Assertions.AssertResult.new(false,
-			"Should not attack when has_attacked is true")
+			"Should not attack when attack cooldown is active")
 
 	return Assertions.AssertResult.new(true)
 
@@ -346,8 +346,8 @@ func test_should_attack_true_with_economy_and_military() -> Assertions.AssertRes
 		runner.spawner.spawn_militia(Vector2(1600, 1600 + i * 20), AI_TEAM)
 	await runner.wait_frames(2)
 
-	# Ensure has_attacked is false
-	controller.has_attacked = false
+	# Ensure attack is not on cooldown
+	controller.attack_cooldown = 0.0
 
 	var should_attack = controller._should_attack()
 

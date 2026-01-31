@@ -29,15 +29,21 @@ func _ready() -> void:
 	# 50 frames total, 8 directions = ~6 frames per direction
 	_load_directional_animations("res://assets/sprites/units/boar_frames", "Boarstand", 50)
 
-func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0) -> void:
-	super.take_damage(amount, attack_type, bonus_damage)
+func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int = 0, attacker: Node2D = null) -> void:
+	super.take_damage(amount, attack_type, bonus_damage, attacker)
 
-	# If still alive and not already attacking, find and attack nearby units
+	# If still alive and not already attacking, attack the one who attacked us
 	if not is_dead and current_state != State.ATTACKING:
-		_retaliate()
+		_retaliate(attacker)
 
-func _retaliate() -> void:
-	# Find nearest unit to attack (the one that probably attacked us)
+func _retaliate(attacker: Node2D = null) -> void:
+	# If we know who attacked us, attack them directly
+	if is_instance_valid(attacker) and attacker is Unit and not attacker.is_dead:
+		target_attacker = attacker
+		_start_attacking(attacker)
+		return
+
+	# Otherwise, find nearest unit to attack
 	var units = get_tree().get_nodes_in_group("units")
 	var nearest: Unit = null
 	var nearest_dist: float = 300.0  # Retaliation range

@@ -211,9 +211,9 @@ Before starting each phase, follow this process:
 **Sub-phases (approved 2026-01-30, updated 2026-01-30):**
 - **2A**: Archery Range + Archer (ranged combat foundation) — *Complete*
 - **2B**: Stable + Scout Cavalry + Spearman + armor system + bonus damage system — *Complete*
-- **2C**: AI Economic Foundation (make AI functional with existing features)
-- **2D**: Skirmisher + Cavalry Archer (complete combat triangle)
-- **2E**: Fog of War + basic stances + AI military behavior + attack notifications
+- **2C**: AI Economic Foundation (make AI functional with existing features) — *Complete*
+- **2D**: Skirmisher + Cavalry Archer (complete combat triangle) — *Complete*
+- **2E**: Fog of War + basic stances + AI military behavior + attack notifications — *Complete*
 
 **All Phase 2 Features:**
 
