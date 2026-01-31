@@ -44,6 +44,8 @@ func _ready() -> void:
 	_apply_team_color()
 	# Connect to attack notification system
 	damaged.connect(_on_damaged_for_notification)
+	# Connect to avoidance velocity computed signal for pathfinding around other units
+	nav_agent.velocity_computed.connect(_on_velocity_computed)
 
 func _apply_team_color() -> void:
 	if sprite:
@@ -121,6 +123,21 @@ func _load_directional_animations(folder_path: String, prefix: String, total_fra
 	sprite.sprite_frames = sprite_frames
 	_play_direction_animation()
 
+## Load a static sprite (single image) as a 1-frame animation.
+## Used for units with SVG placeholders instead of 8-dir animations.
+## scale_factor: Scale to apply to the sprite (default 0.5 for 64px SVGs).
+func _load_static_sprite(texture: Texture2D, scale_factor: float = 0.5) -> void:
+	if not sprite or not texture:
+		return
+	var sprite_frames = SpriteFrames.new()
+	sprite_frames.remove_animation("default")
+	sprite_frames.add_animation("idle")
+	sprite_frames.set_animation_loop("idle", true)
+	sprite_frames.add_frame("idle", texture)
+	sprite.sprite_frames = sprite_frames
+	sprite.play("idle")
+	sprite.scale = Vector2(scale_factor, scale_factor)
+
 ## Legacy single-direction loader (for units without 8-dir sprites)
 func _load_animation_frames(folder_path: String, prefix: String, frame_step: int = 5, fps: float = 8.0) -> void:
 	if not sprite:
@@ -176,9 +193,33 @@ func _physics_process(delta: float) -> void:
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = current_position.direction_to(next_path_position)
 
-	velocity = direction * move_speed
+	var desired_velocity = direction * move_speed
+
+	# Use avoidance to path around other units
+	if nav_agent.avoidance_enabled:
+		nav_agent.set_velocity(desired_velocity)
+	else:
+		velocity = desired_velocity
+		move_and_slide()
+		_update_facing_direction()
+
+## Called when avoidance velocity is computed - use safe velocity for movement
+func _on_velocity_computed(safe_velocity: Vector2) -> void:
+	velocity = safe_velocity
 	move_and_slide()
 	_update_facing_direction()
+
+## Apply movement with avoidance support. Subclasses should call this instead of directly
+## setting velocity and calling move_and_slide() when they want avoidance.
+## When avoidance is enabled, nav_agent.set_velocity triggers _on_velocity_computed synchronously.
+func _apply_movement(desired_velocity: Vector2) -> void:
+	if nav_agent.avoidance_enabled:
+		nav_agent.set_velocity(desired_velocity)
+		# The callback _on_velocity_computed is called synchronously and handles move_and_slide
+	else:
+		velocity = desired_velocity
+		move_and_slide()
+		_update_facing_direction()
 
 ## Get direction index (0-7) from velocity vector
 ## Returns current_direction if velocity is too small

@@ -77,9 +77,7 @@ func _process_moving(delta: float) -> void:
 		return
 
 	var direction = global_position.direction_to(move_target)
-	velocity = direction * move_speed
-	move_and_slide()
-	_update_facing_direction()
+	_apply_movement(direction * move_speed)
 
 func _process_gathering(delta: float) -> void:
 	if not is_instance_valid(target_resource) or not target_resource.has_resources():
@@ -100,9 +98,7 @@ func _process_gathering(delta: float) -> void:
 	if distance > 40:
 		# Move closer
 		var direction = global_position.direction_to(target_resource.global_position)
-		velocity = direction * move_speed
-		move_and_slide()
-		_update_facing_direction()
+		_apply_movement(direction * move_speed)
 		return
 
 	# We're close enough, gather
@@ -140,9 +136,7 @@ func _process_returning(delta: float) -> void:
 
 	# Keep moving toward drop-off
 	var direction = global_position.direction_to(drop_off_building.global_position)
-	velocity = direction * move_speed
-	move_and_slide()
-	_update_facing_direction()
+	_apply_movement(direction * move_speed)
 
 func _return_to_drop_off() -> void:
 	drop_off_building = _find_drop_off(carried_resource_type)
@@ -172,9 +166,7 @@ func _process_hunting(delta: float) -> void:
 		nav_agent.target_position = target_animal.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
-		velocity = direction * move_speed
-		move_and_slide()
-		_update_facing_direction()
+		_apply_movement(direction * move_speed)
 		return
 
 	# In range, attack

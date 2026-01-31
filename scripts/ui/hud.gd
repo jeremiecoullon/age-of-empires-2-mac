@@ -8,10 +8,14 @@ extends CanvasLayer
 @onready var build_panel: PanelContainer = $BuildPanel
 @onready var tc_panel: PanelContainer = $TCPanel
 @onready var train_button: Button = $TCPanel/VBoxContainer/TrainVillagerButton
-@onready var train_progress: ProgressBar = $TCPanel/VBoxContainer/TrainProgress
+@onready var train_progress: ProgressBar = $TCPanel/VBoxContainer/QueueContainer/TrainProgress
+@onready var tc_queue_label: Label = $TCPanel/VBoxContainer/QueueContainer/QueueLabel
+@onready var tc_cancel_button: Button = $TCPanel/VBoxContainer/CancelButton
 @onready var barracks_panel: PanelContainer = $BarracksPanel
 @onready var train_militia_button: Button = $BarracksPanel/VBoxContainer/TrainMilitiaButton
-@onready var barracks_train_progress: ProgressBar = $BarracksPanel/VBoxContainer/BarracksTrainProgress
+@onready var barracks_train_progress: ProgressBar = $BarracksPanel/VBoxContainer/QueueContainer/BarracksTrainProgress
+@onready var barracks_queue_label: Label = $BarracksPanel/VBoxContainer/QueueContainer/QueueLabel
+@onready var barracks_cancel_button: Button = $BarracksPanel/VBoxContainer/CancelButton
 @onready var market_panel: PanelContainer = $MarketPanel
 @onready var buy_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton
 @onready var buy_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyFoodButton
@@ -19,11 +23,17 @@ extends CanvasLayer
 @onready var sell_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellWoodButton
 @onready var sell_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellFoodButton
 @onready var sell_stone_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton
-@onready var market_train_progress: ProgressBar = $MarketPanel/VBoxContainer/MarketTrainProgress
+@onready var market_train_progress: ProgressBar = $MarketPanel/VBoxContainer/QueueContainer/MarketTrainProgress
+@onready var market_queue_label: Label = $MarketPanel/VBoxContainer/QueueContainer/QueueLabel
+@onready var market_cancel_button: Button = $MarketPanel/VBoxContainer/CancelButton
 @onready var archery_range_panel: PanelContainer = $ArcheryRangePanel
-@onready var archery_range_train_progress: ProgressBar = $ArcheryRangePanel/VBoxContainer/ArcheryRangeTrainProgress
+@onready var archery_range_train_progress: ProgressBar = $ArcheryRangePanel/VBoxContainer/QueueContainer/ArcheryRangeTrainProgress
+@onready var archery_range_queue_label: Label = $ArcheryRangePanel/VBoxContainer/QueueContainer/QueueLabel
+@onready var archery_range_cancel_button: Button = $ArcheryRangePanel/VBoxContainer/CancelButton
 @onready var stable_panel: PanelContainer = $StablePanel
-@onready var stable_train_progress: ProgressBar = $StablePanel/VBoxContainer/StableTrainProgress
+@onready var stable_train_progress: ProgressBar = $StablePanel/VBoxContainer/QueueContainer/StableTrainProgress
+@onready var stable_queue_label: Label = $StablePanel/VBoxContainer/QueueContainer/QueueLabel
+@onready var stable_cancel_button: Button = $StablePanel/VBoxContainer/CancelButton
 @onready var error_label: Label = $ErrorLabel
 @onready var info_panel: PanelContainer = $InfoPanel
 @onready var info_title: Label = $InfoPanel/VBoxContainer/InfoTitle
@@ -45,6 +55,9 @@ var selected_barracks: Barracks = null
 var selected_market: Market = null
 var selected_archery_range: ArcheryRange = null
 var selected_stable: Stable = null
+
+# Track selected entity for live info updates
+var selected_info_entity: Node = null
 
 func _ready() -> void:
 	layer = 100  # Above fog of war (layer 10)
@@ -78,33 +91,71 @@ func _update_population() -> void:
 	pop_label.text = "Pop: %d/%d" % [GameManager.get_population(), GameManager.get_population_cap()]
 
 func _process(_delta: float) -> void:
-	if selected_tc and selected_tc.is_training:
-		train_progress.value = selected_tc.get_train_progress() * 100
-		train_progress.visible = true
+	# Live update info panel for selected entity (unit state changes, HP, etc.)
+	_update_selected_entity_info()
+
+	# Update Town Center queue
+	if selected_tc:
+		var queue_size = selected_tc.get_queue_size()
+		tc_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
+		tc_cancel_button.visible = queue_size > 0
+		if selected_tc.is_training:
+			train_progress.value = selected_tc.get_train_progress() * 100
+			train_progress.visible = true
+		else:
+			train_progress.visible = false
 	else:
 		train_progress.visible = false
 
-	if selected_barracks and selected_barracks.is_training:
-		barracks_train_progress.value = selected_barracks.get_train_progress() * 100
-		barracks_train_progress.visible = true
+	# Update Barracks queue
+	if selected_barracks:
+		var queue_size = selected_barracks.get_queue_size()
+		barracks_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
+		barracks_cancel_button.visible = queue_size > 0
+		if selected_barracks.is_training:
+			barracks_train_progress.value = selected_barracks.get_train_progress() * 100
+			barracks_train_progress.visible = true
+		else:
+			barracks_train_progress.visible = false
 	else:
 		barracks_train_progress.visible = false
 
-	if selected_market and selected_market.is_training:
-		market_train_progress.value = selected_market.get_train_progress() * 100
-		market_train_progress.visible = true
+	# Update Market queue
+	if selected_market:
+		var queue_size = selected_market.get_queue_size()
+		market_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
+		market_cancel_button.visible = queue_size > 0
+		if selected_market.is_training:
+			market_train_progress.value = selected_market.get_train_progress() * 100
+			market_train_progress.visible = true
+		else:
+			market_train_progress.visible = false
 	else:
 		market_train_progress.visible = false
 
-	if selected_archery_range and selected_archery_range.is_training:
-		archery_range_train_progress.value = selected_archery_range.get_train_progress() * 100
-		archery_range_train_progress.visible = true
+	# Update Archery Range queue
+	if selected_archery_range:
+		var queue_size = selected_archery_range.get_queue_size()
+		archery_range_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
+		archery_range_cancel_button.visible = queue_size > 0
+		if selected_archery_range.is_training:
+			archery_range_train_progress.value = selected_archery_range.get_train_progress() * 100
+			archery_range_train_progress.visible = true
+		else:
+			archery_range_train_progress.visible = false
 	else:
 		archery_range_train_progress.visible = false
 
-	if selected_stable and selected_stable.is_training:
-		stable_train_progress.value = selected_stable.get_train_progress() * 100
-		stable_train_progress.visible = true
+	# Update Stable queue
+	if selected_stable:
+		var queue_size = selected_stable.get_queue_size()
+		stable_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
+		stable_cancel_button.visible = queue_size > 0
+		if selected_stable.is_training:
+			stable_train_progress.value = selected_stable.get_train_progress() * 100
+			stable_train_progress.visible = true
+		else:
+			stable_train_progress.visible = false
 	else:
 		stable_train_progress.visible = false
 
@@ -424,6 +475,7 @@ func _show_notification(message: String) -> void:
 	error_label.remove_theme_color_override("font_color")  # Reset to default
 
 func show_info(entity: Node) -> void:
+	selected_info_entity = entity
 	if entity is Villager:
 		_show_villager_info(entity)
 	elif entity is TradeCart:
@@ -453,29 +505,29 @@ func show_info(entity: Node) -> void:
 	elif entity is Animal:
 		_show_animal_info(entity, "Animal", "")
 	elif entity is Farm:
-		_show_building_info("Farm", "Infinite food source\nGather rate: 0.5/sec")
+		_show_building_info("Farm", "Infinite food source\nGather rate: 0.5/sec", entity)
 	elif entity is ResourceNode:
 		_show_resource_info(entity)
 	elif entity is TownCenter:
-		_show_building_info("Town Center", "Trains villagers\nDeposit: all resources")
+		_show_building_info("Town Center", "Trains villagers\nDeposit: all resources", entity)
 	elif entity is Barracks:
-		_show_building_info("Barracks", "Trains militia")
+		_show_building_info("Barracks", "Trains militia", entity)
 	elif entity is House:
-		_show_building_info("House", "+5 population cap")
+		_show_building_info("House", "+5 population cap", entity)
 	elif entity is Mill:
-		_show_building_info("Mill", "Deposit point for food")
+		_show_building_info("Mill", "Deposit point for food", entity)
 	elif entity is LumberCamp:
-		_show_building_info("Lumber Camp", "Deposit point for wood")
+		_show_building_info("Lumber Camp", "Deposit point for wood", entity)
 	elif entity is MiningCamp:
-		_show_building_info("Mining Camp", "Deposit point for gold/stone")
+		_show_building_info("Mining Camp", "Deposit point for gold/stone", entity)
 	elif entity is Market:
-		_show_building_info("Market", "Buy/sell resources\nTrain Trade Carts")
+		_show_building_info("Market", "Buy/sell resources\nTrain Trade Carts", entity)
 	elif entity is ArcheryRange:
-		_show_building_info("Archery Range", "Trains ranged units\nArcher, Skirmisher")
+		_show_building_info("Archery Range", "Trains ranged units\nArcher, Skirmisher", entity)
 	elif entity is Stable:
-		_show_building_info("Stable", "Trains cavalry units\nScout Cavalry, Cavalry Archer")
+		_show_building_info("Stable", "Trains cavalry units\nScout Cavalry, Cavalry Archer", entity)
 	elif entity is Building:
-		_show_building_info(entity.building_name, "")
+		_show_building_info(entity.building_name, "", entity)
 	else:
 		hide_info()
 
@@ -635,14 +687,56 @@ func _show_animal_info(animal: Animal, title: String, description: String) -> vo
 	info_details.text = details
 	info_panel.visible = true
 
-func _show_building_info(title: String, details: String) -> void:
-	info_title.text = title
+func _show_building_info(title: String, details: String, building: Building = null) -> void:
+	var display_title = title
+	if building and building.team != 0:
+		display_title = title + " (Enemy)"
+	info_title.text = display_title
 	info_details.text = details
 	info_panel.visible = true
 
 func hide_info() -> void:
+	selected_info_entity = null
 	info_panel.visible = false
 	hide_stance_ui()
+
+## Update info panel for selected entity (called every frame for live updates)
+func _update_selected_entity_info() -> void:
+	if not is_instance_valid(selected_info_entity):
+		return
+	if not info_panel.visible:
+		return
+
+	# Update unit info in real-time (state, HP, carrying, etc.)
+	if selected_info_entity is Villager:
+		_show_villager_info(selected_info_entity)
+	elif selected_info_entity is Militia:
+		_show_militia_info(selected_info_entity)
+	elif selected_info_entity is Archer:
+		_show_archer_info(selected_info_entity)
+	elif selected_info_entity is Skirmisher:
+		_show_skirmisher_info(selected_info_entity)
+	elif selected_info_entity is CavalryArcher:
+		_show_cavalry_archer_info(selected_info_entity)
+	elif selected_info_entity is ScoutCavalry:
+		_show_scout_cavalry_info(selected_info_entity)
+	elif selected_info_entity is Spearman:
+		_show_spearman_info(selected_info_entity)
+	elif selected_info_entity is TradeCart:
+		_show_trade_cart_info(selected_info_entity)
+	elif selected_info_entity is Animal:
+		# Animals also need live updates for HP
+		if selected_info_entity is Sheep:
+			_show_animal_info(selected_info_entity, "Sheep", "Herdable. First to spot owns it.\nCan be stolen by enemies.")
+		elif selected_info_entity is Deer:
+			_show_animal_info(selected_info_entity, "Deer", "Huntable. Flees when attacked.")
+		elif selected_info_entity is Boar:
+			_show_animal_info(selected_info_entity, "Wild Boar", "Dangerous! Fights back.\nLure to TC with villagers.")
+		elif selected_info_entity is Wolf:
+			_show_animal_info(selected_info_entity, "Wolf", "Hostile! Attacks on sight.\nNo food yield.")
+		elif selected_info_entity is PelicanBicycle:
+			_show_animal_info(selected_info_entity, "Pelican on Bicycle", "A rare sight! Herdable.\nHow did it learn to ride?")
+	# Note: Resources and buildings don't need live updates as frequently
 
 func _on_game_over(winner: int) -> void:
 	game_over_panel.visible = true
@@ -756,3 +850,24 @@ func show_stance_ui(unit: Unit) -> void:
 func hide_stance_ui() -> void:
 	selected_military_unit = null
 	stance_container.visible = false
+
+# Cancel button handlers
+func _on_tc_cancel_pressed() -> void:
+	if selected_tc:
+		selected_tc.cancel_training()
+
+func _on_barracks_cancel_pressed() -> void:
+	if selected_barracks:
+		selected_barracks.cancel_training()
+
+func _on_market_cancel_pressed() -> void:
+	if selected_market:
+		selected_market.cancel_training()
+
+func _on_archery_range_cancel_pressed() -> void:
+	if selected_archery_range:
+		selected_archery_range.cancel_training()
+
+func _on_stable_cancel_pressed() -> void:
+	if selected_stable:
+		selected_stable.cancel_training()

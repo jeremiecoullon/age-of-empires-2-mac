@@ -107,10 +107,22 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Train Villager (50 Food)"
 
-[node name="TrainProgress" type="ProgressBar" parent="TCPanel/VBoxContainer"]
-visible = false
+[node name="QueueContainer" type="HBoxContainer" parent="TCPanel/VBoxContainer"]
 layout_mode = 2
+
+[node name="TrainProgress" type="ProgressBar" parent="TCPanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
 value = 50.0
+
+[node name="QueueLabel" type="Label" parent="TCPanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+text = ""
+
+[node name="CancelButton" type="Button" parent="TCPanel/VBoxContainer"]
+layout_mode = 2
+text = "Cancel"
 
 [node name="BarracksPanel" type="PanelContainer" parent="."]
 visible = false
@@ -136,10 +148,22 @@ text = "Train Militia (60 Food, 20 Wood)"
 layout_mode = 2
 text = "Train Spearman (35 Food, 25 Wood)"
 
-[node name="BarracksTrainProgress" type="ProgressBar" parent="BarracksPanel/VBoxContainer"]
-visible = false
+[node name="QueueContainer" type="HBoxContainer" parent="BarracksPanel/VBoxContainer"]
 layout_mode = 2
+
+[node name="BarracksTrainProgress" type="ProgressBar" parent="BarracksPanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
 value = 50.0
+
+[node name="QueueLabel" type="Label" parent="BarracksPanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+text = ""
+
+[node name="CancelButton" type="Button" parent="BarracksPanel/VBoxContainer"]
+layout_mode = 2
+text = "Cancel"
 
 [node name="MarketPanel" type="PanelContainer" parent="."]
 visible = false
@@ -211,10 +235,22 @@ layout_mode = 2
 layout_mode = 2
 text = "Train Trade Cart (100W, 50G)"
 
-[node name="MarketTrainProgress" type="ProgressBar" parent="MarketPanel/VBoxContainer"]
-visible = false
+[node name="QueueContainer" type="HBoxContainer" parent="MarketPanel/VBoxContainer"]
 layout_mode = 2
+
+[node name="MarketTrainProgress" type="ProgressBar" parent="MarketPanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
 value = 50.0
+
+[node name="QueueLabel" type="Label" parent="MarketPanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+text = ""
+
+[node name="CancelButton" type="Button" parent="MarketPanel/VBoxContainer"]
+layout_mode = 2
+text = "Cancel"
 
 [node name="ArcheryRangePanel" type="PanelContainer" parent="."]
 visible = false
@@ -240,10 +276,22 @@ text = "Train Archer (25 Wood, 45 Gold)"
 layout_mode = 2
 text = "Train Skirmisher (25 Food, 35 Wood)"
 
-[node name="ArcheryRangeTrainProgress" type="ProgressBar" parent="ArcheryRangePanel/VBoxContainer"]
-visible = false
+[node name="QueueContainer" type="HBoxContainer" parent="ArcheryRangePanel/VBoxContainer"]
 layout_mode = 2
+
+[node name="ArcheryRangeTrainProgress" type="ProgressBar" parent="ArcheryRangePanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
 value = 50.0
+
+[node name="QueueLabel" type="Label" parent="ArcheryRangePanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+text = ""
+
+[node name="CancelButton" type="Button" parent="ArcheryRangePanel/VBoxContainer"]
+layout_mode = 2
+text = "Cancel"
 
 [node name="StablePanel" type="PanelContainer" parent="."]
 visible = false
@@ -269,10 +317,22 @@ text = "Train Scout Cavalry (80 Food)"
 layout_mode = 2
 text = "Train Cav Archer (40 Wood, 70 Gold)"
 
-[node name="StableTrainProgress" type="ProgressBar" parent="StablePanel/VBoxContainer"]
-visible = false
+[node name="QueueContainer" type="HBoxContainer" parent="StablePanel/VBoxContainer"]
 layout_mode = 2
+
+[node name="StableTrainProgress" type="ProgressBar" parent="StablePanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
 value = 50.0
+
+[node name="QueueLabel" type="Label" parent="StablePanel/VBoxContainer/QueueContainer"]
+layout_mode = 2
+text = ""
+
+[node name="CancelButton" type="Button" parent="StablePanel/VBoxContainer"]
+layout_mode = 2
+text = "Cancel"
 
 [node name="InfoPanel" type="PanelContainer" parent="."]
 visible = false
@@ -357,4 +417,9 @@ text = "Play Again"
 [connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/TrainSkirmisherButton" to="." method="_on_train_skirmisher_pressed"]
 [connection signal="pressed" from="StablePanel/VBoxContainer/TrainScoutCavalryButton" to="." method="_on_train_scout_cavalry_pressed"]
 [connection signal="pressed" from="StablePanel/VBoxContainer/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
+[connection signal="pressed" from="TCPanel/VBoxContainer/CancelButton" to="." method="_on_tc_cancel_pressed"]
+[connection signal="pressed" from="BarracksPanel/VBoxContainer/CancelButton" to="." method="_on_barracks_cancel_pressed"]
+[connection signal="pressed" from="MarketPanel/VBoxContainer/CancelButton" to="." method="_on_market_cancel_pressed"]
+[connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/CancelButton" to="." method="_on_archery_range_cancel_pressed"]
+[connection signal="pressed" from="StablePanel/VBoxContainer/CancelButton" to="." method="_on_stable_cancel_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

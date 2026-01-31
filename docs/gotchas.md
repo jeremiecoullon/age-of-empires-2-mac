@@ -19,6 +19,7 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 | Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
 | Skirmisher | Unit | `assets/sprites/units/skirmisher.svg` | Light green figure with javelins |
 | Cavalry Archer | Unit | `assets/sprites/units/cavalry_archer.svg` | Mounted figure with bow |
+| Trade Cart | Unit | `assets/sprites/units/trade_cart.svg` | Cart/wagon figure |
 
 **Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
 
@@ -170,3 +171,11 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 - **Attack notification throttling**: Use separate cooldowns for military vs civilian attacks. 5 seconds is a good interval to prevent spam while still alerting the player. The signal emits the attack type ("military", "villager", "building") so UI can differentiate.
 
 - **preload() for town center villager scene**: TownCenter was using `load()` for the villager scene at runtime. Changed to `preload()` for consistency with project conventions. This applies to all scene spawning in production code.
+
+### Phase 2.5A - UX Polish
+
+- **NavigationAgent2D avoidance requires scene AND script changes**: Enabling avoidance on units requires: (1) Scene properties: `avoidance_enabled = true`, `radius = 12.0`, `neighbor_distance = 50.0`, `max_neighbors = 10`, `max_speed = 100.0`; (2) Script: use `_apply_movement(velocity)` helper instead of directly setting velocity, and connect `velocity_computed` signal to handle safe velocity callback.
+
+- **Production queue pattern (AoE2-style)**: Resources deducted immediately when queueing (not when training starts). Cancel removes last queued item (not currently training unit) and refunds resources. This prevents queue-and-cancel exploits and matches AoE2 behavior.
+
+- **Consolidate static sprite loading in base class**: The `_load_static_sprite(texture, scale)` method in Unit base class handles single-image sprites (SVG placeholders). Subclasses don't need to duplicate this code.
