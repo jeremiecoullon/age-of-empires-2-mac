@@ -29,6 +29,7 @@ func get_all_tests() -> Array[Callable]:
 		test_box_select_multiple_units,
 		test_box_select_empty_area,
 		test_only_player_units_selectable,
+		test_box_select_excludes_enemy_units,
 	]
 
 
@@ -154,3 +155,37 @@ func test_only_player_units_selectable() -> Assertions.AssertResult:
 
 	# Enemy should NOT be in selected_units (can't give them commands)
 	return Assertions.assert_nothing_selected()
+
+
+func test_box_select_excludes_enemy_units() -> Assertions.AssertResult:
+	## Box selecting an area with both player and enemy units should only select player units
+	var player_villager1 = runner.spawner.spawn_villager(Vector2(400, 400), 0)  # team 0 = player
+	var player_villager2 = runner.spawner.spawn_villager(Vector2(450, 400), 0)
+	var enemy_villager1 = runner.spawner.spawn_villager(Vector2(400, 450), 1)  # team 1 = AI
+	var enemy_villager2 = runner.spawner.spawn_villager(Vector2(450, 450), 1)
+	await runner.wait_frames(2)
+
+	# Box select around all units
+	await runner.input_sim.direct_box_select(Vector2(350, 350), Vector2(500, 500))
+	await runner.wait_frames(2)
+
+	# Only player units should be selected (2 units, not 4)
+	var count_result = Assertions.assert_selection_count(2)
+	if not count_result.passed:
+		return count_result
+
+	# Verify the correct units are selected
+	var result1 = Assertions.assert_unit_selected(player_villager1)
+	if not result1.passed:
+		return result1
+
+	var result2 = Assertions.assert_unit_selected(player_villager2)
+	if not result2.passed:
+		return result2
+
+	# Verify enemy units are NOT selected
+	var result3 = Assertions.assert_unit_not_selected(enemy_villager1)
+	if not result3.passed:
+		return result3
+
+	return Assertions.assert_unit_not_selected(enemy_villager2)

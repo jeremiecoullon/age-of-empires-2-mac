@@ -47,6 +47,7 @@ var selected_archery_range: ArcheryRange = null
 var selected_stable: Stable = null
 
 func _ready() -> void:
+	layer = 100  # Above fog of war (layer 10)
 	GameManager.resources_changed.connect(_update_resources)
 	GameManager.population_changed.connect(_update_population)
 	GameManager.game_over.connect(_on_game_over)

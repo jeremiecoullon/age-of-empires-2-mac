@@ -1,4 +1,4 @@
-extends CanvasLayer
+extends Node2D
 class_name FogOfWar
 
 ## Fog of War system with three visibility states:
@@ -35,7 +35,7 @@ const NEUTRAL_TEAM: int = -1  # Wild animals, unowned sheep
 
 func _ready() -> void:
 	add_to_group("fog_of_war")
-	layer = 10  # Above game objects, below UI
+	z_index = 100  # Draw above game objects but UI (CanvasLayer) is still on top
 	_init_grid()
 	_init_rendering()
 	# Initial reveal around player starting position
@@ -184,7 +184,7 @@ func _update_enemy_visibility() -> void:
 		building.visible = (state != VisibilityState.UNEXPLORED)
 
 ## Check if a world position is currently visible to the player
-func is_visible(world_pos: Vector2) -> bool:
+func is_position_visible(world_pos: Vector2) -> bool:
 	var tile = _world_to_tile(world_pos)
 	return visibility_grid[tile.x][tile.y] == VisibilityState.VISIBLE
 

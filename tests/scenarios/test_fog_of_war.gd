@@ -6,7 +6,7 @@ extends Node
 ## - Tile grid initialization (60x60 tiles)
 ## - Player units reveal visibility based on sight_range
 ## - Player buildings reveal visibility based on sight_range
-## - is_visible() and is_explored() helper methods
+## - is_position_visible() and is_explored() helper methods
 ## - reveal_all() reveals entire map
 ## - reset() returns map to UNEXPLORED
 ## - Building sight_range values (default 192.0, TC 256.0)

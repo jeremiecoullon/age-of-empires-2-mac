@@ -172,7 +172,7 @@ func _box_select() -> void:
 		else:
 			screen_pos = get_viewport().get_canvas_transform() * unit.global_position
 
-		if selection_rect.has_point(screen_pos):
+		if selection_rect.has_point(screen_pos) and unit.team == 0:
 			GameManager.select_unit(unit)
 
 func _issue_command(world_pos: Vector2) -> void:
