@@ -126,10 +126,10 @@ func _print_summary() -> void:
 	print("")
 
 
-# Utility: wait for N frames
+# Utility: wait for N physics frames (use this for unit logic that runs in _physics_process)
 func wait_frames(n: int) -> void:
 	for i in range(n):
-		await get_tree().process_frame
+		await get_tree().physics_frame
 
 
 # Utility: wait for N seconds

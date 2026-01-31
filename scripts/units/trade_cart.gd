@@ -62,9 +62,7 @@ func _process_moving_to_destination(delta: float) -> void:
 	nav_agent.target_position = destination_market.global_position
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
-	velocity = direction * move_speed
-	move_and_slide()
-	_update_facing_direction()
+	_apply_movement(direction * move_speed)
 
 func _process_trading(delta: float) -> void:
 	trade_timer += delta

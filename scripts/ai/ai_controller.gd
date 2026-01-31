@@ -43,6 +43,9 @@ var attack_cooldown: float = 0.0  # Time until AI can attack again
 const ATTACK_COOLDOWN_TIME: float = 30.0  # Seconds between attacks
 var defending: bool = false  # True if AI military is responding to a threat
 
+# Buildings under construction that need villagers
+var buildings_under_construction: Array[Building] = []
+
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
 	await get_tree().process_frame
@@ -90,6 +93,10 @@ func _make_decisions() -> void:
 
 	var villager_count = _get_ai_villagers().size()
 	var military_count = _get_military_count()
+
+	# === CONSTRUCTION PHASE (Priority 0) ===
+	# Assign idle villagers to buildings under construction
+	_manage_construction()
 
 	# === ECONOMY PHASE (Priority 1) ===
 
@@ -168,8 +175,39 @@ func _make_decisions() -> void:
 	if not defending and _should_attack():
 		_attack_player()
 
+## Manage construction of buildings - assign idle villagers to incomplete buildings
+func _manage_construction() -> void:
+	# Clean up completed or destroyed buildings
+	buildings_under_construction = buildings_under_construction.filter(func(b):
+		return is_instance_valid(b) and not b.is_destroyed and not b.is_constructed
+	)
+
+	if buildings_under_construction.is_empty():
+		return
+
+	# Get idle villagers (not gathering, not building, not hunting)
+	var idle_villagers: Array[Villager] = []
+	for villager in _get_ai_villagers():
+		if villager.current_state == Villager.State.IDLE:
+			idle_villagers.append(villager)
+
+	if idle_villagers.is_empty():
+		return
+
+	# Assign idle villagers to buildings that need more builders
+	for building in buildings_under_construction:
+		if idle_villagers.is_empty():
+			break
+
+		# Assign villagers to buildings with fewer than 2 builders
+		while building.get_builder_count() < 2 and not idle_villagers.is_empty():
+			var villager = idle_villagers.pop_back()
+			villager.command_build(building)
+
 func _train_villager() -> void:
 	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
+		return
+	if not ai_tc.is_functional():  # Only train from functional buildings
 		return
 	if ai_tc.is_training:
 		return
@@ -273,16 +311,20 @@ func _get_needed_resource(allocation: Dictionary) -> String:
 
 # Mill and Farm building functions
 func _has_mill() -> bool:
-	if is_instance_valid(ai_mill) and not ai_mill.is_destroyed:
+	if is_instance_valid(ai_mill) and ai_mill.is_functional():
 		return true
 	var mills = get_tree().get_nodes_in_group("mills")
 	for m in mills:
-		if m.team == AI_TEAM and not m.is_destroyed:
+		if m.team == AI_TEAM and m.is_functional():
 			ai_mill = m
 			return true
 	return false
 
 func _build_mill() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 100, AI_TEAM):
 		return
 
@@ -295,6 +337,11 @@ func _build_mill() -> void:
 	ai_mill.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(ai_mill)
+
+	# Start construction
+	ai_mill.start_construction()
+	builder.command_build(ai_mill)
+	buildings_under_construction.append(ai_mill)
 
 func _count_farms() -> int:
 	var count = 0
@@ -356,6 +403,10 @@ func _has_natural_food_sources() -> bool:
 	return false
 
 func _build_farm() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 50, AI_TEAM):
 		return
 
@@ -364,7 +415,7 @@ func _build_farm() -> void:
 
 	# Find position near mill (if exists) or TC
 	var base_pos = AI_BASE_POSITION
-	if is_instance_valid(ai_mill) and not ai_mill.is_destroyed:
+	if is_instance_valid(ai_mill) and not ai_mill.is_destroyed and ai_mill.is_functional():
 		base_pos = ai_mill.global_position
 
 	var pos = _find_farm_position(base_pos)
@@ -372,6 +423,11 @@ func _build_farm() -> void:
 	farm.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(farm)
+
+	# Start construction
+	farm.start_construction()
+	builder.command_build(farm)
+	buildings_under_construction.append(farm)
 
 func _find_farm_position(near_pos: Vector2) -> Vector2:
 	# Farms are 2x2 (64x64 pixels)
@@ -535,21 +591,21 @@ func _consider_building_camps() -> void:
 				return
 
 func _has_lumber_camp() -> bool:
-	if is_instance_valid(ai_lumber_camp) and not ai_lumber_camp.is_destroyed:
+	if is_instance_valid(ai_lumber_camp) and ai_lumber_camp.is_functional():
 		return true
 	var camps = get_tree().get_nodes_in_group("lumber_camps")
 	for c in camps:
-		if c.team == AI_TEAM and not c.is_destroyed:
+		if c.team == AI_TEAM and c.is_functional():
 			ai_lumber_camp = c
 			return true
 	return false
 
 func _has_mining_camp() -> bool:
-	if is_instance_valid(ai_mining_camp) and not ai_mining_camp.is_destroyed:
+	if is_instance_valid(ai_mining_camp) and ai_mining_camp.is_functional():
 		return true
 	var camps = get_tree().get_nodes_in_group("mining_camps")
 	for c in camps:
-		if c.team == AI_TEAM and not c.is_destroyed:
+		if c.team == AI_TEAM and c.is_functional():
 			ai_mining_camp = c
 			return true
 	return false
@@ -571,6 +627,10 @@ func _find_resource_cluster_position(resource_type: String) -> Vector2:
 	return Vector2.ZERO
 
 func _build_lumber_camp(near_pos: Vector2) -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 100, AI_TEAM):
 		return
 
@@ -584,7 +644,16 @@ func _build_lumber_camp(near_pos: Vector2) -> void:
 
 	get_parent().get_node("Buildings").add_child(ai_lumber_camp)
 
+	# Start construction
+	ai_lumber_camp.start_construction()
+	builder.command_build(ai_lumber_camp)
+	buildings_under_construction.append(ai_lumber_camp)
+
 func _build_mining_camp(near_pos: Vector2) -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 100, AI_TEAM):
 		return
 
@@ -596,6 +665,11 @@ func _build_mining_camp(near_pos: Vector2) -> void:
 	ai_mining_camp.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(ai_mining_camp)
+
+	# Start construction
+	ai_mining_camp.start_construction()
+	builder.command_build(ai_mining_camp)
+	buildings_under_construction.append(ai_mining_camp)
 
 func _find_valid_camp_position(near_pos: Vector2, size: Vector2) -> Vector2:
 	var offsets = [
@@ -612,6 +686,11 @@ func _find_valid_camp_position(near_pos: Vector2, size: Vector2) -> Vector2:
 	return near_pos + Vector2(80, 0)
 
 func _build_house() -> void:
+	# Find an idle villager to build
+	var builder = _find_idle_builder()
+	if not builder:
+		return  # No available builder
+
 	if not GameManager.spend_resource("wood", 25, AI_TEAM):
 		return
 
@@ -624,15 +703,17 @@ func _build_house() -> void:
 	house.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(house)
-	# Team color and population cap handled by House._ready()
+
+	# Start construction and assign builder
+	house.start_construction()
+	builder.command_build(house)
+	buildings_under_construction.append(house)
 
 func _has_barracks() -> bool:
-	_refresh_barracks_list()
-	return ai_barracks.size() > 0
+	return _count_functional_barracks() > 0
 
 func _count_barracks() -> int:
-	_refresh_barracks_list()
-	return ai_barracks.size()
+	return _count_functional_barracks()
 
 func _refresh_barracks_list() -> void:
 	# Remove invalid/destroyed barracks from list
@@ -645,7 +726,20 @@ func _refresh_barracks_list() -> void:
 			if not ai_barracks.has(b):
 				ai_barracks.append(b)
 
+## Count only functional barracks (not under construction)
+func _count_functional_barracks() -> int:
+	_refresh_barracks_list()
+	var count = 0
+	for b in ai_barracks:
+		if b.is_functional():
+			count += 1
+	return count
+
 func _build_barracks() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 100, AI_TEAM):
 		return
 
@@ -660,18 +754,27 @@ func _build_barracks() -> void:
 	get_parent().get_node("Buildings").add_child(new_barracks)
 	ai_barracks.append(new_barracks)
 
+	# Start construction
+	new_barracks.start_construction()
+	builder.command_build(new_barracks)
+	buildings_under_construction.append(new_barracks)
+
 # Archery Range functions
 func _has_archery_range() -> bool:
-	if is_instance_valid(ai_archery_range) and not ai_archery_range.is_destroyed:
+	if is_instance_valid(ai_archery_range) and ai_archery_range.is_functional():
 		return true
 	var ranges = get_tree().get_nodes_in_group("archery_ranges")
 	for r in ranges:
-		if r.team == AI_TEAM and not r.is_destroyed:
+		if r.team == AI_TEAM and r.is_functional():
 			ai_archery_range = r
 			return true
 	return false
 
 func _build_archery_range() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 175, AI_TEAM):
 		return
 
@@ -684,18 +787,27 @@ func _build_archery_range() -> void:
 
 	get_parent().get_node("Buildings").add_child(ai_archery_range)
 
+	# Start construction
+	ai_archery_range.start_construction()
+	builder.command_build(ai_archery_range)
+	buildings_under_construction.append(ai_archery_range)
+
 # Stable functions
 func _has_stable() -> bool:
-	if is_instance_valid(ai_stable) and not ai_stable.is_destroyed:
+	if is_instance_valid(ai_stable) and ai_stable.is_functional():
 		return true
 	var stables = get_tree().get_nodes_in_group("stables")
 	for s in stables:
-		if s.team == AI_TEAM and not s.is_destroyed:
+		if s.team == AI_TEAM and s.is_functional():
 			ai_stable = s
 			return true
 	return false
 
 func _build_stable() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 175, AI_TEAM):
 		return
 
@@ -707,6 +819,11 @@ func _build_stable() -> void:
 	ai_stable.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(ai_stable)
+
+	# Start construction
+	ai_stable.start_construction()
+	builder.command_build(ai_stable)
+	buildings_under_construction.append(ai_stable)
 
 # Military training (mixed army composition)
 func _train_military() -> void:
@@ -756,7 +873,7 @@ func _train_military() -> void:
 	var total_military = militia_count + spearman_count + total_ranged + total_cavalry
 
 	# Train from archery range (archers or skirmishers)
-	if _has_archery_range() and not ai_archery_range.is_training:
+	if _has_archery_range() and ai_archery_range.is_functional() and not ai_archery_range.is_training:
 		if total_military == 0 or total_ranged < total_military * 0.4:
 			# Decide between archer and skirmisher
 			# Mix in some skirmishers (about 1/3 of ranged units)
@@ -770,7 +887,7 @@ func _train_military() -> void:
 					return
 
 	# Train from stable (scouts or cavalry archers)
-	if _has_stable() and not ai_stable.is_training:
+	if _has_stable() and ai_stable.is_functional() and not ai_stable.is_training:
 		if total_cavalry < 2 or (total_military > 0 and total_cavalry < total_military * 0.2):
 			# Decide between scout and cavalry archer
 			# Mix in some cavalry archers for ranged harassment
@@ -785,7 +902,7 @@ func _train_military() -> void:
 
 	# Train from barracks (militia or spearman)
 	for barracks in ai_barracks:
-		if not is_instance_valid(barracks) or barracks.is_destroyed:
+		if not is_instance_valid(barracks) or not barracks.is_functional():
 			continue
 		if barracks.is_training:
 			continue
@@ -882,6 +999,14 @@ func _get_ai_villagers() -> Array:
 			result.append(v)
 	return result
 
+## Find an idle villager to use as a builder
+func _find_idle_builder() -> Villager:
+	var villagers = _get_ai_villagers()
+	for v in villagers:
+		if v.current_state == Villager.State.IDLE:
+			return v
+	return null
+
 func _find_building_spot(building_size: Vector2) -> Vector2:
 	# Simple spiral search for a valid spot
 	var offsets = [
@@ -926,11 +1051,11 @@ func _is_valid_building_position(pos: Vector2, size: Vector2) -> bool:
 
 # Market functions
 func _has_market() -> bool:
-	if is_instance_valid(ai_market) and not ai_market.is_destroyed:
+	if is_instance_valid(ai_market) and ai_market.is_functional():
 		return true
 	var markets = get_tree().get_nodes_in_group("markets")
 	for m in markets:
-		if m.team == AI_TEAM and not m.is_destroyed:
+		if m.team == AI_TEAM and m.is_functional():
 			ai_market = m
 			return true
 	return false
@@ -949,6 +1074,10 @@ func _should_build_market() -> bool:
 	return has_surplus and needs_gold
 
 func _build_market() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
 	if not GameManager.spend_resource("wood", 175, AI_TEAM):
 		return
 
@@ -960,6 +1089,11 @@ func _build_market() -> void:
 	ai_market.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(ai_market)
+
+	# Start construction
+	ai_market.start_construction()
+	builder.command_build(ai_market)
+	buildings_under_construction.append(ai_market)
 
 func _use_market() -> void:
 	if not is_instance_valid(ai_market):

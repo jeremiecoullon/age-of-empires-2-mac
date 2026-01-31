@@ -6,6 +6,7 @@ class_name PelicanBicycle
 
 const OWNERSHIP_CHECK_INTERVAL: float = 0.5
 const OWNERSHIP_RADIUS: float = 200.0
+const PELICAN_TEXTURE: Texture2D = preload("res://assets/sprites/units/pelican_bicycle.svg")
 
 var ownership_timer: float = 0.0
 
@@ -21,27 +22,7 @@ func _ready() -> void:
 
 	super._ready()
 	add_to_group("pelican_bicycles")
-	_load_static_sprite("res://assets/sprites/units/pelican_bicycle.svg")
-
-func _load_static_sprite(path: String) -> void:
-	# Load a static SVG as a single-frame "idle" animation
-	if not sprite:
-		return
-
-	var texture = load(path)
-	if not texture:
-		push_warning("Could not load sprite: " + path)
-		return
-
-	var sprite_frames = SpriteFrames.new()
-	sprite_frames.remove_animation("default")
-	sprite_frames.add_animation("idle")
-	sprite_frames.set_animation_loop("idle", true)
-	sprite_frames.set_animation_speed("idle", 1.0)
-	sprite_frames.add_frame("idle", texture)
-
-	sprite.sprite_frames = sprite_frames
-	sprite.play("idle")
+	_load_static_sprite(PELICAN_TEXTURE)
 
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)

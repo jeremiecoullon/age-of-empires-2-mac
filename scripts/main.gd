@@ -51,6 +51,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and is_dragging:
 		_update_selection(event.position)
 
+	elif event is InputEventKey:
+		if event.keycode == KEY_DELETE and event.pressed:
+			# Delete selected building under construction
+			hud.delete_selected_building()
+
 func _start_selection(screen_pos: Vector2) -> void:
 	var world_pos = _screen_to_world(screen_pos)
 
@@ -188,14 +193,22 @@ func _issue_command(world_pos: Vector2) -> void:
 				unit.command_attack(target_unit)
 		return
 
-	# Check if clicking on an enemy building (for attack command)
+	# Check if clicking on a building
 	var target_building = _get_building_at_position(world_pos)
-	if target_building and target_building.team != 0:  # Only attack enemy buildings
-		for unit in GameManager.selected_units:
-			# Use military group check - all military units implement command_attack
-			if unit.is_in_group("military") and unit.has_method("command_attack"):
-				unit.command_attack(target_building)
-		return
+	if target_building:
+		# Enemy building - attack
+		if target_building.team != 0:
+			for unit in GameManager.selected_units:
+				# Use military group check - all military units implement command_attack
+				if unit.is_in_group("military") and unit.has_method("command_attack"):
+					unit.command_attack(target_building)
+			return
+		# Friendly building under construction - help build
+		elif not target_building.is_constructed:
+			for unit in GameManager.selected_units:
+				if unit is Villager:
+					unit.command_build(target_building)
+			return
 
 	# Check if clicking on an animal (for hunting)
 	var animal = _get_animal_at_position(world_pos)
@@ -404,6 +417,16 @@ func _place_building() -> void:
 		hud._show_error("Cannot place building here!")
 		return
 
+	# Need at least one selected villager to build
+	var builder_villagers: Array[Villager] = []
+	for unit in GameManager.selected_units:
+		if unit is Villager and unit.team == 0:
+			builder_villagers.append(unit)
+
+	if builder_villagers.is_empty():
+		hud._show_error("Select a villager to build!")
+		return
+
 	# Instantiate to get cost from the building itself (avoid duplicate values)
 	var building = GameManager.building_to_place.instantiate()
 	var cost = building.wood_cost
@@ -413,7 +436,15 @@ func _place_building() -> void:
 		return
 
 	building.global_position = pos
+	building.team = 0  # Player team
 	buildings_container.add_child(building)
+
+	# Start construction (building begins at 1 HP)
+	building.start_construction()
+
+	# Command selected villagers to build
+	for villager in builder_villagers:
+		villager.command_build(building)
 
 	GameManager.complete_building_placement()
 	current_building_type = BuildingType.NONE
