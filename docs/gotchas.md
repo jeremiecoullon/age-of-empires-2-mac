@@ -203,3 +203,11 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 - **Notification race conditions**: When using `await` with `create_timer()` to auto-hide UI elements, multiple rapid calls can interfere. Use a counter pattern: increment counter on show, store it, check after await that current counter matches stored value before hiding.
 
 - **Minimap grid vs display size**: The minimap uses a 60x60 grid (matching fog of war) but displays at a larger size (150x120). `draw_texture_rect()` handles the scaling. Don't manually calculate scale for each pixel.
+
+### Phase 2.6B - Cursor System
+
+- **Throttle cursor hover detection**: Like fog of war, cursor hover detection should be throttled (0.1s interval) to avoid expensive group searches every frame. The slight delay is imperceptible to users.
+
+- **Reuse position lookup methods**: Don't duplicate `_get_X_at_position()` methods. main.gd already has these - call them via the main_scene reference instead of duplicating the logic.
+
+- **Cursor hotspot positions vary by type**: Arrow cursors use top-left (0,0) hotspot. Centered cursors like forbidden use center (16,16). Tool cursors like axe/hammer use the "impact point" position near the top of the cursor image.

@@ -1,5 +1,7 @@
 extends Node2D
 
+const CursorManager = preload("res://scripts/ui/cursor_manager.gd")
+
 const HOUSE_SCENE_PATH = "res://scenes/buildings/house.tscn"
 const BARRACKS_SCENE_PATH = "res://scenes/buildings/barracks.tscn"
 const FARM_SCENE_PATH = "res://scenes/buildings/farm.tscn"
@@ -23,9 +25,13 @@ var is_dragging: bool = false
 var drag_start: Vector2 = Vector2.ZERO
 var selection_rect: Rect2 = Rect2()
 var building_ghost: Sprite2D = null
+var cursor_manager: Node = null
 
 func _ready() -> void:
-	pass
+	# Initialize cursor manager
+	cursor_manager = CursorManager.new()
+	add_child(cursor_manager)
+	cursor_manager.initialize(self)
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:

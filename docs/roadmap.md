@@ -318,7 +318,7 @@ This phase consolidates the scattered floating panels into a unified AoE2-style 
 
 **Sub-phases (approved 2026-02-01):**
 - **2.6A**: Bottom panel layout + minimap + basic aesthetics — *Complete*
-- **2.6B**: Context-sensitive cursor system
+- **2.6B**: Context-sensitive cursor system — *Complete*
 
 **Key files to read first:**
 - `scripts/ui/hud.gd` + `scenes/ui/hud.tscn` - Current HUD (floating panels to consolidate)
