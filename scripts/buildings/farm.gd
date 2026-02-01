@@ -12,15 +12,18 @@ func _ready() -> void:
 	building_name = "Farm"
 	size = Vector2i(2, 2)
 	wood_cost = 50
+	build_time = 15.0
 
 # Resource node interface for villagers
 func harvest(amount: int) -> int:
-	# Farms provide infinite food
+	# Farms provide infinite food (only when constructed)
+	if not is_functional():
+		return 0
 	return amount
 
 func get_resource_type() -> String:
 	return resource_type
 
 func has_resources() -> bool:
-	# Farms always have resources (infinite)
-	return true
+	# Farms always have resources (infinite) but only when constructed
+	return is_functional()
