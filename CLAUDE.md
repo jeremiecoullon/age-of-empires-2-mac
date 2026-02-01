@@ -55,13 +55,15 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 **For the full phase workflow (refactor check, build, post-phase), see `docs/roadmap.md` → "Phase Workflow" section.**
 
-**Sub-phases:** Phases can be split into sub-phases (e.g., 1a, 1b, 1c) if needed. Each sub-phase follows the full workflow including its own checkpoint doc.
+**Sub-phases:** Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub-phase follows the full workflow including its own checkpoint doc.
+
+**Checkpoint naming:** Always use `phase-X.Ya.md` format (e.g., `phase-2.0a.md`, `phase-2.5b.md`). The `.0` is required for major phases so that files sort correctly (otherwise `phase-2.5a` sorts before `phase-2a`).
 
 **Sub-phase sizing:** Each sub-phase should be a coherent chunk - related features that touch the same systems. Too small and you spend more time on ceremony than code. Too large and you get context rot anyway. A good heuristic: 3-5 related features, or 1-2 new systems with their dependent content.
 
 **Orchestrating a full phase:** When the user says "do all of phase X" or "complete phase X":
 
-1. **Propose a split.** Read the phase spec in `docs/roadmap.md`, analyze the scope, and propose sub-phases (e.g., 2A, 2B, 2C). Explain what each sub-phase covers and why. Get user approval once upfront.
+1. **Propose a split.** Read the phase spec in `docs/roadmap.md`, analyze the scope, and propose sub-phases (e.g., 2.0A, 2.0B, 2.0C). Explain what each sub-phase covers and why. Get user approval once upfront.
 
 2. **Persist the split.** After approval, update `docs/roadmap.md` with the sub-phase breakdown under that phase's section. Add a "Sub-phases" block with date and brief description of each sub-phase. This is the source of truth for future sessions.
 
@@ -75,7 +77,7 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
    - Run test agent
    - Write checkpoint doc
 
-4. **Signal for context clear.** Say: "2A complete. Clear context now." (Claude cannot clear its own context.)
+4. **Signal for context clear.** Say: "2.0A complete. Clear context now." (Claude cannot clear its own context.)
 
 5. **Continue automatically.** When user clears context and says "continue", read the sub-phase breakdown in `roadmap.md` and checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
 
@@ -116,13 +118,21 @@ See `docs/roadmap.md` → "Post-Phase" for the full workflow.
 
 ## Running Tests
 
-**Always run tests in headless mode.** Do not ask the user to run tests manually in the GUI.
+**Always run tests in two steps:**
 
-```bash
-godot --headless --path . tests/test_scene.tscn
-```
+1. **Validate project import** (catches .tscn/.tres syntax errors):
+   ```bash
+   godot --headless --import --path .
+   ```
 
-Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures.
+2. **Run the test suite**:
+   ```bash
+   godot --headless --path . tests/test_scene.tscn
+   ```
+
+Both steps are required. The import step catches scene file errors that won't show up in tests (since tests use mock HUD).
+
+Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures. Do not ask the user to run tests manually in the GUI.
 
 ---
 

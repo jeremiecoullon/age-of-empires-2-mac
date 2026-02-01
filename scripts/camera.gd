@@ -44,3 +44,9 @@ func _clamp_position() -> void:
 	var half_viewport = viewport_size / 2
 	position.x = clamp(position.x, half_viewport.x, map_size.x - half_viewport.x)
 	position.y = clamp(position.y, half_viewport.y, map_size.y - half_viewport.y)
+
+
+## Jump camera to a specific world position (used by minimap click)
+func jump_to(world_pos: Vector2) -> void:
+	position = world_pos
+	_clamp_position()

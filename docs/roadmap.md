@@ -316,9 +316,9 @@ This is a cleanup phase before moving to Strong AI. Addresses bugs discovered du
 
 This phase consolidates the scattered floating panels into a unified AoE2-style interface. Reference screenshot: `images/screenshots/aoe_screenshot.jpeg`
 
-**Sub-phases:**
-- **2.6A**: Bottom panel layout + minimap + basic aesthetics
-- **2.6B**: Context-sensitive cursor system
+**Sub-phases (approved 2026-02-01):**
+- **2.6A**: Bottom panel layout + minimap + basic aesthetics — *Complete*
+- **2.6B**: Context-sensitive cursor system — *Complete*
 
 **Key files to read first:**
 - `scripts/ui/hud.gd` + `scenes/ui/hud.tscn` - Current HUD (floating panels to consolidate)

@@ -36,6 +36,16 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 
 ---
 
+## Known UI Layout Issues
+
+Track layout/visual issues for future polish.
+
+| Issue | Added | Notes |
+|-------|-------|-------|
+| Minimap square on diamond navbar | Phase 2.6A | The minimap is square but the AoE2 navbar behind it is diamond-shaped. The minimap is centered over the diamond which looks off. **Possible fix:** Make maps always diamond-shaped (rotated square), so the minimap naturally fits the diamond frame. This is non-trivial and deferred to Phase 10 Polish. |
+
+---
+
 ## Project Structure
 
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
@@ -195,3 +205,23 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 - **Build panel visibility**: The build panel should only show when a villager is selected, not always visible. Check selection in HUD update and hide panel when no villagers are selected.
 
 - **AI builder assignment**: AI should cap builders per building (2 is a good limit) to avoid over-committing villagers to construction. Use `_manage_construction()` in the AI decision loop to assign idle villagers.
+
+### Phase 2.6A - UI Overhaul & Minimap
+
+- **Minimap fog of war integration**: When drawing entities on the minimap, must check fog of war visibility state before rendering enemy entities. Enemy units should only appear when VISIBLE, enemy buildings when EXPLORED or VISIBLE. Failure to do this leaks information to the player.
+
+- **Notification race conditions**: When using `await` with `create_timer()` to auto-hide UI elements, multiple rapid calls can interfere. Use a counter pattern: increment counter on show, store it, check after await that current counter matches stored value before hiding.
+
+- **Minimap grid vs display size**: The minimap uses a 60x60 grid (matching fog of war) but displays at a larger size (150x120). `draw_texture_rect()` handles the scaling. Don't manually calculate scale for each pixel.
+
+### Phase 2.6B - Cursor System
+
+- **Throttle cursor hover detection**: Like fog of war, cursor hover detection should be throttled (0.1s interval) to avoid expensive group searches every frame. The slight delay is imperceptible to users.
+
+- **Reuse position lookup methods**: Don't duplicate `_get_X_at_position()` methods. main.gd already has these - call them via the main_scene reference instead of duplicating the logic.
+
+- **Cursor hotspot positions vary by type**: Arrow cursors use top-left (0,0) hotspot. Centered cursors like forbidden use center (16,16). Tool cursors like axe/hammer use the "impact point" position near the top of the cursor image.
+
+- **Resource group naming**: Resources are NOT in groups like "trees" or "gold_mines". They're in groups named `{resource_type}_resources` (e.g., "wood_resources", "gold_resources", "food_resources"). Use `get_resource_type()` method to get the type string, not group checks like `is_in_group("trees")`.
+
+- **macOS cursor API bug (Godot 4.5.1)**: `Input.set_custom_mouse_cursor()` and `DisplayServer.cursor_set_custom_image()` only work on the first call on macOS with Metal renderer. Subsequent calls are ignored and the cursor stays stuck on the initial texture. **Workaround**: Use a sprite-based cursor: (1) hide system cursor with `Input.mouse_mode = Input.MOUSE_MODE_HIDDEN`, (2) create a CanvasLayer + Sprite2D that follows mouse position, (3) change sprite texture instead of calling cursor API. Remember to restore system cursor in `_exit_tree()`.
