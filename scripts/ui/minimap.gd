@@ -21,7 +21,7 @@ var minimap_image: Image
 var minimap_texture: ImageTexture
 
 # Colors
-const COLOR_TERRAIN = Color(0.35, 0.35, 0.35)      # Dark grey background
+const COLOR_TERRAIN = Color(0.25, 0.45, 0.2)       # Green grass
 const COLOR_TREE = Color(0.1, 0.3, 0.1)            # Dark green trees
 const COLOR_GOLD = Color(1.0, 0.85, 0.0)           # Gold
 const COLOR_STONE = Color(0.5, 0.5, 0.5)           # Gray stone
