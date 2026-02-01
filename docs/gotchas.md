@@ -211,3 +211,7 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 - **Reuse position lookup methods**: Don't duplicate `_get_X_at_position()` methods. main.gd already has these - call them via the main_scene reference instead of duplicating the logic.
 
 - **Cursor hotspot positions vary by type**: Arrow cursors use top-left (0,0) hotspot. Centered cursors like forbidden use center (16,16). Tool cursors like axe/hammer use the "impact point" position near the top of the cursor image.
+
+- **Resource group naming**: Resources are NOT in groups like "trees" or "gold_mines". They're in groups named `{resource_type}_resources` (e.g., "wood_resources", "gold_resources", "food_resources"). Use `get_resource_type()` method to get the type string, not group checks like `is_in_group("trees")`.
+
+- **macOS cursor API bug (Godot 4.5.1)**: `Input.set_custom_mouse_cursor()` and `DisplayServer.cursor_set_custom_image()` only work on the first call on macOS with Metal renderer. Subsequent calls are ignored and the cursor stays stuck on the initial texture. **Workaround**: Use a sprite-based cursor: (1) hide system cursor with `Input.mouse_mode = Input.MOUSE_MODE_HIDDEN`, (2) create a CanvasLayer + Sprite2D that follows mouse position, (3) change sprite texture instead of calling cursor API. Remember to restore system cursor in `_exit_tree()`.

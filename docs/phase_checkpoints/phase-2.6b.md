@@ -74,9 +74,21 @@ Building Placement Mode?
 
 ---
 
+## Bug Fixed Post-Review
+
+**Issue:** Gather cursor not changing when hovering over trees with villager selected.
+
+**Root cause:** Used `hover_resource.is_in_group("trees")` but trees are actually in `"wood_resources"` group (from `add_to_group(resource_type + "_resources")` in resource_node.gd).
+
+**Fix:** Changed to use `hover_resource.get_resource_type() == "wood"` which correctly identifies wood resources.
+
+**Tests added:** 14 new automated tests covering all cursor states and resource type detection.
+
+---
+
 ## Known Issues
 
-None. All tests pass (263/263).
+None. All tests pass (277/277).
 
 ---
 
@@ -101,7 +113,23 @@ None. All tests pass (263/263).
 
 ### Automated Tests
 
-No new automated tests. Cursor system is UI-dependent and best tested manually. All 263 existing tests still pass.
+14 new tests added in `tests/scenarios/test_cursor.gd`:
+- `test_default_cursor_when_nothing_selected`
+- `test_gather_cursor_when_hovering_tree_with_villager`
+- `test_hand_cursor_when_hovering_gold_with_villager`
+- `test_hand_cursor_when_hovering_stone_with_villager`
+- `test_hand_cursor_when_hovering_berries_with_villager`
+- `test_hand_cursor_when_hovering_farm_with_villager`
+- `test_hand_cursor_when_hovering_sheep_with_villager`
+- `test_attack_cursor_when_hovering_enemy_unit_with_military`
+- `test_attack_cursor_when_hovering_enemy_building_with_military`
+- `test_attack_cursor_when_hovering_enemy_with_villager`
+- `test_build_cursor_when_hovering_construction_with_villager`
+- `test_resource_type_detection_for_wood`
+- `test_resource_type_detection_for_gold`
+- `test_resource_type_detection_for_food`
+
+All 277 tests pass.
 
 ---
 

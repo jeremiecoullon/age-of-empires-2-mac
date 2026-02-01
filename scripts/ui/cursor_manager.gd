@@ -9,6 +9,8 @@ extends Node
 ## - Hand for other resources (gold, stone, food, animals)
 ## - Hammer for building placement/construction
 ## - Forbidden for invalid actions
+##
+## Uses sprite-based cursor rendering to work around macOS/Godot cursor API issues.
 
 # Cursor textures - preloaded for performance
 const CURSOR_DEFAULT: Texture2D = preload("res://assets/sprites_extracted/cursors/cursor_default.png")
@@ -30,6 +32,10 @@ enum CursorType {
 var current_cursor: CursorType = CursorType.DEFAULT
 var main_scene: Node2D = null
 
+# Sprite-based cursor (workaround for macOS/Godot cursor API issues)
+var _cursor_layer: CanvasLayer = null
+var _cursor_sprite: Sprite2D = null
+
 # Hotspot positions for cursors (where the "click point" is)
 const HOTSPOT_DEFAULT := Vector2(0, 0)    # Arrow tip at top-left
 const HOTSPOT_ATTACK := Vector2(16, 0)    # Sword tip at top-center
@@ -37,6 +43,9 @@ const HOTSPOT_GATHER := Vector2(12, 4)    # Axe blade near top
 const HOTSPOT_HAND := Vector2(8, 0)       # Fingertip
 const HOTSPOT_BUILD := Vector2(8, 4)      # Hammer head near top
 const HOTSPOT_FORBIDDEN := Vector2(16, 16)  # Center of circle
+
+var _current_hotspot := Vector2.ZERO
+var _cursor_over_ui := false
 
 # Throttling for hover queries (avoid expensive group searches every frame)
 const CURSOR_UPDATE_INTERVAL: float = 0.1  # 10 updates per second
@@ -46,9 +55,30 @@ var _cached_hover_building: Node = null
 var _cached_hover_resource: Node = null
 var _cached_hover_animal: Node = null
 
+
 func _ready() -> void:
-	# Set default cursor on startup
+	# Create sprite-based cursor
+	_setup_cursor_sprite()
+	# Hide system cursor
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	# Set default cursor
 	_set_cursor(CursorType.DEFAULT)
+
+
+func _setup_cursor_sprite() -> void:
+	## Create CanvasLayer and Sprite2D for cursor rendering
+	_cursor_layer = CanvasLayer.new()
+	_cursor_layer.layer = 100  # Render above everything
+	add_child(_cursor_layer)
+
+	_cursor_sprite = Sprite2D.new()
+	_cursor_sprite.centered = false  # Position from top-left for hotspot math
+	_cursor_layer.add_child(_cursor_sprite)
+
+
+func _exit_tree() -> void:
+	# Restore system cursor when this node is removed
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func initialize(main: Node2D) -> void:
@@ -57,6 +87,15 @@ func initialize(main: Node2D) -> void:
 
 
 func _process(delta: float) -> void:
+	# Check if mouse is over UI elements
+	var over_ui := _is_mouse_over_ui()
+	if over_ui != _cursor_over_ui:
+		_cursor_over_ui = over_ui
+		_update_cursor_visibility()
+
+	# Always update cursor sprite position to follow mouse
+	_update_cursor_position()
+
 	if not main_scene:
 		return
 
@@ -67,6 +106,36 @@ func _process(delta: float) -> void:
 		_update_hover_cache()
 
 	_update_cursor()
+
+
+func _is_mouse_over_ui() -> bool:
+	## Check if mouse is hovering over a UI Control element
+	var viewport = get_viewport()
+	if not viewport:
+		return false
+	var hovered_control = viewport.gui_get_hovered_control()
+	return hovered_control != null
+
+
+func _update_cursor_visibility() -> void:
+	## Show/hide sprite cursor based on whether mouse is over UI
+	if _cursor_over_ui:
+		# Over UI - show system cursor, hide sprite
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		if _cursor_sprite:
+			_cursor_sprite.visible = false
+	else:
+		# Over game world - hide system cursor, show sprite
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+		if _cursor_sprite:
+			_cursor_sprite.visible = true
+
+
+func _update_cursor_position() -> void:
+	## Update sprite position to follow mouse, accounting for hotspot
+	if _cursor_sprite and _cursor_sprite.visible:
+		var mouse_pos = get_viewport().get_mouse_position()
+		_cursor_sprite.position = mouse_pos - _current_hotspot
 
 
 func _update_hover_cache() -> void:
@@ -137,12 +206,14 @@ func _get_selection_based_cursor() -> CursorType:
 		if unit.is_in_group("military"):
 			has_military = true
 
+
 	# Villager-specific cursors (check first since villagers can both gather and attack)
 	if has_villager:
 		# Hovering over resource - use appropriate gather cursor
 		if hover_resource and is_instance_valid(hover_resource):
-			# Use group check for resource type (more robust than string comparison)
-			if hover_resource.is_in_group("trees"):
+			# Check resource type - wood uses axe cursor, others use hand
+			var resource_type = hover_resource.get_resource_type() if hover_resource.has_method("get_resource_type") else ""
+			if resource_type == "wood":
 				return CursorType.GATHER  # Axe for trees
 			else:
 				return CursorType.HAND  # Hand for gold/stone/berries/farms
@@ -176,7 +247,7 @@ func _get_selection_based_cursor() -> CursorType:
 
 
 func _set_cursor(cursor_type: CursorType) -> void:
-	## Apply the cursor texture with appropriate hotspot
+	## Apply the cursor texture to the sprite
 	current_cursor = cursor_type
 
 	var texture: Texture2D
@@ -202,7 +273,12 @@ func _set_cursor(cursor_type: CursorType) -> void:
 			texture = CURSOR_FORBIDDEN
 			hotspot = HOTSPOT_FORBIDDEN
 
-	Input.set_custom_mouse_cursor(texture, Input.CURSOR_ARROW, hotspot)
+	if texture == null:
+		return
+
+	_current_hotspot = hotspot
+	if _cursor_sprite:
+		_cursor_sprite.texture = texture
 
 
 func reset_cursor() -> void:
