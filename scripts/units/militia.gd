@@ -27,7 +27,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	match current_state:
 		State.IDLE:
-			velocity = Vector2.ZERO
+			_stop_and_stay()
 			_check_auto_aggro(delta)
 		State.MOVING:
 			_process_moving(delta)
@@ -60,14 +60,12 @@ func _process_moving(delta: float) -> void:
 	# Use NavigationAgent2D for proper pathfinding
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
-		velocity = Vector2.ZERO
 		return
 
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
-	velocity = direction * move_speed
-	move_and_slide()
-	_update_facing_direction()
+	_resume_movement()
+	_apply_movement(direction * move_speed)
 
 func _process_attacking(delta: float) -> void:
 	if not is_instance_valid(attack_target):
@@ -95,7 +93,6 @@ func _process_attacking(delta: float) -> void:
 			# Don't move, give up attack if target moved out of range
 			attack_target = null
 			current_state = State.IDLE
-			velocity = Vector2.ZERO
 			return
 
 		if stance == Stance.DEFENSIVE and original_position != Vector2.ZERO:
@@ -105,21 +102,19 @@ func _process_attacking(delta: float) -> void:
 				# Give up chase and return
 				attack_target = null
 				current_state = State.IDLE
-				velocity = Vector2.ZERO
 				return
 
 		# Move closer to target using nav_agent
 		nav_agent.target_position = attack_target.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
-		velocity = direction * move_speed
-		move_and_slide()
-		_update_facing_direction()
+		_resume_movement()
+		_apply_movement(direction * move_speed)
 		# Don't increment attack timer when out of range
 		return
 
 	# In range, stop and attack
-	velocity = Vector2.ZERO
+	_stop_and_stay()
 	attack_timer += delta
 
 	if attack_timer >= attack_cooldown:

@@ -32,18 +32,6 @@ func _ready() -> void:
 	if SCOUT_CAVALRY_TEXTURE:
 		_load_static_sprite(SCOUT_CAVALRY_TEXTURE)
 
-func _load_static_sprite(texture: Texture2D) -> void:
-	if not sprite or not texture:
-		return
-	var sprite_frames = SpriteFrames.new()
-	sprite_frames.remove_animation("default")
-	sprite_frames.add_animation("idle")
-	sprite_frames.set_animation_loop("idle", true)
-	sprite_frames.add_frame("idle", texture)
-	sprite.sprite_frames = sprite_frames
-	sprite.play("idle")
-	sprite.scale = Vector2(0.5, 0.5)  # Scale down 64px SVG
-
 func _physics_process(delta: float) -> void:
 	match current_state:
 		State.IDLE:
@@ -81,9 +69,7 @@ func _process_moving(delta: float) -> void:
 
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
-	velocity = direction * move_speed
-	move_and_slide()
-	_update_facing_direction()
+	_apply_movement(direction * move_speed)
 
 func _process_attacking(delta: float) -> void:
 	if not is_instance_valid(attack_target):
@@ -125,9 +111,7 @@ func _process_attacking(delta: float) -> void:
 		nav_agent.target_position = attack_target.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
-		velocity = direction * move_speed
-		move_and_slide()
-		_update_facing_direction()
+		_apply_movement(direction * move_speed)
 		return
 
 	# In range, stop and attack

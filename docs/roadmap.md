@@ -97,6 +97,7 @@ Before starting each phase, follow this process:
 | 0 | MVP | Playable foundation: 2 resources, basic units, AI opponent, win condition |
 | 1 | Complete Economy | 4 resources, drop-off buildings, trading |
 | 2 | Military Foundation | Combat triangle, fog of war, counter-units |
+| 2.5 | Bug Fixes & Core Mechanics | Production queue, villager-based building, pathfinding fixes |
 | 3 | Strong AI | Competitive AI: build orders, scouting, counter-play, micro |
 | 4 | Age System | Dark → Feudal → Castle progression |
 | 5 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
@@ -266,6 +267,46 @@ Makes the AI functional by using all available Phase 0-2B features. Without this
 | Trade cart usage | Low | Passive gold when market exists |
 
 **2C Done when:** AI booms to 20+ villagers, builds farms, uses all military buildings, presents a real challenge.
+
+---
+
+## Phase 2.5: Bug Fixes & Core Mechanics
+**Goal:** Fix outstanding bugs and add core AoE2 mechanics that were deferred
+
+This is a cleanup phase before moving to Strong AI. Addresses bugs discovered during Phase 2 playtesting and adds fundamental mechanics that should have been in earlier phases.
+
+**Sub-phases (approved 2026-01-31):**
+- **2.5A**: Bug fixes + Production queue
+- **2.5B**: Villager-based building construction
+
+---
+
+### Phase 2.5A: Bug Fixes + Production Queue
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Enemy building label | UI | Show "Enemy" label when clicking enemy buildings |
+| Unit status live update | Bug fix | Info panel updates in real-time when selected unit's state changes (e.g., IDLE → ATTACKING) |
+| Pathfinding blocking fix | Bug fix | Units path around other units/animals instead of getting stuck |
+| Production queue | Mechanic | Queue up to 15 units per building; resources deducted when queued, refunded if cancelled |
+
+**2.5A Done when:** Bugs are fixed, production queue works for all training buildings.
+
+---
+
+### Phase 2.5B: Villager-Based Building Construction
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Build commands on villager | UI | Build buttons appear when villager selected (not global panel) |
+| Build categories | UI | Economic (Mill, Lumber Camp, Mining Camp, Farm, Market) vs Military (Barracks, Archery Range, Stable) |
+| BUILDING villager state | Mechanic | Villager walks to build site and constructs |
+| Construction time | Mechanic | Buildings start at 1 HP, HP increases over time as villager works |
+| Multi-villager construction | Mechanic | Additional villagers speed up construction |
+| Construction cancellation | Mechanic | Partially built buildings can be deleted (no resource refund) |
+| AI builder behavior | AI | AI villagers use same construction system |
+
+**2.5B Done when:** Buildings are constructed by villagers over time, matching AoE2 behavior.
 
 ---
 
@@ -534,7 +575,6 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Control groups | Input | Ctrl+1-9 to save, 1-9 to recall selections |
 | Double-click selection | Input | Select all visible units of same type |
 | Unit queuing | Mechanic | Shift+right-click for waypoints |
-| Production queue | Mechanic | Queue up to 15 units; resources deducted when queued, refunded if cancelled |
 | Rally points | Mechanic | Set gather point for trained units |
 | Formations | Mechanic | Line, Box, Staggered, Flank |
 | Auto-formation | Mechanic | Mixed groups auto-position: high HP front, ranged back, weak rear |
