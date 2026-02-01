@@ -21,7 +21,7 @@ var minimap_image: Image
 var minimap_texture: ImageTexture
 
 # Colors
-const COLOR_TERRAIN = Color(0.25, 0.45, 0.2)       # Green grass
+const COLOR_TERRAIN = Color(0.35, 0.35, 0.35)      # Dark grey background
 const COLOR_TREE = Color(0.1, 0.3, 0.1)            # Dark green trees
 const COLOR_GOLD = Color(1.0, 0.85, 0.0)           # Gold
 const COLOR_STONE = Color(0.5, 0.5, 0.5)           # Gray stone
@@ -31,7 +31,7 @@ const COLOR_PLAYER_BUILDING = Color(0.2, 0.4, 0.8) # Darker blue
 const COLOR_AI_UNIT = Color(0.9, 0.2, 0.2)         # Red
 const COLOR_AI_BUILDING = Color(0.7, 0.15, 0.15)   # Darker red
 const COLOR_NEUTRAL = Color(0.8, 0.8, 0.3)         # Yellow for neutral/sheep
-const COLOR_FOG_UNEXPLORED = Color(0, 0, 0, 1)     # Black
+const COLOR_FOG_UNEXPLORED = Color(0.12, 0.12, 0.12, 1)  # Very dark grey
 const COLOR_FOG_EXPLORED = Color(0, 0, 0, 0.5)     # Semi-transparent black
 const COLOR_CAMERA_BOX = Color(1, 1, 1, 0.8)       # White camera indicator
 

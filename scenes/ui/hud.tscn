@@ -138,7 +138,7 @@ theme_override_constants/separation = 0
 
 [node name="LeftSection" type="Control" parent="BottomPanel/BottomContent"]
 layout_mode = 2
-custom_minimum_size = Vector2(220, 0)
+custom_minimum_size = Vector2(370, 0)
 
 [node name="InfoContainer" type="VBoxContainer" parent="BottomPanel/BottomContent/LeftSection"]
 layout_mode = 1
@@ -420,7 +420,7 @@ text = "NA"
 
 [node name="RightSection" type="Control" parent="BottomPanel/BottomContent"]
 layout_mode = 2
-custom_minimum_size = Vector2(200, 0)
+custom_minimum_size = Vector2(430, 0)
 
 [node name="Minimap" type="Control" parent="BottomPanel/BottomContent/RightSection"]
 layout_mode = 1
