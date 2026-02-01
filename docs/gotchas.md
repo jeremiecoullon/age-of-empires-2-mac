@@ -36,6 +36,16 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 
 ---
 
+## Known UI Layout Issues
+
+Track layout/visual issues for future polish.
+
+| Issue | Added | Notes |
+|-------|-------|-------|
+| Minimap square on diamond navbar | Phase 2.6A | The minimap is square but the AoE2 navbar behind it is diamond-shaped. The minimap is centered over the diamond which looks off. **Possible fix:** Make maps always diamond-shaped (rotated square), so the minimap naturally fits the diamond frame. This is non-trivial and deferred to Phase 10 Polish. |
+
+---
+
 ## Project Structure
 
 - Collision layers: 1=Units, 2=Buildings, 4=Resources
