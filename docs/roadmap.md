@@ -84,7 +84,11 @@ Before starting each phase, follow this process:
 
 - **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
 - **Run the test agent** to write automated tests for the phase. The test agent receives the checkpoint doc and relevant source files, writes tests, and returns a brief summary of what was tested. Add this summary to the checkpoint doc's "Test Coverage" section.
-- Update `docs/gotchas.md` with new learnings
+- **Update `docs/gotchas.md`** — This is REQUIRED, not optional. Add a new section header for the phase (e.g., "### Phase 3E - Economic Intelligence") and document:
+  - Patterns that worked or didn't work
+  - Non-obvious implementation details future agents need to know
+  - Bugs encountered and their fixes
+  - Any "gotcha" that cost you time and could trip up future work
 - **Write a checkpoint doc** in `docs/phase_checkpoints/` using the template. This is required for both DIRECT and ORCHESTRATOR modes - it's how future sessions know what was built.
 - Verify game still launches and plays correctly
 
