@@ -18,6 +18,13 @@ extends Node
 ## - Production building scaling (multiple barracks/ranges/stables)
 ## - Floating resource detection
 ## - Idle villager reassignment
+##
+## Phase 3B tests verify:
+## - Scouting system initialization and state management
+## - Enemy base tracking
+## - Army composition tracking
+## - Threat assessment levels
+## - Building type identification
 
 class_name TestAI
 
@@ -71,6 +78,21 @@ func get_all_tests() -> Array[Callable]:
 		# Phase 3A: Production building scaling tests
 		test_count_archery_ranges_counts_ai_only,
 		test_count_stables_counts_ai_only,
+		# Phase 3B: Scouting system tests
+		test_scout_state_starts_idle,
+		test_scout_found_enemy_base_initially_false,
+		test_has_scouted_enemy_base_returns_false_initially,
+		test_get_enemy_base_position_returns_default_when_not_scouted,
+		# Phase 3B: Enemy tracking tests
+		test_estimated_enemy_army_starts_zero,
+		test_get_enemy_dominant_unit_type_defaults_to_militia,
+		test_known_enemy_buildings_starts_empty,
+		# Phase 3B: Threat assessment tests
+		test_threat_level_starts_zero,
+		test_get_threat_level_returns_current_value,
+		test_enemy_has_more_returns_false_when_equal,
+		test_enemy_has_more_returns_true_when_enemy_has_more,
+		test_building_type_string_returns_correct_types,
 	]
 
 
@@ -742,5 +764,208 @@ func test_count_stables_counts_ai_only() -> Assertions.AssertResult:
 	if count != 1:
 		return Assertions.AssertResult.new(false,
 			"Should count 1 AI stable, got: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3B: Scouting System Tests ===
+
+func test_scout_state_starts_idle() -> Assertions.AssertResult:
+	## Scout state should start at IDLE
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	if controller.scout_state != AIController.ScoutState.IDLE:
+		_cleanup_ai_controller(controller)
+		return Assertions.AssertResult.new(false,
+			"Scout state should start at IDLE, got: %d" % controller.scout_state)
+
+	_cleanup_ai_controller(controller)
+	return Assertions.AssertResult.new(true)
+
+
+func test_scout_found_enemy_base_initially_false() -> Assertions.AssertResult:
+	## scout_found_enemy_base should initially be false
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	if controller.scout_found_enemy_base:
+		_cleanup_ai_controller(controller)
+		return Assertions.AssertResult.new(false,
+			"scout_found_enemy_base should initially be false")
+
+	_cleanup_ai_controller(controller)
+	return Assertions.AssertResult.new(true)
+
+
+func test_has_scouted_enemy_base_returns_false_initially() -> Assertions.AssertResult:
+	## has_scouted_enemy_base() should return false before scouting
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var has_scouted = controller.has_scouted_enemy_base()
+
+	_cleanup_ai_controller(controller)
+
+	if has_scouted:
+		return Assertions.AssertResult.new(false,
+			"has_scouted_enemy_base() should be false before scouting")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_enemy_base_position_returns_default_when_not_scouted() -> Assertions.AssertResult:
+	## get_enemy_base_position() should return PLAYER_BASE_POSITION when not scouted
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var enemy_pos = controller.get_enemy_base_position()
+
+	_cleanup_ai_controller(controller)
+
+	if enemy_pos != AIController.PLAYER_BASE_POSITION:
+		return Assertions.AssertResult.new(false,
+			"Should return PLAYER_BASE_POSITION when not scouted, got: %s" % str(enemy_pos))
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3B: Enemy Tracking Tests ===
+
+func test_estimated_enemy_army_starts_zero() -> Assertions.AssertResult:
+	## All estimated_enemy_army values should start at 0
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var total = controller.estimated_enemy_army.total_military
+
+	_cleanup_ai_controller(controller)
+
+	if total != 0:
+		return Assertions.AssertResult.new(false,
+			"estimated_enemy_army.total_military should start at 0, got: %d" % total)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_enemy_dominant_unit_type_defaults_to_militia() -> Assertions.AssertResult:
+	## get_enemy_dominant_unit_type() should default to militia when no enemies seen
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var dominant = controller.get_enemy_dominant_unit_type()
+
+	_cleanup_ai_controller(controller)
+
+	if dominant != "militia":
+		return Assertions.AssertResult.new(false,
+			"Should default to 'militia' when no enemies seen, got: %s" % dominant)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_known_enemy_buildings_starts_empty() -> Assertions.AssertResult:
+	## known_enemy_buildings should start empty
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var count = controller.known_enemy_buildings.size()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"known_enemy_buildings should start empty, has: %d items" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3B: Threat Assessment Tests ===
+
+func test_threat_level_starts_zero() -> Assertions.AssertResult:
+	## current_threat_level should start at 0
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	if controller.current_threat_level != 0:
+		_cleanup_ai_controller(controller)
+		return Assertions.AssertResult.new(false,
+			"current_threat_level should start at 0, got: %d" % controller.current_threat_level)
+
+	_cleanup_ai_controller(controller)
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_threat_level_returns_current_value() -> Assertions.AssertResult:
+	## get_threat_level() should return current_threat_level
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set a threat level manually
+	controller.current_threat_level = AIController.THREAT_MODERATE
+
+	var level = controller.get_threat_level()
+
+	_cleanup_ai_controller(controller)
+
+	if level != AIController.THREAT_MODERATE:
+		return Assertions.AssertResult.new(false,
+			"get_threat_level() should return THREAT_MODERATE (2), got: %d" % level)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_enemy_has_more_returns_false_when_equal() -> Assertions.AssertResult:
+	## enemy_has_more() should return false when counts are equal (0 == 0)
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var result = controller.enemy_has_more("militia")
+
+	_cleanup_ai_controller(controller)
+
+	if result:
+		return Assertions.AssertResult.new(false,
+			"enemy_has_more() should be false when both have 0 militia")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_enemy_has_more_returns_true_when_enemy_has_more() -> Assertions.AssertResult:
+	## enemy_has_more() should return true when estimated enemy count is higher
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Manually set estimated enemy militia count
+	controller.estimated_enemy_army["militia"] = 5
+
+	# AI has no militia
+	var result = controller.enemy_has_more("militia")
+
+	_cleanup_ai_controller(controller)
+
+	if not result:
+		return Assertions.AssertResult.new(false,
+			"enemy_has_more() should be true when enemy has 5 militia and AI has 0")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_building_type_string_returns_correct_types() -> Assertions.AssertResult:
+	## _get_building_type_string() should return correct building type names
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn a barracks and test
+	var barracks = runner.spawner.spawn_barracks(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var type_str = controller._get_building_type_string(barracks)
+
+	_cleanup_ai_controller(controller)
+
+	if type_str != "barracks":
+		return Assertions.AssertResult.new(false,
+			"_get_building_type_string() for Barracks should return 'barracks', got: %s" % type_str)
 
 	return Assertions.AssertResult.new(true)

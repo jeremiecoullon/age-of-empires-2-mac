@@ -370,8 +370,8 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 **Difficulty:** Single difficulty level ("Very Difficult") - the AI plays to win.
 
 **Sub-phases (approved 2026-02-01):**
-- **3A**: Macro & Build Orders - build order system, continuous villager production, production scaling, idle villager reassignment
-- **3B**: Scouting & Information - scout patrol patterns, enemy base tracking, army composition tracking, threat assessment
+- **3A**: Macro & Build Orders - build order system, continuous villager production, production scaling, idle villager reassignment — *Complete*
+- **3B**: Scouting & Information - scout patrol patterns, enemy base tracking, army composition tracking, threat assessment — *Complete*
 - **3C**: Combat Intelligence - counter-unit production, army composition goals, attack timing, target prioritization, retreat, focus fire
 - **3D**: Micro & Tactics - ranged kiting, villager flee behavior, TC garrison, split attention, reinforcement waves
 - **3E**: Economic Intelligence - resource balance targets, floating resource detection, farm placement, forward building, expansion

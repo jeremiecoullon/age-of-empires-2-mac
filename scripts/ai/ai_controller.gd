@@ -17,8 +17,10 @@ const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 const PLAYER_TEAM: int = 0
 const AI_TEAM: int = 1
 const AI_BASE_POSITION: Vector2 = Vector2(1700, 1700)
+const PLAYER_BASE_POSITION: Vector2 = Vector2(480, 480)  # Approximate player start
 const DECISION_INTERVAL: float = 1.0  # Faster decisions for competitive AI
 const IDLE_CHECK_INTERVAL: float = 0.3  # Fast idle villager reassignment
+const SCOUT_UPDATE_INTERVAL: float = 0.5  # How often to update scout behavior
 
 # Economic thresholds
 const TARGET_VILLAGERS: int = 30  # Higher target for competitive AI
@@ -41,6 +43,18 @@ const SECOND_BARRACKS_THRESHOLD: int = 18  # Villagers before 2nd barracks
 const THIRD_BARRACKS_THRESHOLD: int = 25  # Villagers before 3rd barracks
 const SECOND_RANGE_THRESHOLD: int = 22  # Villagers before 2nd archery range
 const SECOND_STABLE_THRESHOLD: int = 25  # Villagers before 2nd stable
+
+# Scouting constants
+const SCOUT_CIRCLE_RADIUS: float = 300.0  # Initial scouting radius around base
+const SCOUT_EXPAND_RADIUS: float = 150.0  # How much to expand each patrol cycle
+const SCOUT_MAX_RADIUS: float = 1200.0  # Maximum scouting distance
+const SHEEP_SEARCH_RADIUS: float = 500.0  # How far to look for sheep
+const RESOURCE_SEARCH_RADIUS: float = 800.0  # How far to look for resources
+
+# Threat assessment constants
+const THREAT_MINOR: int = 1  # 1-2 enemy units
+const THREAT_MODERATE: int = 2  # 3-5 enemy units
+const THREAT_MAJOR: int = 3  # 6+ enemy units or siege
 
 var ai_tc: TownCenter = null
 var ai_barracks: Array[Barracks] = []  # Support multiple barracks
@@ -65,6 +79,42 @@ var build_order_step: int = 0
 var build_order_complete: bool = false
 var pending_villager_assignments: Array[String] = []  # Resources to assign new villagers to
 var last_villager_count: int = 0  # Track when new villager spawns
+
+# Scouting system
+enum ScoutState { IDLE, CIRCLING_BASE, EXPANDING, SEARCHING_ENEMY, RETURNING, COMBAT }
+var scout_unit: ScoutCavalry = null  # Primary scout
+var scout_state: ScoutState = ScoutState.IDLE
+var scout_timer: float = 0.0
+var current_scout_radius: float = SCOUT_CIRCLE_RADIUS
+var scout_patrol_angle: float = 0.0  # Current angle in patrol circle
+var scout_waypoint: Vector2 = Vector2.ZERO
+var scout_found_enemy_base: bool = false
+
+# Enemy tracking
+var known_enemy_tc_position: Vector2 = Vector2.ZERO
+var known_enemy_buildings: Array[Dictionary] = []  # [{position, type, last_seen_time}]
+var estimated_enemy_army: Dictionary = {
+	"militia": 0,
+	"spearman": 0,
+	"archer": 0,
+	"skirmisher": 0,
+	"scout_cavalry": 0,
+	"cavalry_archer": 0,
+	"villagers": 0,
+	"total_military": 0
+}
+var last_enemy_sighting_time: float = 0.0
+var enemy_army_last_position: Vector2 = Vector2.ZERO
+
+# Resource locations discovered by scouting
+var known_sheep_locations: Array[Vector2] = []
+var known_gold_locations: Array[Vector2] = []
+var known_stone_locations: Array[Vector2] = []
+
+# Threat assessment
+var current_threat_level: int = 0  # 0=none, 1=minor, 2=moderate, 3=major
+var threat_position: Vector2 = Vector2.ZERO
+var threat_units: Array[Node2D] = []  # Typed array for consistency
 
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
@@ -115,6 +165,14 @@ func _process(delta: float) -> void:
 		idle_check_timer = 0.0
 		_check_idle_villagers()
 		_check_new_villagers()
+
+	# Scouting update (faster than decision loop for responsive scouts)
+	scout_timer += delta
+	if scout_timer >= SCOUT_UPDATE_INTERVAL:
+		scout_timer = 0.0
+		_update_scouting()
+		_update_enemy_tracking()
+		_assess_threats()
 
 	# Regular decision loop
 	decision_timer += delta
@@ -1172,6 +1230,20 @@ func _train_military() -> void:
 		elif unit is ScoutCavalry:
 			scout_count += 1
 
+	# PRIORITY: Get at least one scout early for scouting duty
+	# This is critical for Phase 3B scouting system
+	if scout_count == 0 and _has_stable():
+		_refresh_stables_list()
+		for stable in ai_stables:
+			if not is_instance_valid(stable) or not stable.is_functional():
+				continue
+			if stable.get_queue_size() >= MILITARY_QUEUE_TARGET:
+				continue
+			if GameManager.can_afford("food", 80, AI_TEAM):
+				stable.train_scout_cavalry()
+				scout_count += 1
+				return  # Prioritize getting the scout
+
 	# Training priority based on what we have:
 	# - Militia: baseline infantry (from Barracks)
 	# - Spearman: anti-cavalry (from Barracks)
@@ -1257,8 +1329,6 @@ func _attack_player() -> void:
 
 	# Find primary attack target
 	var target = _find_attack_target()
-	if not target:
-		return
 
 	# Send all idle AI military to attack
 	var military_units = get_tree().get_nodes_in_group("military")
@@ -1267,9 +1337,17 @@ func _attack_player() -> void:
 			continue
 		if unit.is_dead:
 			continue
+		# Don't pull scout from scouting duty
+		if unit == scout_unit:
+			continue
 		# Only send units that aren't actively defending
 		if _is_unit_idle_or_patrolling(unit):
-			unit.command_attack(target)
+			if target:
+				unit.command_attack(target)
+			else:
+				# No specific target, but move to enemy base area
+				var enemy_base = get_enemy_base_position()
+				unit.move_to(enemy_base)
 
 ## Find the best target to attack
 func _find_attack_target() -> Node2D:
@@ -1278,32 +1356,59 @@ func _find_attack_target() -> Node2D:
 	if not threats.is_empty():
 		return threats[0]
 
-	# Priority 2: Player villagers (cripple economy)
+	# Priority 2: Use scouted enemy location if known
+	var enemy_base = get_enemy_base_position()
+
+	# Priority 3: Player villagers near enemy base (cripple economy)
 	var player_villagers = _get_player_villagers()
 	if not player_villagers.is_empty():
-		# Find closest villager to AI base
+		# Find villager closest to enemy base (where they likely are)
 		var nearest: Node2D = null
 		var nearest_dist: float = INF
 		for v in player_villagers:
-			var dist = v.global_position.distance_to(AI_BASE_POSITION)
+			var dist = v.global_position.distance_to(enemy_base)
 			if dist < nearest_dist:
 				nearest_dist = dist
 				nearest = v
 		if nearest:
 			return nearest
 
-	# Priority 3: Player TC (win condition)
-	var tcs = get_tree().get_nodes_in_group("town_centers")
-	for tc in tcs:
-		if tc.team == 0 and not tc.is_destroyed:
-			return tc
+	# Priority 4: Player TC at known location (win condition)
+	if known_enemy_tc_position != Vector2.ZERO:
+		var tcs = get_tree().get_nodes_in_group("town_centers")
+		for tc in tcs:
+			if tc.team == PLAYER_TEAM and not tc.is_destroyed:
+				# Prefer the TC we scouted
+				if tc.global_position.distance_to(known_enemy_tc_position) < 100.0:
+					return tc
+				return tc
 
-	# Priority 4: Any player building
+	# Priority 5: Any known enemy building
+	if not known_enemy_buildings.is_empty():
+		# Attack most recently seen building
+		var best_building: Node2D = null
+		var best_time: float = 0.0
+		for known in known_enemy_buildings:
+			if known.last_seen_time > best_time:
+				# Find the actual building at this position
+				var buildings = get_tree().get_nodes_in_group("buildings")
+				for b in buildings:
+					if b.team == PLAYER_TEAM and not b.is_destroyed:
+						if b.global_position.distance_to(known.position) < 50.0:
+							best_building = b
+							best_time = known.last_seen_time
+							break
+		if best_building:
+			return best_building
+
+	# Priority 6: Any player building we can find
 	var buildings = get_tree().get_nodes_in_group("buildings")
 	for building in buildings:
-		if building.team == 0 and not building.is_destroyed:
+		if building.team == PLAYER_TEAM and not building.is_destroyed:
 			return building
 
+	# Priority 7: If all else fails, attack towards enemy base position
+	# Return null and let units move to enemy base area
 	return null
 
 ## Check if a unit is idle or just standing around
@@ -1453,39 +1558,78 @@ func _use_market() -> void:
 
 # Defense functions
 func _check_and_defend() -> void:
-	# Check if there are enemy units near our base or attacking our stuff
-	var threats = _get_player_units_near_base(400.0)
-
-	if threats.is_empty():
+	# Use threat assessment from Phase 3B
+	if current_threat_level == 0:
 		defending = false
 		return
 
-	# We have threats! Rally military to defend
+	# We have threats! Response depends on threat level
 	defending = true
 
-	# Find nearest threat
-	var nearest_threat: Node2D = null
-	var nearest_dist: float = INF
-	for threat in threats:
-		var dist = threat.global_position.distance_to(AI_BASE_POSITION)
-		if dist < nearest_dist:
-			nearest_dist = dist
-			nearest_threat = threat
-
-	if not nearest_threat:
+	# Find the best target to defend against
+	var defend_target = _find_priority_defend_target()
+	if not defend_target:
 		defending = false
 		return
 
-	# Send military to defend
+	# Determine how many units to send based on threat level
 	var military_units = get_tree().get_nodes_in_group("military")
+	var units_to_send = 0
+
+	match current_threat_level:
+		THREAT_MINOR:
+			units_to_send = 2  # Send a couple units
+		THREAT_MODERATE:
+			units_to_send = 5  # Send a squad
+		THREAT_MAJOR:
+			units_to_send = 999  # Send everyone!
+
+	var sent_count = 0
 	for unit in military_units:
+		if sent_count >= units_to_send:
+			break
 		if unit.team != AI_TEAM:
 			continue
 		if unit.is_dead:
 			continue
-		# Only redirect idle units or units far from threats
+		# Don't pull scout from scouting duty unless major threat
+		if unit == scout_unit and current_threat_level < THREAT_MAJOR:
+			continue
+		# Only redirect idle units
 		if _is_unit_idle_or_patrolling(unit):
-			unit.command_attack(nearest_threat)
+			unit.command_attack(defend_target)
+			sent_count += 1
+
+## Find priority target for defense
+func _find_priority_defend_target() -> Node2D:
+	if threat_units.is_empty():
+		return null
+
+	# Priority: military > villagers
+	# Within military: closest to TC first
+	var best_target: Node2D = null
+	var best_score: float = INF  # Lower is better
+
+	var tc_pos = AI_BASE_POSITION
+	if is_instance_valid(ai_tc):
+		tc_pos = ai_tc.global_position
+
+	for unit in threat_units:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+
+		var dist = unit.global_position.distance_to(tc_pos)
+		var score = dist
+
+		# Military units are higher priority (lower score)
+		if unit.is_in_group("military"):
+			score -= 500.0
+
+		if score < best_score:
+			best_score = score
+			best_target = unit
+
+	return best_target
 
 ## Get player units near any AI building (threats)
 func _get_player_units_near_base(radius: float) -> Array:
@@ -1505,7 +1649,7 @@ func _get_player_units_near_base(radius: float) -> Array:
 	# Check player military units near any AI building
 	var military = get_tree().get_nodes_in_group("military")
 	for unit in military:
-		if unit.team == 0 and not unit.is_dead:
+		if unit.team == PLAYER_TEAM and not unit.is_dead:
 			for pos in ai_building_positions:
 				if unit.global_position.distance_to(pos) < radius:
 					threats.append(unit)
@@ -1514,7 +1658,7 @@ func _get_player_units_near_base(radius: float) -> Array:
 	# Check player villagers near buildings (could be scouting or building)
 	var villagers = get_tree().get_nodes_in_group("villagers")
 	for v in villagers:
-		if v.team == 0 and not v.is_dead:
+		if v.team == PLAYER_TEAM and not v.is_dead:
 			for pos in ai_building_positions:
 				if v.global_position.distance_to(pos) < radius:
 					threats.append(v)
@@ -1527,7 +1671,7 @@ func _get_player_villagers() -> Array:
 	var result = []
 	var villagers = get_tree().get_nodes_in_group("villagers")
 	for v in villagers:
-		if v.team == 0 and not v.is_dead:
+		if v.team == PLAYER_TEAM and not v.is_dead:
 			result.append(v)
 	return result
 
@@ -1548,7 +1692,23 @@ func _should_attack() -> bool:
 	if attack_cooldown > 0:
 		return false
 
-	# Attack if we have a good military force
+	# Prefer to attack if we've scouted the enemy base
+	if has_scouted_enemy_base():
+		# We know where to attack - be more aggressive
+		if military_count >= MIN_MILITARY_FOR_ATTACK:
+			return true
+
+	# If we haven't found enemy base, require larger army
+	if not has_scouted_enemy_base():
+		if military_count < MIN_MILITARY_FOR_ATTACK + 3:
+			return false
+
+	# Check if we have numerical advantage based on scouting
+	if estimated_enemy_army.total_military > 0:
+		# Only attack if we have more military
+		if military_count <= estimated_enemy_army.total_military:
+			return false
+
 	return true
 
 # Rebuilding destroyed buildings
@@ -1589,3 +1749,604 @@ func _find_ai_tc() -> TownCenter:
 		if tc.team == AI_TEAM and not tc.is_destroyed:
 			return tc
 	return null
+
+# ========================================
+# SCOUTING SYSTEM (Phase 3B)
+# ========================================
+
+## Main scouting update - called every SCOUT_UPDATE_INTERVAL
+func _update_scouting() -> void:
+	# Ensure we have a scout assigned
+	if not is_instance_valid(scout_unit) or scout_unit.is_dead:
+		_assign_scout()
+		if not is_instance_valid(scout_unit):
+			return  # No scout available
+
+	# Check if scout is in combat or under attack (ISSUE-002 fix)
+	if scout_unit.current_state == ScoutCavalry.State.ATTACKING:
+		scout_state = ScoutState.COMBAT
+	elif scout_unit.current_hp < scout_unit.max_hp * 0.8 and scout_state != ScoutState.COMBAT and scout_state != ScoutState.RETURNING:
+		# Scout took damage, likely under attack - flee
+		scout_state = ScoutState.COMBAT
+
+	# Handle scout based on current state
+	match scout_state:
+		ScoutState.IDLE:
+			_scout_start_patrol()
+		ScoutState.CIRCLING_BASE:
+			_scout_circle_base()
+		ScoutState.EXPANDING:
+			_scout_expand()
+		ScoutState.SEARCHING_ENEMY:
+			_scout_search_enemy()
+		ScoutState.RETURNING:
+			_scout_return_to_base()
+		ScoutState.COMBAT:
+			_scout_handle_combat()
+
+	# Record any sightings while scouting
+	_record_sightings()
+
+## Assign a scout cavalry unit for scouting duty
+func _assign_scout() -> void:
+	var scouts = get_tree().get_nodes_in_group("cavalry")
+	var best_scout: ScoutCavalry = null
+
+	for unit in scouts:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		if unit is ScoutCavalry:
+			# Prefer idle scouts, but take any available scout
+			if unit.current_state == ScoutCavalry.State.IDLE:
+				# Found idle scout - perfect
+				scout_unit = unit
+				scout_state = ScoutState.IDLE
+				return
+			elif best_scout == null:
+				# Keep track of non-idle scout as backup
+				best_scout = unit
+
+	# No idle scout found, use backup if available
+	if best_scout != null:
+		scout_unit = best_scout
+		scout_state = ScoutState.IDLE  # Will be corrected on next update
+		return
+
+	# No scout available yet
+	scout_unit = null
+
+## Start patrol around base
+func _scout_start_patrol() -> void:
+	if not is_instance_valid(scout_unit):
+		return
+
+	# Start by circling own base to find nearby resources/sheep
+	scout_state = ScoutState.CIRCLING_BASE
+	scout_patrol_angle = 0.0
+	current_scout_radius = SCOUT_CIRCLE_RADIUS
+	_set_scout_waypoint_on_circle()
+
+## Scout in a circle around own base
+func _scout_circle_base() -> void:
+	if not is_instance_valid(scout_unit):
+		scout_state = ScoutState.IDLE
+		return
+
+	# Check if scout reached waypoint or is close enough
+	var dist_to_waypoint = scout_unit.global_position.distance_to(scout_waypoint)
+	if dist_to_waypoint < 50.0:
+		# Move to next point on circle
+		scout_patrol_angle += PI / 4.0  # 45 degrees per step (8 points around circle)
+
+		if scout_patrol_angle >= 2 * PI:
+			# Completed circle, expand outward
+			scout_patrol_angle = 0.0
+			current_scout_radius += SCOUT_EXPAND_RADIUS
+
+			if current_scout_radius >= SCOUT_MAX_RADIUS:
+				# Start actively searching for enemy
+				scout_state = ScoutState.SEARCHING_ENEMY
+				return
+			else:
+				scout_state = ScoutState.EXPANDING
+
+		_set_scout_waypoint_on_circle()
+	elif scout_unit.current_state == ScoutCavalry.State.IDLE:
+		# Scout is idle but not at waypoint - send again
+		scout_unit.move_to(scout_waypoint)
+
+## Continue expanding patrol radius
+func _scout_expand() -> void:
+	if not is_instance_valid(scout_unit):
+		scout_state = ScoutState.IDLE
+		return
+
+	# Check if scout reached waypoint
+	var dist_to_waypoint = scout_unit.global_position.distance_to(scout_waypoint)
+	if dist_to_waypoint < 50.0:
+		# Move to next point on expanded circle
+		scout_patrol_angle += PI / 4.0
+
+		if scout_patrol_angle >= 2 * PI:
+			# Completed this radius, expand again
+			scout_patrol_angle = 0.0
+			current_scout_radius += SCOUT_EXPAND_RADIUS
+
+			if current_scout_radius >= SCOUT_MAX_RADIUS or scout_found_enemy_base:
+				scout_state = ScoutState.SEARCHING_ENEMY
+				return
+
+		_set_scout_waypoint_on_circle()
+	elif scout_unit.current_state == ScoutCavalry.State.IDLE:
+		scout_unit.move_to(scout_waypoint)
+
+## Actively search for enemy base
+func _scout_search_enemy() -> void:
+	if not is_instance_valid(scout_unit):
+		scout_state = ScoutState.IDLE
+		return
+
+	# If we found the enemy base, periodically check on it
+	if scout_found_enemy_base and known_enemy_tc_position != Vector2.ZERO:
+		# Scout towards enemy base to update intel
+		var dist_to_enemy = scout_unit.global_position.distance_to(known_enemy_tc_position)
+
+		if dist_to_enemy < 200.0:
+			# We're near enemy base, scout has done their job
+			# Return to safety and do another patrol
+			scout_state = ScoutState.RETURNING
+			return
+		elif scout_unit.current_state == ScoutCavalry.State.IDLE:
+			# Move towards enemy base, but stay at safe distance
+			var direction = AI_BASE_POSITION.direction_to(known_enemy_tc_position)
+			var target = known_enemy_tc_position - direction * 150.0  # Stay 150px away
+			scout_unit.move_to(target)
+	else:
+		# Haven't found enemy base yet - search the map
+		# Head towards expected player base location
+		if scout_unit.current_state == ScoutCavalry.State.IDLE:
+			scout_unit.move_to(PLAYER_BASE_POSITION)
+
+		# Check if we're near player starting area
+		var dist_to_player_area = scout_unit.global_position.distance_to(PLAYER_BASE_POSITION)
+		if dist_to_player_area < 400.0:
+			# We've reached player area, return and report
+			scout_state = ScoutState.RETURNING
+
+## Scout returns to base
+func _scout_return_to_base() -> void:
+	if not is_instance_valid(scout_unit):
+		scout_state = ScoutState.IDLE
+		return
+
+	var dist_to_base = scout_unit.global_position.distance_to(AI_BASE_POSITION)
+
+	if dist_to_base < 200.0:
+		# Back at base, start a new patrol
+		scout_state = ScoutState.IDLE
+	elif scout_unit.current_state == ScoutCavalry.State.IDLE:
+		scout_unit.move_to(AI_BASE_POSITION)
+
+## Handle scout in combat (flee back to base)
+func _scout_handle_combat() -> void:
+	if not is_instance_valid(scout_unit):
+		scout_state = ScoutState.IDLE
+		return
+
+	# If scout is fighting, let it finish or flee if HP low
+	if scout_unit.current_hp < scout_unit.max_hp * 0.3:
+		# Low HP, flee!
+		scout_unit.move_to(AI_BASE_POSITION)
+		scout_state = ScoutState.RETURNING
+	elif scout_unit.current_state == ScoutCavalry.State.IDLE:
+		# Combat ended, return to scouting
+		scout_state = ScoutState.RETURNING
+
+## Set scout waypoint on current patrol circle
+func _set_scout_waypoint_on_circle() -> void:
+	if not is_instance_valid(scout_unit):
+		return
+
+	var offset = Vector2(
+		cos(scout_patrol_angle) * current_scout_radius,
+		sin(scout_patrol_angle) * current_scout_radius
+	)
+	scout_waypoint = AI_BASE_POSITION + offset
+
+	# Clamp to map bounds
+	scout_waypoint.x = clampf(scout_waypoint.x, 50.0, 1870.0)
+	scout_waypoint.y = clampf(scout_waypoint.y, 50.0, 1870.0)
+
+	if is_instance_valid(scout_unit):
+		scout_unit.move_to(scout_waypoint)
+
+## Record sightings of resources, sheep, enemy units while scouting
+func _record_sightings() -> void:
+	if not is_instance_valid(scout_unit):
+		return
+
+	var scout_pos = scout_unit.global_position
+	var sight_range = 200.0  # How far scout can "see"
+
+	# Look for sheep
+	_scan_for_sheep(scout_pos, sight_range)
+
+	# Look for gold/stone deposits
+	_scan_for_resources(scout_pos, sight_range)
+
+	# Look for enemy base/buildings
+	_scan_for_enemy_base(scout_pos, sight_range)
+
+## Scan for sheep near scout
+func _scan_for_sheep(scout_pos: Vector2, sight_range: float) -> void:
+	var animals = get_tree().get_nodes_in_group("animals")
+	for animal in animals:
+		if not is_instance_valid(animal) or animal.is_dead:
+			continue
+		if animal is Sheep:
+			var dist = scout_pos.distance_to(animal.global_position)
+			if dist < sight_range:
+				var pos = animal.global_position
+				# Check if we already know about this location
+				var known = false
+				for known_pos in known_sheep_locations:
+					if known_pos.distance_to(pos) < 50.0:
+						known = true
+						break
+				if not known:
+					known_sheep_locations.append(pos)
+
+## Scan for gold/stone resources
+func _scan_for_resources(scout_pos: Vector2, sight_range: float) -> void:
+	var resources = get_tree().get_nodes_in_group("resources")
+	for resource in resources:
+		if not is_instance_valid(resource):
+			continue
+		if resource is Farm:
+			continue
+
+		var dist = scout_pos.distance_to(resource.global_position)
+		if dist < sight_range:
+			var pos = resource.global_position
+			var res_type = resource.get_resource_type()
+
+			if res_type == "gold":
+				_add_known_location(known_gold_locations, pos)
+			elif res_type == "stone":
+				_add_known_location(known_stone_locations, pos)
+
+## Add a location to a known locations array if not already known
+func _add_known_location(locations: Array[Vector2], pos: Vector2) -> void:
+	for known_pos in locations:
+		if known_pos.distance_to(pos) < 50.0:
+			return  # Already known
+	locations.append(pos)
+
+## Scan for enemy base and buildings
+func _scan_for_enemy_base(scout_pos: Vector2, sight_range: float) -> void:
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	for building in buildings:
+		if not is_instance_valid(building) or building.is_destroyed:
+			continue
+		if building.team == PLAYER_TEAM:
+			var dist = scout_pos.distance_to(building.global_position)
+			if dist < sight_range:
+				# Found enemy building!
+				if building is TownCenter:
+					known_enemy_tc_position = building.global_position
+					scout_found_enemy_base = true
+
+				# Add to known buildings
+				_update_known_enemy_building(building)
+
+## Update known enemy buildings list
+func _update_known_enemy_building(building: Building) -> void:
+	var pos = building.global_position
+	var building_type = _get_building_type_string(building)
+	var current_time = Time.get_ticks_msec() / 1000.0
+
+	# Check if we already know about this building
+	for i in range(known_enemy_buildings.size()):
+		var known = known_enemy_buildings[i]
+		if known.position.distance_to(pos) < 30.0:
+			# Update last seen time
+			known_enemy_buildings[i].last_seen_time = current_time
+			return
+
+	# New building discovered
+	known_enemy_buildings.append({
+		"position": pos,
+		"type": building_type,
+		"last_seen_time": current_time
+	})
+
+## Get building type as string (more reliable than get_class())
+func _get_building_type_string(building: Building) -> String:
+	if building is TownCenter:
+		return "town_center"
+	elif building is Barracks:
+		return "barracks"
+	elif building is ArcheryRange:
+		return "archery_range"
+	elif building is Stable:
+		return "stable"
+	elif building is Mill:
+		return "mill"
+	elif building is LumberCamp:
+		return "lumber_camp"
+	elif building is MiningCamp:
+		return "mining_camp"
+	elif building is Market:
+		return "market"
+	elif building is Farm:
+		return "farm"
+	elif building is House:
+		return "house"
+	return "unknown"
+
+## Clean up stale known enemy buildings
+func _cleanup_known_buildings() -> void:
+	var current_time = Time.get_ticks_msec() / 1000.0
+	var stale_threshold = 60.0  # Remove if not seen for 60 seconds
+
+	var cleaned: Array[Dictionary] = []
+	for known in known_enemy_buildings:
+		# Keep if recently seen
+		if current_time - known.last_seen_time < stale_threshold:
+			cleaned.append(known)
+			continue
+
+		# If we can see that position now and building is gone, remove
+		if _can_ai_see_position(known.position):
+			# Check if building still exists at this position
+			var found = false
+			var buildings = get_tree().get_nodes_in_group("buildings")
+			for b in buildings:
+				if b.team == PLAYER_TEAM and not b.is_destroyed:
+					if b.global_position.distance_to(known.position) < 50.0:
+						found = true
+						break
+			if not found:
+				continue  # Building is gone, don't add to cleaned list
+
+		# Keep if we can't verify (fog of war)
+		cleaned.append(known)
+
+	known_enemy_buildings = cleaned
+
+# ========================================
+# ENEMY TRACKING (Phase 3B)
+# ========================================
+
+## Update enemy army tracking
+func _update_enemy_tracking() -> void:
+	# Reset estimates (clear existing dictionary instead of creating new one)
+	for key in estimated_enemy_army:
+		estimated_enemy_army[key] = 0
+
+	# Periodically clean up stale building data
+	_cleanup_known_buildings()
+
+	# Count visible enemy units
+	var military = get_tree().get_nodes_in_group("military")
+	var enemy_military_positions: Array[Vector2] = []
+
+	for unit in military:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.team != PLAYER_TEAM:
+			continue
+
+		# Check if we can "see" this unit (within sight of our units/buildings)
+		if _can_ai_see_position(unit.global_position):
+			enemy_military_positions.append(unit.global_position)
+			estimated_enemy_army.total_military += 1
+
+			# Categorize unit type
+			if unit is Militia:
+				estimated_enemy_army.militia += 1
+			elif unit is Spearman:
+				estimated_enemy_army.spearman += 1
+			elif unit is Archer:
+				estimated_enemy_army.archer += 1
+			elif unit is Skirmisher:
+				estimated_enemy_army.skirmisher += 1
+			elif unit is ScoutCavalry:
+				estimated_enemy_army.scout_cavalry += 1
+			elif unit is CavalryArcher:
+				estimated_enemy_army.cavalry_archer += 1
+
+	# Track villagers separately
+	var villagers = get_tree().get_nodes_in_group("villagers")
+	for v in villagers:
+		if not is_instance_valid(v) or v.is_dead:
+			continue
+		if v.team != PLAYER_TEAM:
+			continue
+		if _can_ai_see_position(v.global_position):
+			estimated_enemy_army.villagers += 1
+
+	# Update last position of enemy army
+	if not enemy_military_positions.is_empty():
+		# Calculate centroid of enemy military
+		var sum = Vector2.ZERO
+		for pos in enemy_military_positions:
+			sum += pos
+		enemy_army_last_position = sum / enemy_military_positions.size()
+		last_enemy_sighting_time = Time.get_ticks_msec() / 1000.0
+
+## Check if AI can "see" a position (within range of AI units/buildings)
+func _can_ai_see_position(pos: Vector2) -> bool:
+	var sight_range = 200.0  # Standard unit sight range
+
+	# Check AI units
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.team == AI_TEAM:
+			if unit.global_position.distance_to(pos) < sight_range:
+				return true
+
+	# Check AI buildings
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	for building in buildings:
+		if not is_instance_valid(building) or building.is_destroyed:
+			continue
+		if building.team == AI_TEAM:
+			if building.global_position.distance_to(pos) < sight_range:
+				return true
+
+	return false
+
+## Get the dominant unit type in enemy army (for counter-play in Phase 3C)
+func get_enemy_dominant_unit_type() -> String:
+	var max_count = 0
+	var dominant = "militia"  # Default
+
+	if estimated_enemy_army.militia > max_count:
+		max_count = estimated_enemy_army.militia
+		dominant = "militia"
+	if estimated_enemy_army.spearman > max_count:
+		max_count = estimated_enemy_army.spearman
+		dominant = "spearman"
+	if estimated_enemy_army.archer > max_count:
+		max_count = estimated_enemy_army.archer
+		dominant = "archer"
+	if estimated_enemy_army.skirmisher > max_count:
+		max_count = estimated_enemy_army.skirmisher
+		dominant = "skirmisher"
+	if estimated_enemy_army.scout_cavalry > max_count:
+		max_count = estimated_enemy_army.scout_cavalry
+		dominant = "scout_cavalry"
+	if estimated_enemy_army.cavalry_archer > max_count:
+		max_count = estimated_enemy_army.cavalry_archer
+		dominant = "cavalry_archer"
+
+	return dominant
+
+# ========================================
+# THREAT ASSESSMENT (Phase 3B)
+# ========================================
+
+## Assess current threat level
+func _assess_threats() -> void:
+	threat_units.clear()
+	current_threat_level = 0
+	threat_position = Vector2.ZERO
+
+	# Get all enemy units near AI base or buildings
+	var all_threats = _get_all_threats_near_base(500.0)
+
+	if all_threats.is_empty():
+		return
+
+	threat_units = all_threats
+
+	# Calculate threat level based on unit count and composition
+	var military_threats = 0
+	var villager_threats = 0
+	var threat_positions: Array[Vector2] = []
+
+	for unit in all_threats:
+		threat_positions.append(unit.global_position)
+		if unit.is_in_group("military"):
+			military_threats += 1
+		else:
+			villager_threats += 1
+
+	# Calculate centroid of threats
+	if not threat_positions.is_empty():
+		var sum = Vector2.ZERO
+		for pos in threat_positions:
+			sum += pos
+		threat_position = sum / threat_positions.size()
+
+	# Determine threat level
+	if military_threats >= 6:
+		current_threat_level = THREAT_MAJOR
+	elif military_threats >= 3:
+		current_threat_level = THREAT_MODERATE
+	elif military_threats >= 1:
+		current_threat_level = THREAT_MINOR
+	elif villager_threats >= 1:
+		# Villagers scouting or attempting forward base
+		current_threat_level = THREAT_MINOR
+
+## Get all threats near any AI building
+func _get_all_threats_near_base(radius: float) -> Array:
+	var threats = []
+	var ai_building_positions: Array[Vector2] = []
+
+	# Collect AI building positions
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	for building in buildings:
+		if building.team == AI_TEAM and not building.is_destroyed:
+			ai_building_positions.append(building.global_position)
+
+	if ai_building_positions.is_empty():
+		ai_building_positions.append(AI_BASE_POSITION)
+
+	# Check all player units
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.team != PLAYER_TEAM:
+			continue
+
+		for pos in ai_building_positions:
+			if unit.global_position.distance_to(pos) < radius:
+				threats.append(unit)
+				break
+
+	return threats
+
+## Get the current threat level (for use in decision making)
+func get_threat_level() -> int:
+	return current_threat_level
+
+## Check if enemy has more of a specific unit type than us
+func enemy_has_more(unit_type: String) -> bool:
+	var our_count = 0
+	var their_count = estimated_enemy_army.get(unit_type, 0)
+
+	var military = get_tree().get_nodes_in_group("military")
+	for unit in military:
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+
+		match unit_type:
+			"militia":
+				if unit is Militia:
+					our_count += 1
+			"spearman":
+				if unit is Spearman:
+					our_count += 1
+			"archer":
+				if unit is Archer:
+					our_count += 1
+			"skirmisher":
+				if unit is Skirmisher:
+					our_count += 1
+			"scout_cavalry":
+				if unit is ScoutCavalry:
+					our_count += 1
+			"cavalry_archer":
+				if unit is CavalryArcher:
+					our_count += 1
+
+	return their_count > our_count
+
+## Get known enemy TC position (or estimate if not found)
+func get_enemy_base_position() -> Vector2:
+	if known_enemy_tc_position != Vector2.ZERO:
+		return known_enemy_tc_position
+	# Return estimated player start position
+	return PLAYER_BASE_POSITION
+
+## Check if we have scouted the enemy base
+func has_scouted_enemy_base() -> bool:
+	return scout_found_enemy_base
