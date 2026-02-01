@@ -98,6 +98,7 @@ Before starting each phase, follow this process:
 | 1 | Complete Economy | 4 resources, drop-off buildings, trading |
 | 2 | Military Foundation | Combat triangle, fog of war, counter-units |
 | 2.5 | Bug Fixes & Core Mechanics | Production queue, villager-based building, pathfinding fixes |
+| 2.6 | UI Overhaul | AoE2-style bottom panel, minimap, context-sensitive cursors |
 | 3 | Strong AI | Competitive AI: build orders, scouting, counter-play, micro |
 | 4 | Age System | Dark → Feudal → Castle progression |
 | 5 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
@@ -105,7 +106,7 @@ Before starting each phase, follow this process:
 | 7 | Walls & Basic Defense | Walls, gates, basic towers, garrison |
 | 8 | Advanced Defense & Siege | University, siege units, advanced towers |
 | 9 | Imperial Age | 4th age, late-game units, Wonder victory |
-| 10 | Polish & UX | Minimap, control groups, formations, audio |
+| 10 | Polish & UX | Control groups, formations, audio, minimap modes |
 | 11 | Naval Economy | Dock, fishing, transport (Optional) |
 | 12 | Naval Combat | Warships, water maps (Optional) |
 | 13 | Civilizations | 13 civs, unique units, tech trees (Optional) |
@@ -307,6 +308,57 @@ This is a cleanup phase before moving to Strong AI. Addresses bugs discovered du
 | AI builder behavior | AI | AI villagers use same construction system |
 
 **2.5B Done when:** Buildings are constructed by villagers over time, matching AoE2 behavior.
+
+---
+
+## Phase 2.6: UI Overhaul
+**Goal:** Modernize the HUD to match AoE2's classic layout with bottom panel, minimap, and context-sensitive cursors
+
+This phase consolidates the scattered floating panels into a unified AoE2-style interface. Reference screenshot: `images/screenshots/aoe_screenshot.jpeg`
+
+**Sub-phases:**
+- **2.6A**: Bottom panel layout + minimap + basic aesthetics
+- **2.6B**: Context-sensitive cursor system
+
+**Key files to read first:**
+- `scripts/ui/hud.gd` + `scenes/ui/hud.tscn` - Current HUD (floating panels to consolidate)
+- `scripts/fog_of_war.gd` - Fog system for minimap visibility integration
+- `images/screenshots/aoe_screenshot.jpeg` - Visual reference for layout
+
+---
+
+### Phase 2.6A: Bottom Panel + Minimap
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Bottom panel layout | UI | ~150px tall panel replacing floating panels |
+| Left section: Unit info | UI | Unit/building name, HP bar, attack/armor stats |
+| Center section: Actions | UI | Context-sensitive text buttons (train, build, stance) |
+| Right section: Minimap | UI | Terrain, resources, units, buildings with fog overlay |
+| Top bar cleanup | UI | Resource icons, population, "Dark Age" placeholder |
+| Basic aesthetics | Art | Stone/marble borders, muted parchment colors |
+| Minimap click-to-pan | Input | Click location on minimap moves camera there |
+| Minimap fog integration | System | Black = unexplored, dim = fog, bright = visible |
+
+**2.6A Done when:** All UI consolidated into bottom panel, minimap shows game state with fog of war.
+
+---
+
+### Phase 2.6B: Cursor System
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Cursor manager | System | Changes cursor based on hover context |
+| cursor_default | Cursor | Normal pointer state |
+| cursor_attack | Cursor | Hovering over enemy (with unit selected) |
+| cursor_gather | Cursor | Hovering over tree with villager selected (axe) |
+| cursor_hand | Cursor | Hovering over gold/stone/farm/sheep with villager selected |
+| cursor_build | Cursor | Building placement mode (hammer) |
+| cursor_forbidden | Cursor | Invalid placement location or action |
+
+Cursor sprites location: `assets/sprites_extracted/cursors/`
+
+**2.6B Done when:** Cursor changes contextually based on selection and hover target.
 
 ---
 
@@ -570,8 +622,7 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Feature | Type | Notes |
 |---------|------|-------|
 | Save/Load system | System | Save and restore single-player games |
-| Minimap | UI | Click to move camera, show units/buildings/resources |
-| Minimap modes | UI | Normal, Combat (military), Economic (resources) |
+| Minimap modes | UI | Normal, Combat (military), Economic (resources) - basic minimap in 2.6 |
 | Control groups | Input | Ctrl+1-9 to save, 1-9 to recall selections |
 | Double-click selection | Input | Select all visible units of same type |
 | Unit queuing | Mechanic | Shift+right-click for waypoints |
