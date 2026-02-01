@@ -41,6 +41,15 @@ extends Node
 ## - Split attention (harass squad setup, can_split_attention logic)
 ## - Reinforcement waves (main_army tracking, rally points)
 ## - Helper functions (idle/patrolling detection, constants)
+##
+## Phase 3E tests verify:
+## - Economy mode system (BOOM, BALANCED, MILITARY)
+## - Dynamic villager allocation targets
+## - Floating resource detection and thresholds
+## - Farm ring placement optimization
+## - Forward building placement
+## - Expansion behavior (camps, safety checks)
+## - Economic intelligence constants
 
 class_name TestAI
 
@@ -171,6 +180,33 @@ func get_all_tests() -> Array[Callable]:
 		test_kite_distance_constant,
 		test_melee_threat_range_constant,
 		test_villager_flee_radius_constant,
+		# Phase 3E: Economy mode tests
+		test_economy_mode_starts_boom,
+		test_economy_mode_enum_values,
+		test_determine_economy_mode_returns_boom_early_game,
+		# Phase 3E: Dynamic villager target tests
+		test_dynamic_villager_targets_initialized,
+		test_dynamic_villager_targets_sum_reasonable,
+		test_get_dynamic_villager_target_returns_value,
+		# Phase 3E: Floating resource detection tests
+		test_floating_resources_initialized_false,
+		test_is_resource_floating_returns_false_initially,
+		test_floating_resource_threshold_constant,
+		test_floating_resource_realloc_threshold_constant,
+		# Phase 3E: Farm placement tests
+		test_farm_ring_inner_radius_constant,
+		test_farm_ring_outer_radius_constant,
+		# Phase 3E: Forward building tests
+		test_forward_building_ratio_constant,
+		test_get_forward_building_position_fallback_without_enemy,
+		# Phase 3E: Expansion tests
+		test_expansion_villager_threshold_constant,
+		test_expansion_safety_radius_constant,
+		test_expansion_max_distance_constant,
+		test_expansion_camps_built_starts_zero,
+		test_resource_depletion_distance_constant,
+		# Phase 3E: Helper function tests
+		test_get_economy_mode_string_returns_string,
 	]
 
 
@@ -2046,5 +2082,318 @@ func test_villager_flee_radius_constant() -> Assertions.AssertResult:
 	if abs(AIController.VILLAGER_FLEE_RADIUS - expected) > 0.01:
 		return Assertions.AssertResult.new(false,
 			"VILLAGER_FLEE_RADIUS should be %f, got: %f" % [expected, AIController.VILLAGER_FLEE_RADIUS])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Economy Mode Tests ===
+
+func test_economy_mode_starts_boom() -> Assertions.AssertResult:
+	## AI should start in BOOM economy mode
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var mode = controller.current_economy_mode
+
+	_cleanup_ai_controller(controller)
+
+	if mode != AIController.EconomyMode.BOOM:
+		return Assertions.AssertResult.new(false,
+			"Economy mode should start as BOOM, got: %d" % mode)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_economy_mode_enum_values() -> Assertions.AssertResult:
+	## Economy mode enum should have correct values
+	if AIController.EconomyMode.BOOM != 0:
+		return Assertions.AssertResult.new(false,
+			"EconomyMode.BOOM should be 0")
+	if AIController.EconomyMode.BALANCED != 1:
+		return Assertions.AssertResult.new(false,
+			"EconomyMode.BALANCED should be 1")
+	if AIController.EconomyMode.MILITARY != 2:
+		return Assertions.AssertResult.new(false,
+			"EconomyMode.MILITARY should be 2")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_determine_economy_mode_returns_boom_early_game() -> Assertions.AssertResult:
+	## With few villagers, should return BOOM mode
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var mode = controller._determine_economy_mode()
+
+	_cleanup_ai_controller(controller)
+
+	# Early game (no villagers spawned in test), should be BOOM
+	if mode != AIController.EconomyMode.BOOM:
+		return Assertions.AssertResult.new(false,
+			"Early game should return BOOM mode, got: %d" % mode)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Dynamic Villager Target Tests ===
+
+func test_dynamic_villager_targets_initialized() -> Assertions.AssertResult:
+	## Dynamic villager targets should be initialized with default values
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var targets = controller.dynamic_villager_targets
+
+	_cleanup_ai_controller(controller)
+
+	if not targets.has("food"):
+		return Assertions.AssertResult.new(false, "Missing food target")
+	if not targets.has("wood"):
+		return Assertions.AssertResult.new(false, "Missing wood target")
+	if not targets.has("gold"):
+		return Assertions.AssertResult.new(false, "Missing gold target")
+	if not targets.has("stone"):
+		return Assertions.AssertResult.new(false, "Missing stone target")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_dynamic_villager_targets_sum_reasonable() -> Assertions.AssertResult:
+	## Dynamic villager targets should sum to a reasonable number
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var targets = controller.dynamic_villager_targets
+	var total = targets["food"] + targets["wood"] + targets["gold"] + targets["stone"]
+
+	_cleanup_ai_controller(controller)
+
+	# Should be between 20-35 total
+	if total < 20 or total > 35:
+		return Assertions.AssertResult.new(false,
+			"Total villager targets should be 20-35, got: %d" % total)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_dynamic_villager_target_returns_value() -> Assertions.AssertResult:
+	## get_dynamic_villager_target should return a value for known resources
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var food_target = controller.get_dynamic_villager_target("food")
+	var wood_target = controller.get_dynamic_villager_target("wood")
+
+	_cleanup_ai_controller(controller)
+
+	if food_target < 1:
+		return Assertions.AssertResult.new(false,
+			"Food target should be >= 1, got: %d" % food_target)
+	if wood_target < 1:
+		return Assertions.AssertResult.new(false,
+			"Wood target should be >= 1, got: %d" % wood_target)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Floating Resource Detection Tests ===
+
+func test_floating_resources_initialized_false() -> Assertions.AssertResult:
+	## Floating resources dictionary should start with all false
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var floating = controller.floating_resources
+
+	_cleanup_ai_controller(controller)
+
+	if floating["food"]:
+		return Assertions.AssertResult.new(false, "food should not be floating initially")
+	if floating["wood"]:
+		return Assertions.AssertResult.new(false, "wood should not be floating initially")
+	if floating["gold"]:
+		return Assertions.AssertResult.new(false, "gold should not be floating initially")
+	if floating["stone"]:
+		return Assertions.AssertResult.new(false, "stone should not be floating initially")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_resource_floating_returns_false_initially() -> Assertions.AssertResult:
+	## is_resource_floating should return false initially
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var is_floating = controller.is_resource_floating("food")
+
+	_cleanup_ai_controller(controller)
+
+	if is_floating:
+		return Assertions.AssertResult.new(false,
+			"is_resource_floating should return false initially")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_floating_resource_threshold_constant() -> Assertions.AssertResult:
+	## FLOATING_RESOURCE_THRESHOLD should be 500
+	var expected = 500
+
+	if AIController.FLOATING_RESOURCE_THRESHOLD != expected:
+		return Assertions.AssertResult.new(false,
+			"FLOATING_RESOURCE_THRESHOLD should be %d, got: %d" % [expected, AIController.FLOATING_RESOURCE_THRESHOLD])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_floating_resource_realloc_threshold_constant() -> Assertions.AssertResult:
+	## FLOATING_RESOURCE_REALLOC_THRESHOLD should be 800
+	var expected = 800
+
+	if AIController.FLOATING_RESOURCE_REALLOC_THRESHOLD != expected:
+		return Assertions.AssertResult.new(false,
+			"FLOATING_RESOURCE_REALLOC_THRESHOLD should be %d, got: %d" % [expected, AIController.FLOATING_RESOURCE_REALLOC_THRESHOLD])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Farm Placement Tests ===
+
+func test_farm_ring_inner_radius_constant() -> Assertions.AssertResult:
+	## FARM_RING_INNER_RADIUS should be 70.0
+	var expected = 70.0
+
+	if abs(AIController.FARM_RING_INNER_RADIUS - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"FARM_RING_INNER_RADIUS should be %f, got: %f" % [expected, AIController.FARM_RING_INNER_RADIUS])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_farm_ring_outer_radius_constant() -> Assertions.AssertResult:
+	## FARM_RING_OUTER_RADIUS should be 140.0
+	var expected = 140.0
+
+	if abs(AIController.FARM_RING_OUTER_RADIUS - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"FARM_RING_OUTER_RADIUS should be %f, got: %f" % [expected, AIController.FARM_RING_OUTER_RADIUS])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Forward Building Tests ===
+
+func test_forward_building_ratio_constant() -> Assertions.AssertResult:
+	## FORWARD_BUILDING_RATIO should be 0.3 (30% toward enemy)
+	var expected = 0.3
+
+	if abs(AIController.FORWARD_BUILDING_RATIO - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"FORWARD_BUILDING_RATIO should be %f, got: %f" % [expected, AIController.FORWARD_BUILDING_RATIO])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_forward_building_position_fallback_without_enemy() -> Assertions.AssertResult:
+	## When enemy base is unknown, should fallback to standard position
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Ensure enemy position is not set
+	controller.known_enemy_tc_position = Vector2.ZERO
+
+	var pos = controller._get_forward_building_position(Vector2(96, 96))
+
+	_cleanup_ai_controller(controller)
+
+	# Should return a position near AI base (1700, 1700)
+	var ai_base = AIController.AI_BASE_POSITION
+	var dist = pos.distance_to(ai_base)
+
+	if dist > 300:
+		return Assertions.AssertResult.new(false,
+			"Without enemy base, should return position near AI base. Distance: %f" % dist)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Expansion Tests ===
+
+func test_expansion_villager_threshold_constant() -> Assertions.AssertResult:
+	## EXPANSION_VILLAGER_THRESHOLD should be 25
+	var expected = 25
+
+	if AIController.EXPANSION_VILLAGER_THRESHOLD != expected:
+		return Assertions.AssertResult.new(false,
+			"EXPANSION_VILLAGER_THRESHOLD should be %d, got: %d" % [expected, AIController.EXPANSION_VILLAGER_THRESHOLD])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_expansion_safety_radius_constant() -> Assertions.AssertResult:
+	## EXPANSION_SAFETY_RADIUS should be 300.0
+	var expected = 300.0
+
+	if abs(AIController.EXPANSION_SAFETY_RADIUS - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"EXPANSION_SAFETY_RADIUS should be %f, got: %f" % [expected, AIController.EXPANSION_SAFETY_RADIUS])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_expansion_max_distance_constant() -> Assertions.AssertResult:
+	## EXPANSION_MAX_DISTANCE should be 1200.0
+	var expected = 1200.0
+
+	if abs(AIController.EXPANSION_MAX_DISTANCE - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"EXPANSION_MAX_DISTANCE should be %f, got: %f" % [expected, AIController.EXPANSION_MAX_DISTANCE])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_expansion_camps_built_starts_zero() -> Assertions.AssertResult:
+	## expansion_camps_built should start at 0
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var camps = controller.expansion_camps_built
+
+	_cleanup_ai_controller(controller)
+
+	if camps != 0:
+		return Assertions.AssertResult.new(false,
+			"expansion_camps_built should start at 0, got: %d" % camps)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_resource_depletion_distance_constant() -> Assertions.AssertResult:
+	## RESOURCE_DEPLETION_DISTANCE should be 600.0
+	var expected = 600.0
+
+	if abs(AIController.RESOURCE_DEPLETION_DISTANCE - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"RESOURCE_DEPLETION_DISTANCE should be %f, got: %f" % [expected, AIController.RESOURCE_DEPLETION_DISTANCE])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3E: Helper Function Tests ===
+
+func test_get_economy_mode_string_returns_string() -> Assertions.AssertResult:
+	## get_economy_mode_string should return a valid string
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var mode_str = controller.get_economy_mode_string()
+
+	_cleanup_ai_controller(controller)
+
+	var valid_strings = ["BOOM", "BALANCED", "MILITARY"]
+	if not mode_str in valid_strings:
+		return Assertions.AssertResult.new(false,
+			"get_economy_mode_string should return valid mode string, got: %s" % mode_str)
 
 	return Assertions.AssertResult.new(true)

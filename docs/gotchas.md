@@ -255,3 +255,17 @@ Track layout/visual issues for future polish.
 - **Unit role tracking with multiple arrays**: When units can be in different "roles" (main_army, harass_squad, kiting_units, retreating_units), clearly document which combinations are valid and check all relevant arrays before reassigning. A unit might be in multiple arrays temporarily (e.g., kiting while in main_army), which is acceptable but should be intentional.
 
 - **Harass targeting economy, not military**: Harassment squads should target enemy villagers and resource areas, not enemy military positions. Using `enemy_army_last_position` for harassment defeats the purpose - target known TC positions offset toward resources instead.
+
+### Phase 3E - Economic Intelligence
+
+- **Economy mode provides strategic context**: Tracking whether the AI should BOOM, be BALANCED, or focus on MILITARY makes villager allocation more intelligent. The mode should transition based on game state (villager count, threat level, military strength comparison) rather than fixed timings.
+
+- **Dynamic targets beat static constants**: Static villager allocation targets (FOOD_VILLAGERS = 10, etc.) don't adapt to game conditions. Use dynamic targets that adjust based on economy mode and emergency shortages. Store them in a dictionary (`dynamic_villager_targets`) that can be modified at runtime.
+
+- **Forward building needs safety checks**: Placing military buildings toward the enemy (for faster reinforcement) can get builders killed. Always check `_is_position_safe()` before committing resources to forward construction. Fall back to base position if forward position is unsafe.
+
+- **Expansion requires economy first**: Only build expansion camps after achieving a stable economy (e.g., 25+ villagers). Expanding too early spreads resources thin and makes the AI vulnerable.
+
+- **Ring placement for farms**: Mathematical ring patterns (using sin/cos) create more efficient farm layouts than fixed offset lists. Inner ring for close placement, outer ring for expansion. Check `_is_valid_building_position()` for each position to handle obstacles.
+
+- **Dead unit checks in group queries**: Functions like `_get_ai_villagers()` and `_get_military_count()` must check `is_dead` flag because `queue_free()`'d nodes stay in groups until the end of frame. Counting dead units causes overestimation that affects economy mode decisions.
