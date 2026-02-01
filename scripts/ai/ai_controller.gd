@@ -56,6 +56,41 @@ const THREAT_MINOR: int = 1  # 1-2 enemy units
 const THREAT_MODERATE: int = 2  # 3-5 enemy units
 const THREAT_MAJOR: int = 3  # 6+ enemy units or siege
 
+# Combat intelligence constants (Phase 3C)
+const RETREAT_HP_THRESHOLD: float = 0.25  # Retreat when HP below 25%
+const RETREAT_DISTANCE: float = 300.0  # How far to retreat
+const FOCUS_FIRE_RANGE: float = 150.0  # Range to consider for focus fire
+const ATTACK_ADVANTAGE_THRESHOLD: int = 3  # Need this many more units to attack
+const COUNTER_UNIT_PRIORITY_THRESHOLD: int = 3  # Enemy needs at least 3 of a type before we counter
+
+# Target priority scoring constants (Phase 3C - unified for consistency)
+const TARGET_PRIORITY_VILLAGER: float = 1500.0  # Economic damage
+const TARGET_PRIORITY_RANGED: float = 1000.0   # High threat ranged units
+const TARGET_PRIORITY_RANGED_BONUS: float = 200.0  # Extra for archers vs skirmishers
+const TARGET_PRIORITY_MILITARY: float = 800.0  # Other military units
+const TARGET_PRIORITY_LOW_HP_MULT: float = 500.0  # Multiplier for low HP bonus
+const TARGET_PRIORITY_FOCUS_BONUS: float = 200.0  # Bonus per attacker already on target
+
+# Army composition target ratios (adjusts based on enemy)
+# Default: 40% infantry, 40% ranged, 20% cavalry
+var army_composition_goals: Dictionary = {
+	"infantry": 0.4,  # Militia, Spearman
+	"ranged": 0.4,    # Archer, Skirmisher
+	"cavalry": 0.2    # Scout Cavalry, Cavalry Archer
+}
+
+# Counter-unit mappings (what to build against what)
+# Key = enemy unit type, Value = our counter unit
+const COUNTER_UNITS: Dictionary = {
+	"archer": "skirmisher",      # Skirmishers beat archers
+	"cavalry_archer": "skirmisher",  # Skirmishers beat ranged
+	"scout_cavalry": "spearman", # Spearmen beat cavalry
+	"cavalry": "spearman",       # Spearmen beat cavalry
+	"militia": "archer",         # Archers beat infantry from range
+	"spearman": "archer",        # Archers beat slow infantry
+	"skirmisher": "militia"      # Infantry beats skirmishers
+}
+
 var ai_tc: TownCenter = null
 var ai_barracks: Array[Barracks] = []  # Support multiple barracks
 var ai_archery_ranges: Array[ArcheryRange] = []  # Support multiple ranges
@@ -116,6 +151,11 @@ var current_threat_level: int = 0  # 0=none, 1=minor, 2=moderate, 3=major
 var threat_position: Vector2 = Vector2.ZERO
 var threat_units: Array[Node2D] = []  # Typed array for consistency
 
+# Combat intelligence (Phase 3C)
+var current_focus_target: Node2D = null  # Target for focus fire
+var retreating_units: Array[Node2D] = []  # Units currently retreating
+var last_attack_result: String = "none"  # "win", "loss", "draw" - for attack timing
+
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
 	await get_tree().process_frame
@@ -173,6 +213,8 @@ func _process(delta: float) -> void:
 		_update_scouting()
 		_update_enemy_tracking()
 		_assess_threats()
+		_manage_unit_retreat()  # Phase 3C: Check for units that should retreat
+		_coordinate_combat_focus_fire()  # Phase 3C: Focus fire during active combat
 
 	# Regular decision loop
 	decision_timer += delta
@@ -1200,10 +1242,16 @@ func _build_stable() -> void:
 	builder.command_build(new_stable)
 	buildings_under_construction.append(new_stable)
 
-# Military training (mixed army composition)
+# Military training (mixed army composition with counter-unit production)
 func _train_military() -> void:
 	if not GameManager.can_add_population(AI_TEAM):
 		return
+
+	# Update army composition goals based on enemy (Phase 3C)
+	_update_army_composition_goals()
+
+	# Get counter-unit priority based on enemy composition
+	var counter_priority = _get_counter_unit_priority()
 
 	# Get current military composition
 	var militia_count = 0
@@ -1244,50 +1292,69 @@ func _train_military() -> void:
 				scout_count += 1
 				return  # Prioritize getting the scout
 
-	# Training priority based on what we have:
-	# - Militia: baseline infantry (from Barracks)
-	# - Spearman: anti-cavalry (from Barracks)
-	# - Archer: ranged damage (from Archery Range)
-	# - Skirmisher: anti-archer (from Archery Range)
-	# - Scout Cavalry: fast harass (from Stable)
-	# - Cavalry Archer: mobile ranged (from Stable)
-
-	# Target composition: 40% infantry, 40% ranged (archers+skirms), 20% cavalry
-
 	# Refresh all building lists
 	_refresh_barracks_list()
 	_refresh_archery_ranges_list()
 	_refresh_stables_list()
 
+	var total_infantry = militia_count + spearman_count
 	var total_ranged = archer_count + skirmisher_count
 	var total_cavalry = scout_count + cavalry_archer_count
-	var total_military = militia_count + spearman_count + total_ranged + total_cavalry
+	var total_military = total_infantry + total_ranged + total_cavalry
 
-	# Train from ALL archery ranges (maintain queue on each)
+	# Calculate current ratios
+	var infantry_ratio = float(total_infantry) / max(total_military, 1)
+	var ranged_ratio = float(total_ranged) / max(total_military, 1)
+	var cavalry_ratio = float(total_cavalry) / max(total_military, 1)
+
+	# Train from ALL archery ranges with counter-unit awareness
 	for archery_range in ai_archery_ranges:
 		if not is_instance_valid(archery_range) or not archery_range.is_functional():
 			continue
-		# Maintain queue at target level
 		if archery_range.get_queue_size() >= MILITARY_QUEUE_TARGET:
 			continue
-		if total_military == 0 or total_ranged < total_military * 0.4:
+
+		# Check if counter priority suggests ranged units
+		var prioritize_skirmisher = counter_priority.type == "skirmisher"
+		var prioritize_archer = counter_priority.type == "archer"
+
+		# Need more ranged to meet composition goal?
+		var need_ranged = total_military == 0 or ranged_ratio < army_composition_goals.ranged
+
+		if need_ranged or prioritize_skirmisher or prioritize_archer:
 			# Decide between archer and skirmisher
-			if skirmisher_count < archer_count * 0.5 and skirmisher_count < 2:
+			if prioritize_skirmisher:
+				# Counter-unit priority: skirmisher
 				if GameManager.can_afford("food", 25, AI_TEAM) and GameManager.can_afford("wood", 35, AI_TEAM):
 					archery_range.train_skirmisher()
 					skirmisher_count += 1
-			else:
+			elif prioritize_archer:
+				# Counter-unit priority: archer
 				if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
 					archery_range.train_archer()
 					archer_count += 1
+			else:
+				# Default ranged training logic
+				if skirmisher_count < archer_count * 0.5 and skirmisher_count < 2:
+					if GameManager.can_afford("food", 25, AI_TEAM) and GameManager.can_afford("wood", 35, AI_TEAM):
+						archery_range.train_skirmisher()
+						skirmisher_count += 1
+				else:
+					if GameManager.can_afford("wood", 25, AI_TEAM) and GameManager.can_afford("gold", 45, AI_TEAM):
+						archery_range.train_archer()
+						archer_count += 1
 
-	# Train from ALL stables (maintain queue on each)
+	# Train from ALL stables with composition goals
 	for stable in ai_stables:
 		if not is_instance_valid(stable) or not stable.is_functional():
 			continue
 		if stable.get_queue_size() >= MILITARY_QUEUE_TARGET:
 			continue
-		if total_cavalry < 2 or (total_military > 0 and total_cavalry < total_military * 0.2):
+
+		# Need more cavalry to meet composition goal?
+		var need_cavalry = total_cavalry < 2 or (total_military > 0 and cavalry_ratio < army_composition_goals.cavalry)
+
+		if need_cavalry:
 			# Decide between scout and cavalry archer
 			if cavalry_archer_count < scout_count and cavalry_archer_count < 2:
 				if GameManager.can_afford("wood", 40, AI_TEAM) and GameManager.can_afford("gold", 70, AI_TEAM):
@@ -1298,23 +1365,42 @@ func _train_military() -> void:
 					stable.train_scout_cavalry()
 					scout_count += 1
 
-	# Train from ALL barracks (maintain queue on each)
+	# Train from ALL barracks with counter-unit awareness
 	for barracks in ai_barracks:
 		if not is_instance_valid(barracks) or not barracks.is_functional():
 			continue
 		if barracks.get_queue_size() >= MILITARY_QUEUE_TARGET:
 			continue
 
-		# Decide between militia and spearman
-		# For now, train mostly militia with some spearmen mixed in
-		if spearman_count < militia_count * 0.5 and spearman_count < 3:
-			if GameManager.can_afford("food", 35, AI_TEAM) and GameManager.can_afford("wood", 25, AI_TEAM):
-				barracks.train_spearman()
-				spearman_count += 1
-		else:
-			if GameManager.can_afford("food", 60, AI_TEAM) and GameManager.can_afford("wood", 20, AI_TEAM):
-				barracks.train_militia()
-				militia_count += 1
+		# Check if counter priority suggests infantry units
+		var prioritize_spearman = counter_priority.type == "spearman"
+		var prioritize_militia = counter_priority.type == "militia"
+
+		# Need more infantry to meet composition goal?
+		var need_infantry = total_military == 0 or infantry_ratio < army_composition_goals.infantry
+
+		if need_infantry or prioritize_spearman or prioritize_militia:
+			# Decide between militia and spearman
+			if prioritize_spearman:
+				# Counter-unit priority: spearman (anti-cavalry)
+				if GameManager.can_afford("food", 35, AI_TEAM) and GameManager.can_afford("wood", 25, AI_TEAM):
+					barracks.train_spearman()
+					spearman_count += 1
+			elif prioritize_militia:
+				# Counter-unit priority: militia (anti-skirmisher)
+				if GameManager.can_afford("food", 60, AI_TEAM) and GameManager.can_afford("wood", 20, AI_TEAM):
+					barracks.train_militia()
+					militia_count += 1
+			else:
+				# Default infantry training logic
+				if spearman_count < militia_count * 0.5 and spearman_count < 3:
+					if GameManager.can_afford("food", 35, AI_TEAM) and GameManager.can_afford("wood", 25, AI_TEAM):
+						barracks.train_spearman()
+						spearman_count += 1
+				else:
+					if GameManager.can_afford("food", 60, AI_TEAM) and GameManager.can_afford("wood", 20, AI_TEAM):
+						barracks.train_militia()
+						militia_count += 1
 
 func _get_military_count() -> int:
 	var count = 0
@@ -1329,6 +1415,10 @@ func _attack_player() -> void:
 
 	# Find primary attack target
 	var target = _find_attack_target()
+	var enemy_base = get_enemy_base_position()
+
+	# Gather attacking units (Phase 3C: for focus fire coordination)
+	var attackers: Array = []
 
 	# Send all idle AI military to attack
 	var military_units = get_tree().get_nodes_in_group("military")
@@ -1340,29 +1430,59 @@ func _attack_player() -> void:
 		# Don't pull scout from scouting duty
 		if unit == scout_unit:
 			continue
+		# Don't send retreating units
+		if retreating_units.has(unit):
+			continue
 		# Only send units that aren't actively defending
 		if _is_unit_idle_or_patrolling(unit):
+			attackers.append(unit)
 			if target:
 				unit.command_attack(target)
 			else:
 				# No specific target, but move to enemy base area
-				var enemy_base = get_enemy_base_position()
 				unit.move_to(enemy_base)
 
-## Find the best target to attack
-func _find_attack_target() -> Node2D:
-	# Priority 1: Player military units near AI base (threats)
-	var threats = _get_player_units_near_base(300.0)
-	if not threats.is_empty():
-		return threats[0]
+	# Phase 3C: Apply focus fire once units are near the battle
+	# We'll coordinate focus fire once they reach the target area
+	if target and not attackers.is_empty():
+		# Schedule focus fire application (units need to get there first)
+		# For now, set current focus target
+		current_focus_target = target
 
-	# Priority 2: Use scouted enemy location if known
+## Find the best target to attack (Phase 3C: Improved target prioritization)
+## Priority: villagers > siege > ranged > military > production buildings > TC
+func _find_attack_target() -> Node2D:
 	var enemy_base = get_enemy_base_position()
 
-	# Priority 3: Player villagers near enemy base (cripple economy)
+	# Priority 0: Immediate threats near our base (always respond first)
+	var threats = _get_player_units_near_base(300.0)
+	if not threats.is_empty():
+		# Even in immediate threats, prioritize by type
+		return _prioritize_target_from_list(threats)
+
+	# Collect all visible enemy targets for prioritization
+	var all_targets: Array = []
+
+	# Gather all player units we can see
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.team == PLAYER_TEAM:
+			# Check if we can see this unit (for fair play)
+			if _can_ai_see_position(unit.global_position):
+				all_targets.append(unit)
+
+	# If we have targets, prioritize them
+	if not all_targets.is_empty():
+		var best_target = _prioritize_target_from_list(all_targets)
+		if best_target:
+			return best_target
+
+	# Priority: Player villagers (economic damage)
 	var player_villagers = _get_player_villagers()
 	if not player_villagers.is_empty():
-		# Find villager closest to enemy base (where they likely are)
+		# Find villager closest to where we're attacking (or enemy base)
 		var nearest: Node2D = null
 		var nearest_dist: float = INF
 		for v in player_villagers:
@@ -1373,43 +1493,117 @@ func _find_attack_target() -> Node2D:
 		if nearest:
 			return nearest
 
-	# Priority 4: Player TC at known location (win condition)
-	if known_enemy_tc_position != Vector2.ZERO:
-		var tcs = get_tree().get_nodes_in_group("town_centers")
-		for tc in tcs:
-			if tc.team == PLAYER_TEAM and not tc.is_destroyed:
-				# Prefer the TC we scouted
-				if tc.global_position.distance_to(known_enemy_tc_position) < 100.0:
-					return tc
-				return tc
+	# Priority: Production buildings (cripple enemy's ability to rebuild)
+	var production_buildings: Array = []
+	var other_buildings: Array = []
+	var enemy_tc: Node2D = null
 
-	# Priority 5: Any known enemy building
-	if not known_enemy_buildings.is_empty():
-		# Attack most recently seen building
-		var best_building: Node2D = null
-		var best_time: float = 0.0
-		for known in known_enemy_buildings:
-			if known.last_seen_time > best_time:
-				# Find the actual building at this position
-				var buildings = get_tree().get_nodes_in_group("buildings")
-				for b in buildings:
-					if b.team == PLAYER_TEAM and not b.is_destroyed:
-						if b.global_position.distance_to(known.position) < 50.0:
-							best_building = b
-							best_time = known.last_seen_time
-							break
-		if best_building:
-			return best_building
-
-	# Priority 6: Any player building we can find
 	var buildings = get_tree().get_nodes_in_group("buildings")
 	for building in buildings:
 		if building.team == PLAYER_TEAM and not building.is_destroyed:
-			return building
+			if building is TownCenter:
+				enemy_tc = building
+			elif building is Barracks or building is ArcheryRange or building is Stable:
+				production_buildings.append(building)
+			else:
+				other_buildings.append(building)
 
-	# Priority 7: If all else fails, attack towards enemy base position
-	# Return null and let units move to enemy base area
+	# Attack production buildings first
+	if not production_buildings.is_empty():
+		# Prefer the closest one
+		var nearest: Node2D = null
+		var nearest_dist: float = INF
+		for b in production_buildings:
+			var dist = b.global_position.distance_to(AI_BASE_POSITION)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest = b
+		if nearest:
+			return nearest
+
+	# Attack known enemy buildings
+	if not known_enemy_buildings.is_empty():
+		var best_building: Node2D = null
+		var best_score: float = -INF
+		for known in known_enemy_buildings:
+			# Find the actual building at this position
+			for b in buildings:
+				if b.team == PLAYER_TEAM and not b.is_destroyed:
+					if b.global_position.distance_to(known.position) < 50.0:
+						var score = 0.0
+						# Prefer production buildings
+						if b is Barracks or b is ArcheryRange or b is Stable:
+							score += 500.0
+						# Prefer recently seen
+						score += known.last_seen_time
+						if score > best_score:
+							best_score = score
+							best_building = b
+						break
+		if best_building:
+			return best_building
+
+	# Attack TC last (win condition, but often well defended)
+	if enemy_tc:
+		return enemy_tc
+
+	# Fallback: any player building
+	if not other_buildings.is_empty():
+		return other_buildings[0]
+
+	# If all else fails, return null and let units move to enemy base area
 	return null
+
+## Prioritize a target from a list of potential targets
+## Returns the highest priority target based on Phase 3C rules
+## Uses unified scoring constants for consistency with focus fire
+func _prioritize_target_from_list(targets: Array) -> Node2D:
+	if targets.is_empty():
+		return null
+
+	var best_target: Node2D = null
+	var best_score: float = -INF
+
+	for target in targets:
+		if not is_instance_valid(target):
+			continue
+		if target is Unit and target.is_dead:
+			continue
+
+		var score = 0.0
+
+		# Priority 1: Villagers (economic damage) - highest priority
+		if target.is_in_group("villagers"):
+			score += TARGET_PRIORITY_VILLAGER
+
+		# Priority 2: Siege units (dangerous to buildings) - Note: no siege yet, for future
+		# if target.is_in_group("siege"):
+		#     score += 1500.0
+
+		# Priority 3: Ranged units (dangerous, kill first)
+		if target is Archer or target is CavalryArcher:
+			score += TARGET_PRIORITY_RANGED + TARGET_PRIORITY_RANGED_BONUS
+		elif target is Skirmisher:
+			score += TARGET_PRIORITY_RANGED
+
+		# Priority 4: Other military
+		if target.is_in_group("military"):
+			score += TARGET_PRIORITY_MILITARY
+
+		# Priority 5: Low HP targets (easy kills, morale damage)
+		if target is Unit:
+			var hp_ratio = float(target.current_hp) / float(target.max_hp)
+			score += (1.0 - hp_ratio) * TARGET_PRIORITY_LOW_HP_MULT
+
+		# Priority 6: Closer targets
+		var dist = target.global_position.distance_to(AI_BASE_POSITION)
+		score -= dist * 0.1  # Slight preference for closer
+
+		if score > best_score:
+			best_score = score
+			best_target = target
+
+	return best_target
 
 ## Check if a unit is idle or just standing around
 func _is_unit_idle_or_patrolling(unit: Node2D) -> bool:
@@ -1556,7 +1750,7 @@ func _use_market() -> void:
 			ai_market.buy_resource("food")
 			return
 
-# Defense functions
+# Defense functions (Phase 3C: Improved with focus fire)
 func _check_and_defend() -> void:
 	# Use threat assessment from Phase 3B
 	if current_threat_level == 0:
@@ -1566,7 +1760,7 @@ func _check_and_defend() -> void:
 	# We have threats! Response depends on threat level
 	defending = true
 
-	# Find the best target to defend against
+	# Find the best target to defend against using prioritization
 	var defend_target = _find_priority_defend_target()
 	if not defend_target:
 		defending = false
@@ -1584,6 +1778,7 @@ func _check_and_defend() -> void:
 		THREAT_MAJOR:
 			units_to_send = 999  # Send everyone!
 
+	var defenders: Array = []
 	var sent_count = 0
 	for unit in military_units:
 		if sent_count >= units_to_send:
@@ -1595,41 +1790,26 @@ func _check_and_defend() -> void:
 		# Don't pull scout from scouting duty unless major threat
 		if unit == scout_unit and current_threat_level < THREAT_MAJOR:
 			continue
+		# Don't send retreating units
+		if retreating_units.has(unit):
+			continue
 		# Only redirect idle units
 		if _is_unit_idle_or_patrolling(unit):
 			unit.command_attack(defend_target)
+			defenders.append(unit)
 			sent_count += 1
 
-## Find priority target for defense
+	# Apply focus fire for defenders
+	if not defenders.is_empty() and threat_position != Vector2.ZERO:
+		_apply_focus_fire(defenders, threat_position)
+
+## Find priority target for defense (Phase 3C: Use target prioritization)
 func _find_priority_defend_target() -> Node2D:
 	if threat_units.is_empty():
 		return null
 
-	# Priority: military > villagers
-	# Within military: closest to TC first
-	var best_target: Node2D = null
-	var best_score: float = INF  # Lower is better
-
-	var tc_pos = AI_BASE_POSITION
-	if is_instance_valid(ai_tc):
-		tc_pos = ai_tc.global_position
-
-	for unit in threat_units:
-		if not is_instance_valid(unit) or unit.is_dead:
-			continue
-
-		var dist = unit.global_position.distance_to(tc_pos)
-		var score = dist
-
-		# Military units are higher priority (lower score)
-		if unit.is_in_group("military"):
-			score -= 500.0
-
-		if score < best_score:
-			best_score = score
-			best_target = unit
-
-	return best_target
+	# Use the standard prioritization function
+	return _prioritize_target_from_list(threat_units)
 
 ## Get player units near any AI building (threats)
 func _get_player_units_near_base(radius: float) -> Array:
@@ -1675,7 +1855,7 @@ func _get_player_villagers() -> Array:
 			result.append(v)
 	return result
 
-# Attack decision
+# Attack decision (Phase 3C: Improved attack timing)
 func _should_attack() -> bool:
 	var villager_count = _get_ai_villagers().size()
 	var military_count = _get_military_count()
@@ -1692,24 +1872,73 @@ func _should_attack() -> bool:
 	if attack_cooldown > 0:
 		return false
 
+	# Don't attack if we're currently under heavy threat
+	if current_threat_level >= THREAT_MODERATE:
+		return false
+
+	# Calculate strength advantage
+	var our_strength = _get_military_strength()
+	var their_strength = _get_enemy_strength_estimate()
+
 	# Prefer to attack if we've scouted the enemy base
 	if has_scouted_enemy_base():
-		# We know where to attack - be more aggressive
-		if military_count >= MIN_MILITARY_FOR_ATTACK:
+		# We know where to attack - check if we have advantage
+		if _has_military_advantage():
 			return true
 
-	# If we haven't found enemy base, require larger army
+		# Even without clear advantage, attack if we have good numbers
+		if military_count >= MIN_MILITARY_FOR_ATTACK + 2 and our_strength >= their_strength:
+			return true
+
+		# Check if enemy is vulnerable (economy exposed, low military)
+		if _is_enemy_vulnerable():
+			return true
+
+	# If we haven't found enemy base, require overwhelming force
 	if not has_scouted_enemy_base():
-		if military_count < MIN_MILITARY_FOR_ATTACK + 3:
+		if military_count < MIN_MILITARY_FOR_ATTACK + 5:
 			return false
+		# Attack blind only if we have large army
+		return military_count >= 10
 
-	# Check if we have numerical advantage based on scouting
-	if estimated_enemy_army.total_military > 0:
-		# Only attack if we have more military
-		if military_count <= estimated_enemy_army.total_military:
-			return false
+	# Don't attack if enemy has clear advantage
+	if their_strength > our_strength + 2:
+		return false
 
-	return true
+	# Attack if we have numerical advantage
+	if our_strength > their_strength:
+		return true
+
+	# Fallback: attack with minimum force if evenly matched
+	return military_count >= MIN_MILITARY_FOR_ATTACK + 3
+
+## Check if enemy appears vulnerable (good time to attack)
+func _is_enemy_vulnerable() -> bool:
+	# Enemy is vulnerable if:
+	# 1. They have exposed villagers (recently seen, away from TC)
+	# 2. Low military count
+	# 3. Their military is away from their base
+
+	# Check villager exposure
+	if estimated_enemy_army.villagers >= 3:
+		# We've seen their villagers - they might be vulnerable
+		# Check if we saw them recently and away from TC
+		var time_since_sighting = (Time.get_ticks_msec() / 1000.0) - last_enemy_sighting_time
+		if time_since_sighting < 30.0:  # Recent sighting
+			return true
+
+	# Check if enemy military is low
+	if estimated_enemy_army.total_military <= 2:
+		return true
+
+	# Check if enemy army was last seen far from their base
+	if enemy_army_last_position != Vector2.ZERO and known_enemy_tc_position != Vector2.ZERO:
+		var army_dist_from_tc = enemy_army_last_position.distance_to(known_enemy_tc_position)
+		if army_dist_from_tc > 400.0:
+			# Enemy army is away from their base - good time to raid
+			return true
+
+	return false
 
 # Rebuilding destroyed buildings
 func _consider_rebuilding() -> void:
@@ -2350,3 +2579,414 @@ func get_enemy_base_position() -> Vector2:
 ## Check if we have scouted the enemy base
 func has_scouted_enemy_base() -> bool:
 	return scout_found_enemy_base
+
+# ========================================
+# COMBAT INTELLIGENCE (Phase 3C)
+# ========================================
+
+## Get the counter unit type for a given enemy unit type
+func _get_counter_for_unit(enemy_type: String) -> String:
+	return COUNTER_UNITS.get(enemy_type, "militia")
+
+## Determine what unit type to prioritize based on enemy composition
+## Returns: {"type": unit_type, "building": building_type, "reason": explanation}
+func _get_counter_unit_priority() -> Dictionary:
+	var result = {"type": "militia", "building": "barracks", "reason": "default"}
+
+	# Check enemy composition from scouting data
+	if estimated_enemy_army.total_military < COUNTER_UNIT_PRIORITY_THRESHOLD:
+		# Not enough intel, use default composition
+		return result
+
+	# Find the dominant enemy unit type
+	var dominant = get_enemy_dominant_unit_type()
+	var dominant_count = estimated_enemy_army.get(dominant, 0)
+
+	# Only counter if enemy has significant numbers of that type
+	if dominant_count >= COUNTER_UNIT_PRIORITY_THRESHOLD:
+		var counter = _get_counter_for_unit(dominant)
+
+		match counter:
+			"skirmisher":
+				result = {"type": "skirmisher", "building": "archery_range", "reason": "countering " + dominant}
+			"spearman":
+				result = {"type": "spearman", "building": "barracks", "reason": "countering " + dominant}
+			"archer":
+				result = {"type": "archer", "building": "archery_range", "reason": "countering " + dominant}
+			"militia":
+				result = {"type": "militia", "building": "barracks", "reason": "countering " + dominant}
+
+	# Cache military lookup for efficiency (ISSUE-004 fix)
+	var military = get_tree().get_nodes_in_group("military")
+	var our_spearmen = 0
+	var our_skirms = 0
+	for unit in military:
+		if unit.team == AI_TEAM:
+			if unit is Spearman:
+				our_spearmen += 1
+			elif unit is Skirmisher:
+				our_skirms += 1
+
+	# Also check if enemy has cavalry and we don't have enough spearmen
+	var enemy_cavalry = estimated_enemy_army.scout_cavalry + estimated_enemy_army.cavalry_archer
+	if enemy_cavalry >= 3:
+		# If enemy has cavalry and we're short on spearmen, prioritize them
+		if our_spearmen < enemy_cavalry:
+			result = {"type": "spearman", "building": "barracks", "reason": "need anti-cavalry"}
+
+	# Check if enemy has archers and we don't have enough skirmishers
+	var enemy_ranged = estimated_enemy_army.archer + estimated_enemy_army.cavalry_archer
+	if enemy_ranged >= 3:
+		if our_skirms < enemy_ranged / 2:
+			result = {"type": "skirmisher", "building": "archery_range", "reason": "need anti-archer"}
+
+	return result
+
+## Update army composition goals based on enemy composition
+func _update_army_composition_goals() -> void:
+	# Default composition
+	army_composition_goals.infantry = 0.4
+	army_composition_goals.ranged = 0.4
+	army_composition_goals.cavalry = 0.2
+
+	if estimated_enemy_army.total_military < 3:
+		return  # Not enough intel
+
+	var enemy_infantry = estimated_enemy_army.militia + estimated_enemy_army.spearman
+	var enemy_ranged = estimated_enemy_army.archer + estimated_enemy_army.skirmisher
+	var enemy_cavalry = estimated_enemy_army.scout_cavalry + estimated_enemy_army.cavalry_archer
+	var enemy_total = float(estimated_enemy_army.total_military)
+
+	# Calculate enemy ratios
+	var enemy_infantry_ratio = enemy_infantry / enemy_total
+	var enemy_ranged_ratio = enemy_ranged / enemy_total
+	var enemy_cavalry_ratio = enemy_cavalry / enemy_total
+
+	# Adjust our composition to counter:
+	# - If enemy has lots of archers, we want more skirmishers (ranged)
+	# - If enemy has lots of cavalry, we want more spearmen (infantry)
+	# - If enemy has lots of infantry, we want more archers (ranged)
+
+	if enemy_ranged_ratio > 0.5:
+		# Heavy archer enemy - prioritize skirmishers and cavalry
+		army_composition_goals.ranged = 0.5  # Skirmishers
+		army_composition_goals.cavalry = 0.3  # Cavalry can close distance
+		army_composition_goals.infantry = 0.2
+	elif enemy_cavalry_ratio > 0.4:
+		# Heavy cavalry enemy - prioritize spearmen
+		army_composition_goals.infantry = 0.5  # Spearmen
+		army_composition_goals.ranged = 0.3
+		army_composition_goals.cavalry = 0.2
+	elif enemy_infantry_ratio > 0.5:
+		# Heavy infantry enemy - prioritize ranged
+		army_composition_goals.ranged = 0.5
+		army_composition_goals.infantry = 0.3
+		army_composition_goals.cavalry = 0.2
+
+## Check if a military unit is currently in ATTACKING state (ISSUE-003 fix)
+## Uses type-safe checks instead of magic numbers
+func _is_unit_attacking(unit: Node2D) -> bool:
+	if not is_instance_valid(unit):
+		return false
+
+	# Check by unit type for type-safe state comparison
+	if unit is Militia:
+		return unit.current_state == Militia.State.ATTACKING
+	elif unit is Spearman:
+		return unit.current_state == Spearman.State.ATTACKING
+	elif unit is Archer:
+		return unit.current_state == Archer.State.ATTACKING
+	elif unit is Skirmisher:
+		return unit.current_state == Skirmisher.State.ATTACKING
+	elif unit is ScoutCavalry:
+		return unit.current_state == ScoutCavalry.State.ATTACKING
+	elif unit is CavalryArcher:
+		return unit.current_state == CavalryArcher.State.ATTACKING
+
+	# Fallback for unknown unit types
+	return false
+
+## Check if a unit should retreat (low HP)
+func _should_unit_retreat(unit: Node2D) -> bool:
+	if not is_instance_valid(unit):
+		return false
+	if unit.is_dead:
+		return false
+
+	# Don't retreat if at full health
+	var hp_ratio = float(unit.current_hp) / float(unit.max_hp)
+	if hp_ratio > RETREAT_HP_THRESHOLD:
+		return false
+
+	# Only retreat if in combat or near enemies
+	if _is_unit_attacking(unit):
+		return true
+
+	# Check for nearby enemies
+	var enemies_nearby = _get_enemies_near_position(unit.global_position, 100.0)
+	return not enemies_nearby.is_empty()
+
+## Get enemy units near a position
+func _get_enemies_near_position(pos: Vector2, radius: float) -> Array:
+	var enemies = []
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.team == PLAYER_TEAM:
+			if unit.global_position.distance_to(pos) < radius:
+				enemies.append(unit)
+	return enemies
+
+## Manage retreating units - make damaged units pull back
+func _manage_unit_retreat() -> void:
+	# Clean up retreating units list
+	retreating_units = retreating_units.filter(func(u):
+		return is_instance_valid(u) and not u.is_dead
+	)
+
+	# Check if retreating units are safe
+	for retreating_units.has(unit).duplicate():  # Duplicate to allow removal
+		if not is_instance_valid(unit):
+			continue
+
+		# Check if safe (far from enemies, or health recovered)
+		var enemies_nearby = _get_enemies_near_position(unit.global_position, 150.0)
+		var hp_ratio = float(unit.current_hp) / float(unit.max_hp)
+
+		if enemies_nearby.is_empty() or hp_ratio > 0.5:
+			# Safe now, stop retreating
+			retreating_units.erase(unit)
+
+	# Check military units that need to retreat
+	var military = get_tree().get_nodes_in_group("military")
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		if retreating_units.has(unit):
+			continue  # Already retreating
+		if unit == scout_unit:
+			continue  # Scout has its own retreat logic
+
+		if _should_unit_retreat(unit):
+			_order_unit_retreat(unit)
+
+## Order a unit to retreat
+func _order_unit_retreat(unit: Node2D) -> void:
+	if not is_instance_valid(unit):
+		return
+
+	retreating_units.append(unit)
+
+	# Calculate retreat position (toward AI base)
+	var retreat_direction = unit.global_position.direction_to(AI_BASE_POSITION)
+	var retreat_pos = unit.global_position + retreat_direction * RETREAT_DISTANCE
+
+	# Clamp to map bounds
+	retreat_pos.x = clampf(retreat_pos.x, 50.0, 1870.0)
+	retreat_pos.y = clampf(retreat_pos.y, 50.0, 1870.0)
+
+	# Order unit to move to safety
+	if unit.has_method("move_to"):
+		unit.move_to(retreat_pos)
+
+## Find the best focus fire target for our units
+## Uses unified scoring constants for consistency with target prioritization
+func _find_focus_fire_target(near_position: Vector2) -> Node2D:
+	var enemies = _get_enemies_near_position(near_position, FOCUS_FIRE_RANGE * 2)
+
+	if enemies.is_empty():
+		return null
+
+	# Priority scoring for targets
+	# Higher score = better target
+	var best_target: Node2D = null
+	var best_score: float = -INF
+
+	for enemy in enemies:
+		if not is_instance_valid(enemy) or enemy.is_dead:
+			continue
+
+		var score = 0.0
+
+		# Priority 1: Villagers (high economic value)
+		if enemy.is_in_group("villagers"):
+			score += TARGET_PRIORITY_VILLAGER
+
+		# Priority 2: Low HP enemies (easy kills) - ISSUE-005 fix: guard with type check
+		if enemy is Unit:
+			var hp_ratio = float(enemy.current_hp) / float(enemy.max_hp)
+			score += (1.0 - hp_ratio) * TARGET_PRIORITY_LOW_HP_MULT  # Lower HP = higher score
+
+		# Priority 3: Ranged units (high threat)
+		if enemy is Archer or enemy is CavalryArcher:
+			score += TARGET_PRIORITY_RANGED + TARGET_PRIORITY_RANGED_BONUS
+		elif enemy is Skirmisher:
+			score += TARGET_PRIORITY_RANGED
+
+		# Priority 4: Closer targets
+		var dist = near_position.distance_to(enemy.global_position)
+		score -= dist * 0.5  # Closer = higher score
+
+		# Priority 5: Already being attacked by allies (focus fire)
+		# Check if other AI units are attacking this target
+		var attackers = _count_units_attacking_target(enemy)
+		if attackers > 0:
+			score += attackers * TARGET_PRIORITY_FOCUS_BONUS  # More attackers = better to join
+
+		if score > best_score:
+			best_score = score
+			best_target = enemy
+
+	return best_target
+
+## Count how many AI units are attacking a target
+func _count_units_attacking_target(target: Node2D) -> int:
+	if not is_instance_valid(target):
+		return 0
+
+	var count = 0
+	var military = get_tree().get_nodes_in_group("military")
+
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+
+		# Check if this unit has attack_target property
+		if unit.has_method("get") and "attack_target" in unit:
+			if unit.attack_target == target:
+				count += 1
+
+	return count
+
+## Apply focus fire - redirect units to the best target
+func _apply_focus_fire(attackers: Array, target_area: Vector2) -> void:
+	var focus_target = _find_focus_fire_target(target_area)
+
+	if focus_target == null:
+		return
+
+	current_focus_target = focus_target
+
+	# Redirect nearby idle or attacking units to focus fire target
+	for unit in attackers:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if retreating_units.has(unit):
+			continue  # Don't redirect retreating units
+
+		# Check if unit should switch targets
+		var should_switch = false
+
+		if _is_unit_idle_or_patrolling(unit):
+			should_switch = true
+		elif unit.has_method("get") and "attack_target" in unit:
+			var current_target = unit.attack_target
+			if not is_instance_valid(current_target) or current_target.is_dead:
+				should_switch = true
+			elif current_target != focus_target:
+				# Consider switching if focus target is higher priority (lower HP)
+				var current_hp_ratio = float(current_target.current_hp) / float(current_target.max_hp)
+				var focus_hp_ratio = float(focus_target.current_hp) / float(focus_target.max_hp)
+				if focus_hp_ratio < current_hp_ratio - 0.2:  # Focus target is significantly lower
+					should_switch = true
+
+		if should_switch and unit.has_method("command_attack"):
+			unit.command_attack(focus_target)
+
+## Calculate our military strength score
+func _get_military_strength() -> int:
+	var strength = 0
+	var military = get_tree().get_nodes_in_group("military")
+
+	for unit in military:
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+
+		# Weight units by their combat value
+		if unit is Militia:
+			strength += 2
+		elif unit is Spearman:
+			strength += 2
+		elif unit is Archer:
+			strength += 3  # Ranged is valuable
+		elif unit is Skirmisher:
+			strength += 2
+		elif unit is ScoutCavalry:
+			strength += 3  # Fast and strong
+		elif unit is CavalryArcher:
+			strength += 4  # Very valuable
+
+	return strength
+
+## Calculate enemy military strength score (estimated)
+func _get_enemy_strength_estimate() -> int:
+	var strength = 0
+
+	strength += estimated_enemy_army.militia * 2
+	strength += estimated_enemy_army.spearman * 2
+	strength += estimated_enemy_army.archer * 3
+	strength += estimated_enemy_army.skirmisher * 2
+	strength += estimated_enemy_army.scout_cavalry * 3
+	strength += estimated_enemy_army.cavalry_archer * 4
+
+	return strength
+
+## Check if we have a significant military advantage
+func _has_military_advantage() -> bool:
+	var our_strength = _get_military_strength()
+	var their_strength = _get_enemy_strength_estimate()
+
+	# We have advantage if we're stronger by threshold
+	return our_strength >= their_strength + ATTACK_ADVANTAGE_THRESHOLD
+
+## Coordinate focus fire during active combat
+## Finds units that are fighting and redirects them to focus on the same target
+func _coordinate_combat_focus_fire() -> void:
+	# Find AI units that are currently attacking
+	var attacking_units: Array = []
+	var battle_center = Vector2.ZERO
+	var military = get_tree().get_nodes_in_group("military")
+
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		if unit == scout_unit:
+			continue
+		if retreating_units.has(unit):
+			continue
+
+		# Check if this unit is in combat (attacking) - use type-safe helper
+		if _is_unit_attacking(unit):
+			attacking_units.append(unit)
+			battle_center += unit.global_position
+
+	# No units attacking, nothing to coordinate
+	if attacking_units.is_empty():
+		current_focus_target = null
+		return
+
+	# Calculate center of battle
+	battle_center /= attacking_units.size()
+
+	# Find best focus fire target near the battle
+	var focus_target = _find_focus_fire_target(battle_center)
+
+	if focus_target == null:
+		return
+
+	# Update current focus target
+	current_focus_target = focus_target
+
+	# Redirect attacking units to focus fire target
+	_apply_focus_fire(attacking_units, battle_center)
+
+## Get the count of our units currently attacking a specific target
+func get_attackers_on_target(target: Node2D) -> int:
+	return _count_units_attacking_target(target)

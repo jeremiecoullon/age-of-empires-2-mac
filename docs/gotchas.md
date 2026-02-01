@@ -225,3 +225,21 @@ Track layout/visual issues for future polish.
 - **Resource group naming**: Resources are NOT in groups like "trees" or "gold_mines". They're in groups named `{resource_type}_resources` (e.g., "wood_resources", "gold_resources", "food_resources"). Use `get_resource_type()` method to get the type string, not group checks like `is_in_group("trees")`.
 
 - **macOS cursor API bug (Godot 4.5.1)**: `Input.set_custom_mouse_cursor()` and `DisplayServer.cursor_set_custom_image()` only work on the first call on macOS with Metal renderer. Subsequent calls are ignored and the cursor stays stuck on the initial texture. **Workaround**: Use a sprite-based cursor: (1) hide system cursor with `Input.mouse_mode = Input.MOUSE_MODE_HIDDEN`, (2) create a CanvasLayer + Sprite2D that follows mouse position, (3) change sprite texture instead of calling cursor API. Remember to restore system cursor in `_exit_tree()`.
+
+### Phase 3B - Scouting & Information
+
+- **Scout state machine integration**: When adding states like COMBAT to a state machine, remember to add transitions INTO that state, not just the handler. Easy to define a state but never enter it because no code sets the state to that value.
+
+- **Building type identification**: GDScript's `get_class()` can be unreliable for type checking - use explicit `is` checks or a custom method like `_get_building_type_string()` for type identification.
+
+- **Dictionary clearing vs reassignment**: When resetting a tracking dictionary, clear individual values instead of reassigning the dictionary. Reassignment breaks external references to the original dictionary object.
+
+- **Typed arrays for entity lists**: Use `Array[Node2D]` for entity lists to match existing codebase patterns and improve type safety. Consistency matters more than personal preference.
+
+### Phase 3C - Combat Intelligence
+
+- **Unified scoring constants for priority systems**: When multiple functions need consistent priority scoring (e.g., target selection and focus fire), use shared constants (`TARGET_PRIORITY_VILLAGER`, `TARGET_PRIORITY_RANGED`, etc.) to prevent drift. Without this, AI units may select different targets in attack vs focus fire, causing army splitting.
+
+- **Type-safe state enum checks**: Instead of magic numbers for state enums (`if state == 2`), use type checks with proper enum values: `if unit is Militia and unit.current_state == Militia.State.ATTACKING`. Create a helper like `_is_unit_attacking(unit)` that handles all unit types. Magic numbers are fragile and break if state enums change.
+
+- **Retreat units tracking**: When implementing retreat behavior, maintain a `retreating_units` array to track which units are currently fleeing. Check this array before assigning units to new attacks to avoid re-sending retreating units into battle.
