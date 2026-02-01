@@ -243,3 +243,15 @@ Track layout/visual issues for future polish.
 - **Type-safe state enum checks**: Instead of magic numbers for state enums (`if state == 2`), use type checks with proper enum values: `if unit is Militia and unit.current_state == Militia.State.ATTACKING`. Create a helper like `_is_unit_attacking(unit)` that handles all unit types. Magic numbers are fragile and break if state enums change.
 
 - **Retreat units tracking**: When implementing retreat behavior, maintain a `retreating_units` array to track which units are currently fleeing. Check this array before assigning units to new attacks to avoid re-sending retreating units into battle.
+
+### Phase 3D - Micro & Tactics
+
+- **Specialized units need rule exclusions**: Units assigned to special roles (harass squad, scouting) should be excluded from general micro behaviors (kiting, auto-attack). For example, harass squad units should follow harassment rules rather than individual kiting logic, which could cause them to back away from the harassment target.
+
+- **Cooldown for toggling behaviors**: Systems like Town Bell (mass villager garrison) need cooldowns to prevent rapid toggling. Without a cooldown, threat detection and resolution happening in quick succession causes repeated activate/deactivate cycles that disrupt normal operation.
+
+- **Rally point positioning for reinforcements**: When reinforcing an attack, calculate rally points relative to the actual battle position, not just the home base. Sending reinforcements to a static point far from the action reduces their effectiveness.
+
+- **Unit role tracking with multiple arrays**: When units can be in different "roles" (main_army, harass_squad, kiting_units, retreating_units), clearly document which combinations are valid and check all relevant arrays before reassigning. A unit might be in multiple arrays temporarily (e.g., kiting while in main_army), which is acceptable but should be intentional.
+
+- **Harass targeting economy, not military**: Harassment squads should target enemy villagers and resource areas, not enemy military positions. Using `enemy_army_last_position` for harassment defeats the purpose - target known TC positions offset toward resources instead.

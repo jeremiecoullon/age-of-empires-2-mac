@@ -71,6 +71,17 @@ const TARGET_PRIORITY_MILITARY: float = 800.0  # Other military units
 const TARGET_PRIORITY_LOW_HP_MULT: float = 500.0  # Multiplier for low HP bonus
 const TARGET_PRIORITY_FOCUS_BONUS: float = 200.0  # Bonus per attacker already on target
 
+# Micro & Tactics constants (Phase 3D)
+const KITE_DISTANCE: float = 60.0  # How far to back away when kiting
+const MELEE_THREAT_RANGE: float = 80.0  # Distance at which melee units are a threat
+const VILLAGER_FLEE_RADIUS: float = 150.0  # Distance at which villagers flee from threats
+const TOWN_BELL_THREAT_THRESHOLD: int = 3  # Enemy units near base to trigger Town Bell
+const TOWN_BELL_RADIUS: float = 400.0  # Radius around TC to check for threats
+const TOWN_BELL_COOLDOWN: float = 30.0  # Seconds between Town Bell activations
+const HARASS_FORCE_SIZE: int = 3  # Number of units for harassment squad
+const REINFORCEMENT_RALLY_DISTANCE: float = 200.0  # Distance to rally point before joining attack
+const KITE_CHECK_INTERVAL: float = 0.3  # How often to check for kiting opportunities
+
 # Army composition target ratios (adjusts based on enemy)
 # Default: 40% infantry, 40% ranged, 20% cavalry
 var army_composition_goals: Dictionary = {
@@ -156,6 +167,17 @@ var current_focus_target: Node2D = null  # Target for focus fire
 var retreating_units: Array[Node2D] = []  # Units currently retreating
 var last_attack_result: String = "none"  # "win", "loss", "draw" - for attack timing
 
+# Micro & Tactics (Phase 3D)
+var kiting_units: Array[Node2D] = []  # Ranged units currently kiting
+var fleeing_villagers: Array[Node2D] = []  # Villagers fleeing to TC
+var town_bell_active: bool = false  # Town Bell mode - all villagers to TC
+var town_bell_cooldown_timer: float = 0.0  # Cooldown before next Town Bell
+var harass_squad: Array[Node2D] = []  # Units assigned to harassment
+var main_army: Array[Node2D] = []  # Main attack force
+var reinforcement_rally_point: Vector2 = Vector2.ZERO  # Where reinforcements gather
+var active_attack_position: Vector2 = Vector2.ZERO  # Where main army is attacking
+var kite_check_timer: float = 0.0  # Timer for kiting checks
+
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
 	await get_tree().process_frame
@@ -199,6 +221,10 @@ func _process(delta: float) -> void:
 	if attack_cooldown > 0:
 		attack_cooldown -= delta
 
+	# Update Town Bell cooldown (Phase 3D)
+	if town_bell_cooldown_timer > 0:
+		town_bell_cooldown_timer -= delta
+
 	# Fast idle villager check (every 0.3s)
 	idle_check_timer += delta
 	if idle_check_timer >= IDLE_CHECK_INTERVAL:
@@ -215,6 +241,15 @@ func _process(delta: float) -> void:
 		_assess_threats()
 		_manage_unit_retreat()  # Phase 3C: Check for units that should retreat
 		_coordinate_combat_focus_fire()  # Phase 3C: Focus fire during active combat
+
+	# Micro management (Phase 3D) - faster updates for responsive micro
+	kite_check_timer += delta
+	if kite_check_timer >= KITE_CHECK_INTERVAL:
+		kite_check_timer = 0.0
+		_manage_ranged_kiting()  # Phase 3D: Kite melee with ranged units
+		_manage_villager_flee()  # Phase 3D: Villagers flee from danger
+		_check_town_bell()  # Phase 3D: Garrison all villagers if base under heavy attack
+		_manage_reinforcements()  # Phase 3D: Send new units to join existing army
 
 	# Regular decision loop
 	decision_timer += delta
@@ -531,6 +566,18 @@ func _make_decisions() -> void:
 	# 19. Attack when economy is established and military is ready
 	if not defending and _should_attack():
 		_attack_player()
+
+	# === SPLIT ATTENTION (Phase 3D) ===
+
+	# 20. Set up harass squad for split attention if we have enough military
+	if not defending and can_split_attention() and harass_squad.is_empty():
+		if _setup_harass_squad():
+			var harass_target = _get_harass_target()
+			_send_harass_squad(harass_target)
+
+	# 21. Check if harass squad should return to defend
+	if not harass_squad.is_empty() and _should_harass_retreat():
+		_recall_harass_squad()
 
 ## Maintain continuous villager production - keep TC queue at target level
 func _maintain_villager_production() -> void:
@@ -1433,6 +1480,9 @@ func _attack_player() -> void:
 		# Don't send retreating units
 		if retreating_units.has(unit):
 			continue
+		# Don't send harass squad (Phase 3D: split attention)
+		if harass_squad.has(unit):
+			continue
 		# Only send units that aren't actively defending
 		if _is_unit_idle_or_patrolling(unit):
 			attackers.append(unit)
@@ -1441,6 +1491,10 @@ func _attack_player() -> void:
 			else:
 				# No specific target, but move to enemy base area
 				unit.move_to(enemy_base)
+
+	# Phase 3D: Track attack force for reinforcement system
+	var attack_pos = target.global_position if target else enemy_base
+	_assign_attack_force(attackers, attack_pos)
 
 	# Phase 3C: Apply focus fire once units are near the battle
 	# We'll coordinate focus fire once they reach the target area
@@ -2746,7 +2800,7 @@ func _manage_unit_retreat() -> void:
 	)
 
 	# Check if retreating units are safe
-	for retreating_units.has(unit).duplicate():  # Duplicate to allow removal
+	for unit in retreating_units.duplicate():  # Duplicate to allow removal
 		if not is_instance_valid(unit):
 			continue
 
@@ -2990,3 +3044,414 @@ func _coordinate_combat_focus_fire() -> void:
 ## Get the count of our units currently attacking a specific target
 func get_attackers_on_target(target: Node2D) -> int:
 	return _count_units_attacking_target(target)
+
+# ===== PHASE 3D: MICRO & TACTICS =====
+
+## Check if a unit is a ranged unit (archer, skirmisher, cavalry archer)
+func _is_ranged_unit(unit: Node2D) -> bool:
+	return unit is Archer or unit is Skirmisher or unit is CavalryArcher
+
+## Get the nearest melee enemy threatening a position
+func _get_nearest_melee_threat(pos: Vector2, max_distance: float) -> Node2D:
+	var nearest: Node2D = null
+	var nearest_dist: float = max_distance
+
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.team != PLAYER_TEAM:
+			continue
+		# Only consider melee units as kiting threats
+		if unit is Archer or unit is Skirmisher or unit is CavalryArcher:
+			continue  # Skip ranged enemies
+
+		var dist = pos.distance_to(unit.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = unit
+
+	return nearest
+
+## Manage ranged unit kiting - back away from melee units while attacking
+func _manage_ranged_kiting() -> void:
+	# Clean up kiting units list
+	kiting_units = kiting_units.filter(func(u):
+		return is_instance_valid(u) and not u.is_dead
+	)
+
+	# Check all AI ranged units
+	var military = get_tree().get_nodes_in_group("military")
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		if not _is_ranged_unit(unit):
+			continue
+		if retreating_units.has(unit):
+			continue  # Don't kite if already retreating
+		if unit == scout_unit:
+			continue  # Scout doesn't kite
+		if harass_squad.has(unit):
+			continue  # Harass units follow their own engagement rules
+
+		# Check for melee threats
+		var threat = _get_nearest_melee_threat(unit.global_position, MELEE_THREAT_RANGE)
+		if threat != null:
+			# Melee unit is too close, kite away
+			_order_unit_kite(unit, threat)
+		elif kiting_units.has(unit):
+			# No threat, stop kiting
+			kiting_units.erase(unit)
+
+## Order a ranged unit to kite away from a melee threat
+func _order_unit_kite(unit: Node2D, threat: Node2D) -> void:
+	if not is_instance_valid(unit) or not is_instance_valid(threat):
+		return
+
+	# Calculate kite direction (away from threat)
+	var kite_direction = threat.global_position.direction_to(unit.global_position)
+	var kite_pos = unit.global_position + kite_direction * KITE_DISTANCE
+
+	# Clamp to map bounds
+	kite_pos.x = clampf(kite_pos.x, 50.0, 1870.0)
+	kite_pos.y = clampf(kite_pos.y, 50.0, 1870.0)
+
+	# Track that this unit is kiting
+	if not kiting_units.has(unit):
+		kiting_units.append(unit)
+
+	# Order the unit to move to kite position
+	if unit.has_method("move_to"):
+		unit.move_to(kite_pos)
+
+	# After moving, re-acquire the target if in range
+	# This is handled by the unit's own aggro check after moving
+
+## Manage villager flee behavior - villagers run to TC when attacked
+func _manage_villager_flee() -> void:
+	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
+		return
+
+	# Clean up fleeing villagers list
+	fleeing_villagers = fleeing_villagers.filter(func(v):
+		return is_instance_valid(v) and not v.is_dead
+	)
+
+	# Check if fleeing villagers have reached safety
+	for villager in fleeing_villagers.duplicate():
+		if not is_instance_valid(villager):
+			continue
+
+		var dist_to_tc = villager.global_position.distance_to(ai_tc.global_position)
+		var enemies_nearby = _get_enemies_near_position(villager.global_position, VILLAGER_FLEE_RADIUS)
+
+		# Safe if near TC and no enemies close
+		if dist_to_tc < 100.0 and enemies_nearby.is_empty():
+			fleeing_villagers.erase(villager)
+			# Villager will go idle and be reassigned by normal logic
+
+	# Skip individual flee checks if Town Bell is active (handled separately)
+	if town_bell_active:
+		return
+
+	# Check all AI villagers for danger
+	var villagers = _get_ai_villagers()
+	for villager in villagers:
+		if villager.is_dead:
+			continue
+		if fleeing_villagers.has(villager):
+			continue  # Already fleeing
+
+		# Check for nearby enemies
+		var enemies_nearby = _get_enemies_near_position(villager.global_position, VILLAGER_FLEE_RADIUS)
+		if not enemies_nearby.is_empty():
+			_order_villager_flee(villager)
+
+## Order a villager to flee to the Town Center
+func _order_villager_flee(villager: Node2D) -> void:
+	if not is_instance_valid(villager) or not is_instance_valid(ai_tc):
+		return
+
+	if not fleeing_villagers.has(villager):
+		fleeing_villagers.append(villager)
+
+	# Order villager to move to TC
+	if villager.has_method("move_to"):
+		villager.move_to(ai_tc.global_position)
+
+## Check if Town Bell should be activated (mass villager garrison)
+func _check_town_bell() -> void:
+	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
+		town_bell_active = false
+		return
+
+	# Check if Town Bell is on cooldown
+	if town_bell_cooldown_timer > 0:
+		# Still check if we should deactivate
+		if town_bell_active:
+			_check_town_bell_deactivate()
+		return
+
+	# Count enemies near the TC
+	var enemies_near_tc = _get_enemies_near_position(ai_tc.global_position, TOWN_BELL_RADIUS)
+	var enemy_military_count = 0
+
+	for enemy in enemies_near_tc:
+		if enemy.is_in_group("military"):
+			enemy_military_count += 1
+
+	# Activate Town Bell if enough enemy military near base
+	if not town_bell_active and enemy_military_count >= TOWN_BELL_THREAT_THRESHOLD:
+		_activate_town_bell()
+	elif town_bell_active:
+		_check_town_bell_deactivate()
+
+## Activate Town Bell - all villagers flee to TC
+func _activate_town_bell() -> void:
+	if town_bell_active:
+		return
+
+	town_bell_active = true
+
+	# Order all villagers to TC
+	var villagers = _get_ai_villagers()
+	for villager in villagers:
+		if villager.is_dead:
+			continue
+		_order_villager_flee(villager)
+
+## Check if Town Bell should be deactivated
+func _check_town_bell_deactivate() -> void:
+	if not town_bell_active:
+		return
+
+	if not is_instance_valid(ai_tc) or ai_tc.is_destroyed:
+		town_bell_active = false
+		return
+
+	# Count enemies near TC
+	var enemies_near_tc = _get_enemies_near_position(ai_tc.global_position, TOWN_BELL_RADIUS)
+	var enemy_military_count = 0
+
+	for enemy in enemies_near_tc:
+		if enemy.is_in_group("military"):
+			enemy_military_count += 1
+
+	# Deactivate if threat is gone
+	if enemy_military_count == 0:
+		_deactivate_town_bell()
+
+## Deactivate Town Bell - villagers return to work
+func _deactivate_town_bell() -> void:
+	town_bell_active = false
+	town_bell_cooldown_timer = TOWN_BELL_COOLDOWN
+
+	# Clear fleeing villagers - they'll be reassigned by idle check
+	fleeing_villagers.clear()
+
+## Manage reinforcement waves - send new units to join attacking army
+func _manage_reinforcements() -> void:
+	# Clean up main army and harass squad
+	main_army = main_army.filter(func(u):
+		return is_instance_valid(u) and not u.is_dead
+	)
+	harass_squad = harass_squad.filter(func(u):
+		return is_instance_valid(u) and not u.is_dead
+	)
+
+	# If no active attack, nothing to reinforce
+	if main_army.is_empty() and active_attack_position == Vector2.ZERO:
+		return
+
+	# Calculate rally point if we have an active attack
+	if active_attack_position != Vector2.ZERO:
+		reinforcement_rally_point = _get_rally_point_for_attack(active_attack_position)
+	else:
+		return
+
+	# Find idle military units that aren't in the main army or harass squad
+	var military = get_tree().get_nodes_in_group("military")
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		if unit == scout_unit:
+			continue
+		if main_army.has(unit) or harass_squad.has(unit):
+			continue
+		if retreating_units.has(unit):
+			continue
+		if kiting_units.has(unit):
+			continue
+
+		# Check if unit is idle or patrolling
+		if _is_unit_idle_or_patrolling(unit):
+			# Send to rally point to join the attack
+			_send_reinforcement(unit)
+
+## Get rally point for reinforcements joining an attack
+func _get_rally_point_for_attack(attack_pos: Vector2) -> Vector2:
+	# Rally point is between AI base and attack position
+	var direction = AI_BASE_POSITION.direction_to(attack_pos)
+	var rally = AI_BASE_POSITION + direction * REINFORCEMENT_RALLY_DISTANCE
+	return rally
+
+## Send a unit as reinforcement to the main army
+func _send_reinforcement(unit: Node2D) -> void:
+	if not is_instance_valid(unit):
+		return
+
+	# Add to main army
+	main_army.append(unit)
+
+	# If close to rally point, send to attack position
+	var dist_to_rally = unit.global_position.distance_to(reinforcement_rally_point)
+	var target_pos: Vector2
+
+	if dist_to_rally < REINFORCEMENT_RALLY_DISTANCE * 0.5:
+		# Close enough, go to active attack
+		target_pos = active_attack_position
+	else:
+		# Go to rally point first
+		target_pos = reinforcement_rally_point
+
+	if unit.has_method("move_to"):
+		unit.move_to(target_pos)
+
+## Assign units to main army when launching an attack (called from attack logic)
+func _assign_attack_force(units: Array, attack_position: Vector2) -> void:
+	active_attack_position = attack_position
+	main_army.clear()
+
+	for unit in units:
+		if is_instance_valid(unit) and not unit.is_dead:
+			main_army.append(unit)
+
+## Clear attack force when attack ends
+func _clear_attack_force() -> void:
+	active_attack_position = Vector2.ZERO
+	reinforcement_rally_point = Vector2.ZERO
+	main_army.clear()
+
+## Try to set up a harass squad for split attention
+func _setup_harass_squad() -> bool:
+	# Only set up harass if we have enough military
+	var military = get_tree().get_nodes_in_group("military")
+	var available_units: Array[Node2D] = []
+
+	for unit in military:
+		if unit.team != AI_TEAM:
+			continue
+		if unit.is_dead:
+			continue
+		if unit == scout_unit:
+			continue
+		if main_army.has(unit):
+			continue
+		if retreating_units.has(unit):
+			continue
+
+		available_units.append(unit)
+
+	# Need enough units for both harass and defend
+	if available_units.size() < HARASS_FORCE_SIZE + 3:
+		return false
+
+	# Pick fast units for harass (cavalry, cavalry archers)
+	harass_squad.clear()
+	for unit in available_units:
+		if harass_squad.size() >= HARASS_FORCE_SIZE:
+			break
+		# Prefer fast units
+		if unit is ScoutCavalry or unit is CavalryArcher:
+			harass_squad.append(unit)
+
+	# Fill remaining slots with any available units
+	for unit in available_units:
+		if harass_squad.size() >= HARASS_FORCE_SIZE:
+			break
+		if not harass_squad.has(unit):
+			harass_squad.append(unit)
+
+	return harass_squad.size() >= HARASS_FORCE_SIZE
+
+## Send harass squad to attack enemy economy
+func _send_harass_squad(target_position: Vector2) -> void:
+	for unit in harass_squad:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.has_method("move_to"):
+			unit.move_to(target_position)
+
+## Get harass target position (enemy economy, not military)
+func _get_harass_target() -> Vector2:
+	# Target known enemy TC area for economic harassment (villagers near resources)
+	if scout_found_enemy_base and known_enemy_tc_position != Vector2.ZERO:
+		# Offset from TC to hit resource line (villagers usually gather near TC)
+		var offset = Vector2(randf_range(-200, 200), randf_range(-200, 200))
+		return known_enemy_tc_position + offset
+
+	# Fallback to player start position
+	return PLAYER_BASE_POSITION
+
+## Check if harass squad should return to defend
+func _should_harass_retreat() -> bool:
+	# Return if base is under attack
+	if current_threat_level >= THREAT_MODERATE:
+		return true
+
+	# Return if harass squad is badly damaged
+	var healthy_count = 0
+	for unit in harass_squad:
+		if is_instance_valid(unit) and not unit.is_dead:
+			var hp_ratio = float(unit.current_hp) / float(unit.max_hp)
+			if hp_ratio > 0.5:
+				healthy_count += 1
+
+	return healthy_count < 2
+
+## Recall harass squad to defend
+func _recall_harass_squad() -> void:
+	for unit in harass_squad:
+		if not is_instance_valid(unit) or unit.is_dead:
+			continue
+		if unit.has_method("move_to"):
+			unit.move_to(AI_BASE_POSITION)
+
+	harass_squad.clear()
+
+## Get whether we can split attention (harass + defend simultaneously)
+func can_split_attention() -> bool:
+	var military_count = 0
+	var military = get_tree().get_nodes_in_group("military")
+
+	for unit in military:
+		if unit.team == AI_TEAM and not unit.is_dead and unit != scout_unit:
+			military_count += 1
+
+	# Need substantial army to split
+	return military_count >= HARASS_FORCE_SIZE + 5
+
+## Check if unit is idle or patrolling (available for orders)
+func _is_unit_idle_or_patrolling(unit: Node2D) -> bool:
+	if not is_instance_valid(unit):
+		return false
+
+	# Check by unit type for state
+	if unit is Militia:
+		return unit.current_state == Militia.State.IDLE
+	elif unit is Spearman:
+		return unit.current_state == Spearman.State.IDLE
+	elif unit is Archer:
+		return unit.current_state == Archer.State.IDLE
+	elif unit is Skirmisher:
+		return unit.current_state == Skirmisher.State.IDLE
+	elif unit is ScoutCavalry:
+		return unit.current_state == ScoutCavalry.State.IDLE
+	elif unit is CavalryArcher:
+		return unit.current_state == CavalryArcher.State.IDLE
+
+	return false

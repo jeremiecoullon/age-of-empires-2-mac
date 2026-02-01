@@ -33,6 +33,14 @@ extends Node
 ## - Target prioritization scoring
 ## - Retreat behavior (HP threshold, state checking)
 ## - Focus fire coordination
+##
+## Phase 3D tests verify:
+## - Ranged unit kiting (is_ranged_unit detection, threat detection, kiting_units tracking)
+## - Villager flee behavior (fleeing_villagers tracking)
+## - Town Bell system (activation, cooldown, thresholds)
+## - Split attention (harass squad setup, can_split_attention logic)
+## - Reinforcement waves (main_army tracking, rally points)
+## - Helper functions (idle/patrolling detection, constants)
 
 class_name TestAI
 
@@ -133,6 +141,36 @@ func get_all_tests() -> Array[Callable]:
 		test_count_units_attacking_target_returns_zero_with_no_attackers,
 		test_get_attackers_on_target_delegates_to_count,
 		test_find_focus_fire_target_returns_null_with_no_enemies,
+		# Phase 3D: Ranged unit kiting tests
+		test_is_ranged_unit_returns_true_for_archer,
+		test_is_ranged_unit_returns_true_for_skirmisher,
+		test_is_ranged_unit_returns_true_for_cavalry_archer,
+		test_is_ranged_unit_returns_false_for_militia,
+		test_is_ranged_unit_returns_false_for_spearman,
+		test_is_ranged_unit_returns_false_for_scout_cavalry,
+		test_kiting_units_starts_empty,
+		test_get_nearest_melee_threat_returns_null_when_no_enemies,
+		# Phase 3D: Villager flee behavior tests
+		test_fleeing_villagers_starts_empty,
+		# Phase 3D: Town Bell system tests
+		test_town_bell_active_starts_false,
+		test_town_bell_cooldown_timer_starts_at_zero,
+		test_town_bell_threat_threshold_constant,
+		test_town_bell_cooldown_constant,
+		# Phase 3D: Split attention tests
+		test_harass_squad_starts_empty,
+		test_can_split_attention_returns_false_with_no_military,
+		test_harass_force_size_constant,
+		# Phase 3D: Reinforcement waves tests
+		test_main_army_starts_empty,
+		test_active_attack_position_starts_at_zero,
+		test_reinforcement_rally_point_starts_at_zero,
+		test_get_rally_point_returns_position_between_base_and_attack,
+		# Phase 3D: Helper function tests
+		test_is_unit_idle_or_patrolling_returns_false_for_invalid_unit,
+		test_kite_distance_constant,
+		test_melee_threat_range_constant,
+		test_villager_flee_radius_constant,
 	]
 
 
@@ -1602,5 +1640,411 @@ func test_find_focus_fire_target_returns_null_with_no_enemies() -> Assertions.As
 	if target != null:
 		return Assertions.AssertResult.new(false,
 			"Should return null when no enemies nearby")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3D: Ranged Unit Kiting Tests ===
+
+func test_is_ranged_unit_returns_true_for_archer() -> Assertions.AssertResult:
+	## _is_ranged_unit should return true for Archer units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var archer = runner.spawner.spawn_archer(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var is_ranged = controller._is_ranged_unit(archer)
+
+	_cleanup_ai_controller(controller)
+
+	if not is_ranged:
+		return Assertions.AssertResult.new(false,
+			"_is_ranged_unit should return true for Archer")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_ranged_unit_returns_true_for_skirmisher() -> Assertions.AssertResult:
+	## _is_ranged_unit should return true for Skirmisher units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var is_ranged = controller._is_ranged_unit(skirmisher)
+
+	_cleanup_ai_controller(controller)
+
+	if not is_ranged:
+		return Assertions.AssertResult.new(false,
+			"_is_ranged_unit should return true for Skirmisher")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_ranged_unit_returns_true_for_cavalry_archer() -> Assertions.AssertResult:
+	## _is_ranged_unit should return true for CavalryArcher units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var cav_archer = runner.spawner.spawn_cavalry_archer(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var is_ranged = controller._is_ranged_unit(cav_archer)
+
+	_cleanup_ai_controller(controller)
+
+	if not is_ranged:
+		return Assertions.AssertResult.new(false,
+			"_is_ranged_unit should return true for CavalryArcher")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_ranged_unit_returns_false_for_militia() -> Assertions.AssertResult:
+	## _is_ranged_unit should return false for Militia units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var militia = runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var is_ranged = controller._is_ranged_unit(militia)
+
+	_cleanup_ai_controller(controller)
+
+	if is_ranged:
+		return Assertions.AssertResult.new(false,
+			"_is_ranged_unit should return false for Militia")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_ranged_unit_returns_false_for_spearman() -> Assertions.AssertResult:
+	## _is_ranged_unit should return false for Spearman units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var spearman = runner.spawner.spawn_spearman(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var is_ranged = controller._is_ranged_unit(spearman)
+
+	_cleanup_ai_controller(controller)
+
+	if is_ranged:
+		return Assertions.AssertResult.new(false,
+			"_is_ranged_unit should return false for Spearman")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_ranged_unit_returns_false_for_scout_cavalry() -> Assertions.AssertResult:
+	## _is_ranged_unit should return false for ScoutCavalry units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var scout = runner.spawner.spawn_scout_cavalry(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var is_ranged = controller._is_ranged_unit(scout)
+
+	_cleanup_ai_controller(controller)
+
+	if is_ranged:
+		return Assertions.AssertResult.new(false,
+			"_is_ranged_unit should return false for ScoutCavalry")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_kiting_units_starts_empty() -> Assertions.AssertResult:
+	## kiting_units array should start empty
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var count = controller.kiting_units.size()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"kiting_units should start empty, has: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_nearest_melee_threat_returns_null_when_no_enemies() -> Assertions.AssertResult:
+	## _get_nearest_melee_threat should return null when no melee enemies nearby
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# No enemies spawned
+	var threat = controller._get_nearest_melee_threat(Vector2(1600, 1600), 100.0)
+
+	_cleanup_ai_controller(controller)
+
+	if threat != null:
+		return Assertions.AssertResult.new(false,
+			"Should return null when no melee enemies nearby")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3D: Villager Flee Behavior Tests ===
+
+func test_fleeing_villagers_starts_empty() -> Assertions.AssertResult:
+	## fleeing_villagers array should start empty
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var count = controller.fleeing_villagers.size()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"fleeing_villagers should start empty, has: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3D: Town Bell System Tests ===
+
+func test_town_bell_active_starts_false() -> Assertions.AssertResult:
+	## town_bell_active should start as false
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var is_active = controller.town_bell_active
+
+	_cleanup_ai_controller(controller)
+
+	if is_active:
+		return Assertions.AssertResult.new(false,
+			"town_bell_active should start as false")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_town_bell_cooldown_timer_starts_at_zero() -> Assertions.AssertResult:
+	## town_bell_cooldown_timer should start at 0
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var timer = controller.town_bell_cooldown_timer
+
+	_cleanup_ai_controller(controller)
+
+	if timer != 0.0:
+		return Assertions.AssertResult.new(false,
+			"town_bell_cooldown_timer should start at 0, got: %f" % timer)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_town_bell_threat_threshold_constant() -> Assertions.AssertResult:
+	## TOWN_BELL_THREAT_THRESHOLD should be 3
+	var expected = 3
+
+	if AIController.TOWN_BELL_THREAT_THRESHOLD != expected:
+		return Assertions.AssertResult.new(false,
+			"TOWN_BELL_THREAT_THRESHOLD should be %d, got: %d" % [expected, AIController.TOWN_BELL_THREAT_THRESHOLD])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_town_bell_cooldown_constant() -> Assertions.AssertResult:
+	## TOWN_BELL_COOLDOWN should be 30.0
+	var expected = 30.0
+
+	if abs(AIController.TOWN_BELL_COOLDOWN - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"TOWN_BELL_COOLDOWN should be %f, got: %f" % [expected, AIController.TOWN_BELL_COOLDOWN])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3D: Split Attention Tests ===
+
+func test_harass_squad_starts_empty() -> Assertions.AssertResult:
+	## harass_squad array should start empty
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var count = controller.harass_squad.size()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"harass_squad should start empty, has: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_can_split_attention_returns_false_with_no_military() -> Assertions.AssertResult:
+	## can_split_attention() should return false when AI has no military
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# No military spawned
+	var can_split = controller.can_split_attention()
+
+	_cleanup_ai_controller(controller)
+
+	if can_split:
+		return Assertions.AssertResult.new(false,
+			"can_split_attention() should return false with no military")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_harass_force_size_constant() -> Assertions.AssertResult:
+	## HARASS_FORCE_SIZE should be 3
+	var expected = 3
+
+	if AIController.HARASS_FORCE_SIZE != expected:
+		return Assertions.AssertResult.new(false,
+			"HARASS_FORCE_SIZE should be %d, got: %d" % [expected, AIController.HARASS_FORCE_SIZE])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3D: Reinforcement Waves Tests ===
+
+func test_main_army_starts_empty() -> Assertions.AssertResult:
+	## main_army array should start empty
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var count = controller.main_army.size()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"main_army should start empty, has: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_active_attack_position_starts_at_zero() -> Assertions.AssertResult:
+	## active_attack_position should start as Vector2.ZERO
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var pos = controller.active_attack_position
+
+	_cleanup_ai_controller(controller)
+
+	if pos != Vector2.ZERO:
+		return Assertions.AssertResult.new(false,
+			"active_attack_position should start as Vector2.ZERO, got: %s" % str(pos))
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_reinforcement_rally_point_starts_at_zero() -> Assertions.AssertResult:
+	## reinforcement_rally_point should start as Vector2.ZERO
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var pos = controller.reinforcement_rally_point
+
+	_cleanup_ai_controller(controller)
+
+	if pos != Vector2.ZERO:
+		return Assertions.AssertResult.new(false,
+			"reinforcement_rally_point should start as Vector2.ZERO, got: %s" % str(pos))
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_rally_point_returns_position_between_base_and_attack() -> Assertions.AssertResult:
+	## _get_rally_point_for_attack should return a position between AI base and attack position
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Define an attack position (player base area)
+	var attack_pos = Vector2(200, 200)
+	var rally_point = controller._get_rally_point_for_attack(attack_pos)
+
+	# AI base is at approximately (1700, 1700) - AIController.AI_BASE_POSITION
+	var ai_base = AIController.AI_BASE_POSITION
+
+	# Rally point should be between AI base and attack position
+	# Check that rally point is closer to AI base than the attack position
+	var dist_rally_to_base = rally_point.distance_to(ai_base)
+	var dist_attack_to_base = attack_pos.distance_to(ai_base)
+
+	_cleanup_ai_controller(controller)
+
+	if dist_rally_to_base >= dist_attack_to_base:
+		return Assertions.AssertResult.new(false,
+			"Rally point should be closer to AI base than attack position")
+
+	# Rally point should be in the direction of the attack
+	var direction_to_attack = ai_base.direction_to(attack_pos)
+	var direction_to_rally = ai_base.direction_to(rally_point)
+	var dot_product = direction_to_attack.dot(direction_to_rally)
+
+	if dot_product < 0.9:
+		return Assertions.AssertResult.new(false,
+			"Rally point should be in direction of attack (dot product: %f)" % dot_product)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3D: Helper Function Tests ===
+
+func test_is_unit_idle_or_patrolling_returns_false_for_invalid_unit() -> Assertions.AssertResult:
+	## _is_unit_idle_or_patrolling should return false for invalid/null unit
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Pass null (invalid unit)
+	var is_idle = controller._is_unit_idle_or_patrolling(null)
+
+	_cleanup_ai_controller(controller)
+
+	if is_idle:
+		return Assertions.AssertResult.new(false,
+			"_is_unit_idle_or_patrolling should return false for invalid unit")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_kite_distance_constant() -> Assertions.AssertResult:
+	## KITE_DISTANCE should be 60.0
+	var expected = 60.0
+
+	if abs(AIController.KITE_DISTANCE - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"KITE_DISTANCE should be %f, got: %f" % [expected, AIController.KITE_DISTANCE])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_melee_threat_range_constant() -> Assertions.AssertResult:
+	## MELEE_THREAT_RANGE should be 80.0
+	var expected = 80.0
+
+	if abs(AIController.MELEE_THREAT_RANGE - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"MELEE_THREAT_RANGE should be %f, got: %f" % [expected, AIController.MELEE_THREAT_RANGE])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_villager_flee_radius_constant() -> Assertions.AssertResult:
+	## VILLAGER_FLEE_RADIUS should be 150.0
+	var expected = 150.0
+
+	if abs(AIController.VILLAGER_FLEE_RADIUS - expected) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"VILLAGER_FLEE_RADIUS should be %f, got: %f" % [expected, AIController.VILLAGER_FLEE_RADIUS])
 
 	return Assertions.AssertResult.new(true)
