@@ -80,17 +80,6 @@ func _physics_process(delta: float) -> void:
 		State.BUILDING:
 			_process_building(delta)
 
-## Stop movement completely and prevent avoidance from pushing us around
-func _stop_and_stay() -> void:
-	velocity = Vector2.ZERO
-	nav_agent.target_position = global_position  # Clear navigation target
-	nav_agent.avoidance_enabled = false  # Disable avoidance while stationary
-	move_and_slide()
-
-## Re-enable avoidance and apply movement (call before _apply_movement when resuming movement)
-func _resume_movement() -> void:
-	nav_agent.avoidance_enabled = true
-
 func _process_moving(delta: float) -> void:
 	var distance = global_position.distance_to(move_target)
 	if distance < 5:

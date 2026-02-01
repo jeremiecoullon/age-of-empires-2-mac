@@ -221,6 +221,18 @@ func _apply_movement(desired_velocity: Vector2) -> void:
 		move_and_slide()
 		_update_facing_direction()
 
+## Stop movement completely and prevent avoidance from pushing us around.
+## Call this when the unit should be stationary (attacking in range, gathering, etc.)
+func _stop_and_stay() -> void:
+	velocity = Vector2.ZERO
+	nav_agent.target_position = global_position  # Clear navigation target
+	nav_agent.avoidance_enabled = false  # Disable avoidance while stationary
+	move_and_slide()
+
+## Re-enable avoidance before moving. Call this before _apply_movement() when resuming movement.
+func _resume_movement() -> void:
+	nav_agent.avoidance_enabled = true
+
 ## Get direction index (0-7) from velocity vector
 ## Returns current_direction if velocity is too small
 func _get_direction_from_velocity(vel: Vector2) -> int:
