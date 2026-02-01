@@ -37,12 +37,14 @@ var _cursor_layer: CanvasLayer = null
 var _cursor_sprite: Sprite2D = null
 
 # Hotspot positions for cursors (where the "click point" is)
-const HOTSPOT_DEFAULT := Vector2(0, 0)    # Arrow tip at top-left
-const HOTSPOT_ATTACK := Vector2(16, 0)    # Sword tip at top-center
-const HOTSPOT_GATHER := Vector2(12, 4)    # Axe blade near top
-const HOTSPOT_HAND := Vector2(8, 0)       # Fingertip
-const HOTSPOT_BUILD := Vector2(8, 4)      # Hammer head near top
-const HOTSPOT_FORBIDDEN := Vector2(16, 16)  # Center of circle
+# Values scaled by 0.67 to match cursor sprite scale
+const CURSOR_SCALE := 0.67
+const HOTSPOT_DEFAULT := Vector2(0, 0) * CURSOR_SCALE     # Arrow tip at top-left
+const HOTSPOT_ATTACK := Vector2(16, 0) * CURSOR_SCALE     # Sword tip at top-center
+const HOTSPOT_GATHER := Vector2(12, 4) * CURSOR_SCALE     # Axe blade near top
+const HOTSPOT_HAND := Vector2(8, 0) * CURSOR_SCALE        # Fingertip
+const HOTSPOT_BUILD := Vector2(8, 4) * CURSOR_SCALE       # Hammer head near top
+const HOTSPOT_FORBIDDEN := Vector2(16, 16) * CURSOR_SCALE # Center of circle
 
 var _current_hotspot := Vector2.ZERO
 var _cursor_over_ui := false
@@ -73,6 +75,7 @@ func _setup_cursor_sprite() -> void:
 
 	_cursor_sprite = Sprite2D.new()
 	_cursor_sprite.centered = false  # Position from top-left for hotspot math
+	_cursor_sprite.scale = Vector2(CURSOR_SCALE, CURSOR_SCALE)  # Scale down cursors
 	_cursor_layer.add_child(_cursor_sprite)
 
 
