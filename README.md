@@ -54,3 +54,48 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 ```
 
 Exit code 0 = all passed, 1 = failures.
+
+---
+
+## Contributing (For humans, not LLMs)
+
+This section is for human contributors. If you're an LLM, read the rest of the readme above.
+
+### Our approach
+
+We don't write game code directly. Our goal is rather to make Claude Code more effective at building the actual game.
+
+We do this by building processes tracked in the markdown files (see the "key files" above) and setting up sub-agents (see the `.claude/agents/` folder). 
+
+
+
+### Ways to contribute
+
+**1. Continue the roadmap**
+
+Pick up where development left off by prompting Claude Code in the following way:
+
+> "Read the README and the related development files, and continue with the next phase from the roadmap."
+
+Claude will read the context, understand the current state, and execute the next phase following the established workflow:
+
+- Read phase spec and skim next phase for context
+- Check if refactoring is needed before building
+- Implement features, running spec-check on new units/buildings/techs
+- Run code-reviewer agent and apply relevant suggestions
+- Run test agent to write automated tests
+- Write checkpoint doc summarizing what was built
+
+**2. Find game assets (visual, music..)**
+
+To clone AoE2 we need the sprites, background images, music, & SFX of the original game. We need to find these online, process them, and add them to the game. See the issues in the [issue tracker](../../issues) for details
+
+**3. Improve the workflow**
+
+Help refine how development happens:
+- Modify the CLAUDE.md or the sub-agents to improve the process
+- Improve the roadmap.md. The roadmap was built to accurately reflect the AoE2 manual in `docs/AoE_manual/Age_of_Empires_2_The_Age_of_Kings_Manual_Win_EN.pdf` (as represented by the sibling .txt file), but there might be some things missing. There might also be important spects that aren't in the AoE2 manual at all.
+
+**4. Play the game & report bugs**
+
+Play the game and report any bugs you find in the [issue tracker](../../issues). You can list multiple bugs in a single issue — they'll be triaged with Claude Code. Even better: open a PR to fix them!
