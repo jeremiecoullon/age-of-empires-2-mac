@@ -48,6 +48,7 @@ const HOTSPOT_FORBIDDEN := Vector2(16, 16) * CURSOR_SCALE # Center of circle
 
 var _current_hotspot := Vector2.ZERO
 var _cursor_over_ui := false
+var _window_focused := true
 
 # Throttling for hover queries (avoid expensive group searches every frame)
 const CURSOR_UPDATE_INTERVAL: float = 0.1  # 10 updates per second
@@ -61,10 +62,26 @@ var _cached_hover_animal: Node = null
 func _ready() -> void:
 	# Create sprite-based cursor
 	_setup_cursor_sprite()
-	# Hide system cursor
+	# Connect to window focus signals
+	get_viewport().get_window().focus_entered.connect(_on_window_focus_entered)
+	get_viewport().get_window().focus_exited.connect(_on_window_focus_exited)
+	# Hide system cursor (only when window is focused)
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	# Set default cursor
 	_set_cursor(CursorType.DEFAULT)
+
+
+func _on_window_focus_entered() -> void:
+	_window_focused = true
+	_update_cursor_visibility()
+
+
+func _on_window_focus_exited() -> void:
+	_window_focused = false
+	# Always show system cursor when window loses focus
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if _cursor_sprite:
+		_cursor_sprite.visible = false
 
 
 func _setup_cursor_sprite() -> void:
@@ -121,14 +138,14 @@ func _is_mouse_over_ui() -> bool:
 
 
 func _update_cursor_visibility() -> void:
-	## Show/hide sprite cursor based on whether mouse is over UI
-	if _cursor_over_ui:
-		# Over UI - show system cursor, hide sprite
+	## Show/hide sprite cursor based on window focus and UI hover state
+	if not _window_focused or _cursor_over_ui:
+		# Window not focused or over UI - show system cursor, hide sprite
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		if _cursor_sprite:
 			_cursor_sprite.visible = false
 	else:
-		# Over game world - hide system cursor, show sprite
+		# Window focused and over game world - hide system cursor, show sprite
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 		if _cursor_sprite:
 			_cursor_sprite.visible = true
