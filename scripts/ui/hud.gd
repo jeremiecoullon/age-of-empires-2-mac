@@ -1,539 +1,406 @@
 extends CanvasLayer
 
-@onready var wood_label: Label = $TopBar/WoodLabel
-@onready var food_label: Label = $TopBar/FoodLabel
-@onready var gold_label: Label = $TopBar/GoldLabel
-@onready var stone_label: Label = $TopBar/StoneLabel
-@onready var pop_label: Label = $TopBar/PopLabel
-@onready var build_panel: PanelContainer = $BuildPanel
-@onready var tc_panel: PanelContainer = $TCPanel
-@onready var train_button: Button = $TCPanel/VBoxContainer/TrainVillagerButton
-@onready var train_progress: ProgressBar = $TCPanel/VBoxContainer/QueueContainer/TrainProgress
-@onready var tc_queue_label: Label = $TCPanel/VBoxContainer/QueueContainer/QueueLabel
-@onready var tc_cancel_button: Button = $TCPanel/VBoxContainer/CancelButton
-@onready var barracks_panel: PanelContainer = $BarracksPanel
-@onready var train_militia_button: Button = $BarracksPanel/VBoxContainer/TrainMilitiaButton
-@onready var barracks_train_progress: ProgressBar = $BarracksPanel/VBoxContainer/QueueContainer/BarracksTrainProgress
-@onready var barracks_queue_label: Label = $BarracksPanel/VBoxContainer/QueueContainer/QueueLabel
-@onready var barracks_cancel_button: Button = $BarracksPanel/VBoxContainer/CancelButton
-@onready var market_panel: PanelContainer = $MarketPanel
-@onready var buy_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton
-@onready var buy_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyFoodButton
-@onready var buy_stone_button: Button = $MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyStoneButton
-@onready var sell_wood_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellWoodButton
-@onready var sell_food_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellFoodButton
-@onready var sell_stone_button: Button = $MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton
-@onready var market_train_progress: ProgressBar = $MarketPanel/VBoxContainer/QueueContainer/MarketTrainProgress
-@onready var market_queue_label: Label = $MarketPanel/VBoxContainer/QueueContainer/QueueLabel
-@onready var market_cancel_button: Button = $MarketPanel/VBoxContainer/CancelButton
-@onready var archery_range_panel: PanelContainer = $ArcheryRangePanel
-@onready var archery_range_train_progress: ProgressBar = $ArcheryRangePanel/VBoxContainer/QueueContainer/ArcheryRangeTrainProgress
-@onready var archery_range_queue_label: Label = $ArcheryRangePanel/VBoxContainer/QueueContainer/QueueLabel
-@onready var archery_range_cancel_button: Button = $ArcheryRangePanel/VBoxContainer/CancelButton
-@onready var stable_panel: PanelContainer = $StablePanel
-@onready var stable_train_progress: ProgressBar = $StablePanel/VBoxContainer/QueueContainer/StableTrainProgress
-@onready var stable_queue_label: Label = $StablePanel/VBoxContainer/QueueContainer/QueueLabel
-@onready var stable_cancel_button: Button = $StablePanel/VBoxContainer/CancelButton
+## AoE2-style HUD with bottom panel (info, actions, minimap) and top resource bar
+
+# Top bar
+@onready var wood_label: Label = $TopBar/TopBarContent/WoodLabel
+@onready var food_label: Label = $TopBar/TopBarContent/FoodLabel
+@onready var gold_label: Label = $TopBar/TopBarContent/GoldLabel
+@onready var stone_label: Label = $TopBar/TopBarContent/StoneLabel
+@onready var pop_label: Label = $TopBar/TopBarContent/PopLabel
+@onready var age_label: Label = $TopBar/TopBarContent/AgeLabel
+
+# Left section - Info panel
+@onready var info_title: Label = $BottomPanel/BottomContent/LeftSection/InfoContainer/InfoTitle
+@onready var hp_bar: ProgressBar = $BottomPanel/BottomContent/LeftSection/InfoContainer/HPContainer/HPBar
+@onready var hp_label: Label = $BottomPanel/BottomContent/LeftSection/InfoContainer/HPContainer/HPLabel
+@onready var attack_label: Label = $BottomPanel/BottomContent/LeftSection/InfoContainer/StatsContainer/AttackLabel
+@onready var armor_label: Label = $BottomPanel/BottomContent/LeftSection/InfoContainer/StatsContainer/ArmorLabel
+@onready var info_details: Label = $BottomPanel/BottomContent/LeftSection/InfoContainer/InfoDetails
+
+# Center section - Actions
+@onready var action_title: Label = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionTitle
+@onready var action_grid: GridContainer = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid
+
+# Build buttons
+@onready var build_house_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildHouseButton
+@onready var build_barracks_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildBarracksButton
+@onready var build_farm_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildFarmButton
+@onready var build_mill_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMillButton
+@onready var build_lumber_camp_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildLumberCampButton
+@onready var build_mining_camp_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMiningCampButton
+@onready var build_market_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMarketButton
+@onready var build_archery_range_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildArcheryRangeButton
+@onready var build_stable_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton
+
+# Train buttons
+@onready var train_villager_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton
+@onready var train_militia_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMilitiaButton
+@onready var train_spearman_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSpearmanButton
+@onready var train_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainArcherButton
+@onready var train_skirmisher_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSkirmisherButton
+@onready var train_scout_cavalry_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScoutCavalryButton
+@onready var train_cavalry_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton
+
+# Market buttons
+@onready var buy_wood_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton
+@onready var buy_food_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyFoodButton
+@onready var buy_stone_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyStoneButton
+@onready var sell_wood_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/SellWoodButton
+@onready var sell_food_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/SellFoodButton
+@onready var sell_stone_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/SellStoneButton
+@onready var train_trade_cart_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainTradeCartButton
+
+# Queue and cancel
+@onready var cancel_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/CancelButton
+@onready var train_progress: ProgressBar = $BottomPanel/BottomContent/CenterSection/ActionContainer/QueueContainer/TrainProgress
+@onready var queue_label: Label = $BottomPanel/BottomContent/CenterSection/ActionContainer/QueueContainer/QueueLabel
+
+# Stance buttons
+@onready var stance_container: HBoxContainer = $BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer
+@onready var stance_agg_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceAgg
+@onready var stance_def_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceDef
+@onready var stance_sg_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceSG
+@onready var stance_na_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceNA
+
+# Minimap
+@onready var minimap: Minimap = $BottomPanel/BottomContent/RightSection/MinimapContainer/Minimap
+
+# Overlays
 @onready var error_label: Label = $ErrorLabel
-@onready var info_panel: PanelContainer = $InfoPanel
-@onready var info_title: Label = $InfoPanel/VBoxContainer/InfoTitle
-@onready var info_details: Label = $InfoPanel/VBoxContainer/InfoDetails
 @onready var game_over_panel: PanelContainer = $GameOverPanel
 @onready var game_over_label: Label = $GameOverPanel/VBoxContainer/GameOverLabel
 @onready var restart_button: Button = $GameOverPanel/VBoxContainer/RestartButton
 
-# Attack notification label (created dynamically if not in scene)
+# Attack notification (created dynamically)
 var attack_notification_label: Label = null
 
-# Stance UI (created dynamically)
-var stance_container: HBoxContainer = null
-var stance_buttons: Array[Button] = []
-var selected_military_unit: Unit = null  # Track currently selected military unit for stance changes
+# Currently selected building (for training)
+var selected_building: Building = null
+var selected_building_type: String = ""  # "tc", "barracks", "market", "archery_range", "stable"
 
-var selected_tc: TownCenter = null
-var selected_barracks: Barracks = null
-var selected_market: Market = null
-var selected_archery_range: ArcheryRange = null
-var selected_stable: Stable = null
-
-# Track selected entity for live info updates
+# Track selected entity for info panel updates
 var selected_info_entity: Node = null
 
+# Track selected military unit for stance buttons
+var selected_military_unit: Unit = null
+
+# Notification counter to prevent race conditions
+var _notification_counter: int = 0
+
+# All action buttons for easy hide/show
+var build_buttons: Array[Button] = []
+var tc_buttons: Array[Button] = []
+var barracks_buttons: Array[Button] = []
+var archery_range_buttons: Array[Button] = []
+var stable_buttons: Array[Button] = []
+var market_buttons: Array[Button] = []
+
+
 func _ready() -> void:
-	layer = 100  # Above fog of war (layer 10)
+	layer = 100  # Above fog of war
+
+	# Connect signals
 	GameManager.resources_changed.connect(_update_resources)
 	GameManager.population_changed.connect(_update_population)
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.villager_idle.connect(_on_villager_idle)
 	GameManager.market_prices_changed.connect(_update_market_prices)
 	GameManager.player_under_attack.connect(_on_player_under_attack)
+
+	# Group buttons for easier management
+	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
+					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
+					 build_archery_range_btn, build_stable_btn]
+	tc_buttons = [train_villager_btn]
+	barracks_buttons = [train_militia_btn, train_spearman_btn]
+	archery_range_buttons = [train_archer_btn, train_skirmisher_btn]
+	stable_buttons = [train_scout_cavalry_btn, train_cavalry_archer_btn]
+	market_buttons = [buy_wood_btn, buy_food_btn, buy_stone_btn,
+					  sell_wood_btn, sell_food_btn, sell_stone_btn, train_trade_cart_btn]
+
+	# Initial update
 	_update_resources()
 	_update_population()
 	_update_market_prices()
 	_setup_attack_notification()
-	_setup_stance_buttons()
-	build_panel.visible = false  # Only show when villager selected
-	tc_panel.visible = false
-	barracks_panel.visible = false
-	market_panel.visible = false
-	archery_range_panel.visible = false
-	stable_panel.visible = false
-	error_label.visible = false
-	info_panel.visible = false
+
+	# Hide all action buttons initially
+	_hide_all_action_buttons()
 	game_over_panel.visible = false
+	error_label.visible = false
+
 
 func _update_resources() -> void:
-	wood_label.text = "Wood: %d" % GameManager.get_resource("wood")
-	food_label.text = "Food: %d" % GameManager.get_resource("food")
-	gold_label.text = "Gold: %d" % GameManager.get_resource("gold")
-	stone_label.text = "Stone: %d" % GameManager.get_resource("stone")
+	wood_label.text = "%d" % GameManager.get_resource("wood")
+	food_label.text = "%d" % GameManager.get_resource("food")
+	gold_label.text = "%d" % GameManager.get_resource("gold")
+	stone_label.text = "%d" % GameManager.get_resource("stone")
+
 
 func _update_population() -> void:
-	pop_label.text = "Pop: %d/%d" % [GameManager.get_population(), GameManager.get_population_cap()]
+	pop_label.text = "%d/%d" % [GameManager.get_population(), GameManager.get_population_cap()]
+
 
 func _process(_delta: float) -> void:
-	# Live update info panel for selected entity (unit state changes, HP, etc.)
+	# Live update info panel
 	_update_selected_entity_info()
 
-	# Update Town Center queue
-	if selected_tc:
-		var queue_size = selected_tc.get_queue_size()
-		tc_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
-		tc_cancel_button.visible = queue_size > 0
-		if selected_tc.is_training:
-			train_progress.value = selected_tc.get_train_progress() * 100
-			train_progress.visible = true
-		else:
-			train_progress.visible = false
+	# Update production queue progress
+	_update_production_progress()
+
+
+func _update_production_progress() -> void:
+	if not selected_building or not is_instance_valid(selected_building):
+		train_progress.visible = false
+		queue_label.text = ""
+		cancel_btn.visible = false
+		return
+
+	var queue_size = selected_building.get_queue_size()
+	queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
+	cancel_btn.visible = queue_size > 0
+
+	if selected_building.is_training:
+		train_progress.value = selected_building.get_train_progress() * 100
+		train_progress.visible = true
 	else:
 		train_progress.visible = false
 
-	# Update Barracks queue
-	if selected_barracks:
-		var queue_size = selected_barracks.get_queue_size()
-		barracks_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
-		barracks_cancel_button.visible = queue_size > 0
-		if selected_barracks.is_training:
-			barracks_train_progress.value = selected_barracks.get_train_progress() * 100
-			barracks_train_progress.visible = true
-		else:
-			barracks_train_progress.visible = false
-	else:
-		barracks_train_progress.visible = false
 
-	# Update Market queue
-	if selected_market:
-		var queue_size = selected_market.get_queue_size()
-		market_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
-		market_cancel_button.visible = queue_size > 0
-		if selected_market.is_training:
-			market_train_progress.value = selected_market.get_train_progress() * 100
-			market_train_progress.visible = true
-		else:
-			market_train_progress.visible = false
-	else:
-		market_train_progress.visible = false
-
-	# Update Archery Range queue
-	if selected_archery_range:
-		var queue_size = selected_archery_range.get_queue_size()
-		archery_range_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
-		archery_range_cancel_button.visible = queue_size > 0
-		if selected_archery_range.is_training:
-			archery_range_train_progress.value = selected_archery_range.get_train_progress() * 100
-			archery_range_train_progress.visible = true
-		else:
-			archery_range_train_progress.visible = false
-	else:
-		archery_range_train_progress.visible = false
-
-	# Update Stable queue
-	if selected_stable:
-		var queue_size = selected_stable.get_queue_size()
-		stable_queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
-		stable_cancel_button.visible = queue_size > 0
-		if selected_stable.is_training:
-			stable_train_progress.value = selected_stable.get_train_progress() * 100
-			stable_train_progress.visible = true
-		else:
-			stable_train_progress.visible = false
-	else:
-		stable_train_progress.visible = false
-
-func show_tc_panel(tc: TownCenter) -> void:
-	# Disconnect previous TC signal if exists
-	if selected_tc and selected_tc.training_completed.is_connected(_on_training_completed):
-		selected_tc.training_completed.disconnect(_on_training_completed)
-
-	selected_tc = tc
-	tc_panel.visible = true
-	build_panel.visible = false  # Hide build panel when showing building panel
-	if not tc.training_completed.is_connected(_on_training_completed):
-		tc.training_completed.connect(_on_training_completed)
-
-func hide_tc_panel() -> void:
-	if selected_tc:
-		if selected_tc.training_completed.is_connected(_on_training_completed):
-			selected_tc.training_completed.disconnect(_on_training_completed)
-	selected_tc = null
-	tc_panel.visible = false
-	# Don't auto-show build_panel - only shows when villager selected
-
-func show_barracks_panel(barracks: Barracks) -> void:
-	# Disconnect previous barracks signal if exists
-	if selected_barracks and selected_barracks.training_completed.is_connected(_on_barracks_training_completed):
-		selected_barracks.training_completed.disconnect(_on_barracks_training_completed)
-
-	selected_barracks = barracks
-	barracks_panel.visible = true
-	tc_panel.visible = false
-	build_panel.visible = false
-	if not barracks.training_completed.is_connected(_on_barracks_training_completed):
-		barracks.training_completed.connect(_on_barracks_training_completed)
-
-func hide_barracks_panel() -> void:
-	if selected_barracks:
-		if selected_barracks.training_completed.is_connected(_on_barracks_training_completed):
-			selected_barracks.training_completed.disconnect(_on_barracks_training_completed)
-	selected_barracks = null
-	barracks_panel.visible = false
-	# Don't auto-show build_panel - only shows when villager selected
-
-func show_market_panel(market: Market) -> void:
-	# Disconnect previous market signal if exists
-	if selected_market and selected_market.training_completed.is_connected(_on_market_training_completed):
-		selected_market.training_completed.disconnect(_on_market_training_completed)
-
-	selected_market = market
-	market_panel.visible = true
-	tc_panel.visible = false
-	barracks_panel.visible = false
-	build_panel.visible = false
-	_update_market_prices()
-	if not market.training_completed.is_connected(_on_market_training_completed):
-		market.training_completed.connect(_on_market_training_completed)
-
-func hide_market_panel() -> void:
-	if selected_market:
-		if selected_market.training_completed.is_connected(_on_market_training_completed):
-			selected_market.training_completed.disconnect(_on_market_training_completed)
-	selected_market = null
-	market_panel.visible = false
-	# Don't auto-show build_panel - only shows when villager selected
-
-func show_archery_range_panel(archery_range: ArcheryRange) -> void:
-	# Disconnect previous archery range signal if exists
-	if selected_archery_range and selected_archery_range.training_completed.is_connected(_on_archery_range_training_completed):
-		selected_archery_range.training_completed.disconnect(_on_archery_range_training_completed)
-
-	selected_archery_range = archery_range
-	archery_range_panel.visible = true
-	tc_panel.visible = false
-	barracks_panel.visible = false
-	market_panel.visible = false
-	build_panel.visible = false
-	if not archery_range.training_completed.is_connected(_on_archery_range_training_completed):
-		archery_range.training_completed.connect(_on_archery_range_training_completed)
-
-func hide_archery_range_panel() -> void:
-	if selected_archery_range:
-		if selected_archery_range.training_completed.is_connected(_on_archery_range_training_completed):
-			selected_archery_range.training_completed.disconnect(_on_archery_range_training_completed)
-	selected_archery_range = null
-	archery_range_panel.visible = false
-	# Don't auto-show build_panel - only shows when villager selected
-
-func show_stable_panel(stable: Stable) -> void:
-	# Disconnect previous stable signal if exists
-	if selected_stable and selected_stable.training_completed.is_connected(_on_stable_training_completed):
-		selected_stable.training_completed.disconnect(_on_stable_training_completed)
-
-	selected_stable = stable
-	stable_panel.visible = true
-	tc_panel.visible = false
-	barracks_panel.visible = false
-	market_panel.visible = false
-	archery_range_panel.visible = false
-	build_panel.visible = false
-	if not stable.training_completed.is_connected(_on_stable_training_completed):
-		stable.training_completed.connect(_on_stable_training_completed)
-
-func hide_stable_panel() -> void:
-	if selected_stable:
-		if selected_stable.training_completed.is_connected(_on_stable_training_completed):
-			selected_stable.training_completed.disconnect(_on_stable_training_completed)
-	selected_stable = null
-	stable_panel.visible = false
-	# Don't auto-show build_panel - only shows when villager selected
-
-func _on_training_completed() -> void:
+func _hide_all_action_buttons() -> void:
+	for btn in build_buttons:
+		btn.visible = false
+	for btn in tc_buttons:
+		btn.visible = false
+	for btn in barracks_buttons:
+		btn.visible = false
+	for btn in archery_range_buttons:
+		btn.visible = false
+	for btn in stable_buttons:
+		btn.visible = false
+	for btn in market_buttons:
+		btn.visible = false
+	cancel_btn.visible = false
 	train_progress.visible = false
+	queue_label.text = ""
+	stance_container.visible = false
 
-func _on_barracks_training_completed() -> void:
-	barracks_train_progress.visible = false
 
-func _on_market_training_completed() -> void:
-	market_train_progress.visible = false
+func _show_build_buttons() -> void:
+	_hide_all_action_buttons()
+	for btn in build_buttons:
+		btn.visible = true
+	action_title.text = "Build"
 
-func _on_archery_range_training_completed() -> void:
-	archery_range_train_progress.visible = false
 
-func _on_stable_training_completed() -> void:
-	stable_train_progress.visible = false
+func _show_tc_buttons(tc: TownCenter) -> void:
+	_hide_all_action_buttons()
+	for btn in tc_buttons:
+		btn.visible = true
+	action_title.text = "Town Center"
+	selected_building = tc
+	selected_building_type = "tc"
+
+
+func _show_barracks_buttons(barracks: Barracks) -> void:
+	_hide_all_action_buttons()
+	for btn in barracks_buttons:
+		btn.visible = true
+	action_title.text = "Barracks"
+	selected_building = barracks
+	selected_building_type = "barracks"
+
+
+func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
+	_hide_all_action_buttons()
+	for btn in archery_range_buttons:
+		btn.visible = true
+	action_title.text = "Archery Range"
+	selected_building = archery_range
+	selected_building_type = "archery_range"
+
+
+func _show_stable_buttons(stable: Stable) -> void:
+	_hide_all_action_buttons()
+	for btn in stable_buttons:
+		btn.visible = true
+	action_title.text = "Stable"
+	selected_building = stable
+	selected_building_type = "stable"
+
+
+func _show_market_buttons(market: Market) -> void:
+	_hide_all_action_buttons()
+	for btn in market_buttons:
+		btn.visible = true
+	action_title.text = "Market"
+	selected_building = market
+	selected_building_type = "market"
+	_update_market_prices()
+
 
 func _update_market_prices() -> void:
-	# Update buy button labels
-	buy_wood_button.text = "Wood: %dg" % GameManager.get_market_buy_price("wood")
-	buy_food_button.text = "Food: %dg" % GameManager.get_market_buy_price("food")
-	buy_stone_button.text = "Stone: %dg" % GameManager.get_market_buy_price("stone")
+	buy_wood_btn.text = "Buy Wood: %dg" % GameManager.get_market_buy_price("wood")
+	buy_food_btn.text = "Buy Food: %dg" % GameManager.get_market_buy_price("food")
+	buy_stone_btn.text = "Buy Stone: %dg" % GameManager.get_market_buy_price("stone")
+	sell_wood_btn.text = "Sell Wood: %dg" % GameManager.get_market_sell_price("wood")
+	sell_food_btn.text = "Sell Food: %dg" % GameManager.get_market_sell_price("food")
+	sell_stone_btn.text = "Sell Stone: %dg" % GameManager.get_market_sell_price("stone")
 
-	# Update sell button labels
-	sell_wood_button.text = "Wood: %dg" % GameManager.get_market_sell_price("wood")
-	sell_food_button.text = "Food: %dg" % GameManager.get_market_sell_price("food")
-	sell_stone_button.text = "Stone: %dg" % GameManager.get_market_sell_price("stone")
 
-func _on_train_villager_pressed() -> void:
-	if selected_tc:
-		if not selected_tc.train_villager():
-			if not GameManager.can_afford("food", TownCenter.VILLAGER_COST):
-				_show_error("Not enough food! (Need 50)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _on_build_house_pressed() -> void:
-	if not GameManager.can_afford("wood", 25):
-		_show_error("Not enough wood! (Need 25)")
-		return
-	get_parent().start_house_placement()
-
-func _on_build_barracks_pressed() -> void:
-	if not GameManager.can_afford("wood", 100):
-		_show_error("Not enough wood! (Need 100)")
-		return
-	get_parent().start_barracks_placement()
-
-func _on_build_farm_pressed() -> void:
-	if not GameManager.can_afford("wood", 50):
-		_show_error("Not enough wood! (Need 50)")
-		return
-	get_parent().start_farm_placement()
-
-func _on_build_mill_pressed() -> void:
-	if not GameManager.can_afford("wood", 100):
-		_show_error("Not enough wood! (Need 100)")
-		return
-	get_parent().start_mill_placement()
-
-func _on_build_lumber_camp_pressed() -> void:
-	if not GameManager.can_afford("wood", 100):
-		_show_error("Not enough wood! (Need 100)")
-		return
-	get_parent().start_lumber_camp_placement()
-
-func _on_build_mining_camp_pressed() -> void:
-	if not GameManager.can_afford("wood", 100):
-		_show_error("Not enough wood! (Need 100)")
-		return
-	get_parent().start_mining_camp_placement()
-
-func _on_train_militia_pressed() -> void:
-	if selected_barracks:
-		if not selected_barracks.train_militia():
-			if not GameManager.can_afford("food", Barracks.MILITIA_FOOD_COST):
-				_show_error("Not enough food! (Need 60)")
-			elif not GameManager.can_afford("wood", Barracks.MILITIA_WOOD_COST):
-				_show_error("Not enough wood! (Need 20)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _on_train_spearman_pressed() -> void:
-	if selected_barracks:
-		if not selected_barracks.train_spearman():
-			if not GameManager.can_afford("food", Barracks.SPEARMAN_FOOD_COST):
-				_show_error("Not enough food! (Need 35)")
-			elif not GameManager.can_afford("wood", Barracks.SPEARMAN_WOOD_COST):
-				_show_error("Not enough wood! (Need 25)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _on_build_market_pressed() -> void:
-	if not GameManager.can_afford("wood", 175):
-		_show_error("Not enough wood! (Need 175)")
-		return
-	get_parent().start_market_placement()
-
-func _on_build_archery_range_pressed() -> void:
-	if not GameManager.can_afford("wood", 175):
-		_show_error("Not enough wood! (Need 175)")
-		return
-	get_parent().start_archery_range_placement()
-
-func _on_train_archer_pressed() -> void:
-	if selected_archery_range:
-		if not selected_archery_range.train_archer():
-			if not GameManager.can_afford("wood", ArcheryRange.ARCHER_WOOD_COST):
-				_show_error("Not enough wood! (Need 25)")
-			elif not GameManager.can_afford("gold", ArcheryRange.ARCHER_GOLD_COST):
-				_show_error("Not enough gold! (Need 45)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _on_train_skirmisher_pressed() -> void:
-	if selected_archery_range:
-		if not selected_archery_range.train_skirmisher():
-			if not GameManager.can_afford("food", ArcheryRange.SKIRMISHER_FOOD_COST):
-				_show_error("Not enough food! (Need 25)")
-			elif not GameManager.can_afford("wood", ArcheryRange.SKIRMISHER_WOOD_COST):
-				_show_error("Not enough wood! (Need 35)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _on_build_stable_pressed() -> void:
-	if not GameManager.can_afford("wood", 175):
-		_show_error("Not enough wood! (Need 175)")
-		return
-	get_parent().start_stable_placement()
-
-func _on_train_scout_cavalry_pressed() -> void:
-	if selected_stable:
-		if not selected_stable.train_scout_cavalry():
-			if not GameManager.can_afford("food", Stable.SCOUT_CAVALRY_FOOD_COST):
-				_show_error("Not enough food! (Need 80)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _on_train_cavalry_archer_pressed() -> void:
-	if selected_stable:
-		if not selected_stable.train_cavalry_archer():
-			if not GameManager.can_afford("wood", Stable.CAVALRY_ARCHER_WOOD_COST):
-				_show_error("Not enough wood! (Need 40)")
-			elif not GameManager.can_afford("gold", Stable.CAVALRY_ARCHER_GOLD_COST):
-				_show_error("Not enough gold! (Need 70)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-# Market buy/sell handlers
-func _on_buy_wood_pressed() -> void:
-	if selected_market:
-		if not selected_market.buy_resource("wood"):
-			var price = GameManager.get_market_buy_price("wood")
-			_show_error("Not enough gold! (Need %d)" % price)
-
-func _on_buy_food_pressed() -> void:
-	if selected_market:
-		if not selected_market.buy_resource("food"):
-			var price = GameManager.get_market_buy_price("food")
-			_show_error("Not enough gold! (Need %d)" % price)
-
-func _on_buy_stone_pressed() -> void:
-	if selected_market:
-		if not selected_market.buy_resource("stone"):
-			var price = GameManager.get_market_buy_price("stone")
-			_show_error("Not enough gold! (Need %d)" % price)
-
-func _on_sell_wood_pressed() -> void:
-	if selected_market:
-		if not selected_market.sell_resource("wood"):
-			_show_error("Not enough wood! (Need 100)")
-
-func _on_sell_food_pressed() -> void:
-	if selected_market:
-		if not selected_market.sell_resource("food"):
-			_show_error("Not enough food! (Need 100)")
-
-func _on_sell_stone_pressed() -> void:
-	if selected_market:
-		if not selected_market.sell_resource("stone"):
-			_show_error("Not enough stone! (Need 100)")
-
-func _on_train_trade_cart_pressed() -> void:
-	if selected_market:
-		if not selected_market.train_trade_cart():
-			if not GameManager.can_afford("wood", Market.TRADE_CART_WOOD_COST):
-				_show_error("Not enough wood! (Need 100)")
-			elif not GameManager.can_afford("gold", Market.TRADE_CART_GOLD_COST):
-				_show_error("Not enough gold! (Need 50)")
-			elif not GameManager.can_add_population():
-				_show_error("Population cap reached! Build a House.")
-
-func _show_error(message: String) -> void:
-	error_label.text = message
-	error_label.visible = true
-	await get_tree().create_timer(2.0).timeout
-	error_label.visible = false
-
-func _on_villager_idle(_villager: Node, reason: String) -> void:
-	# Show notification when villager goes idle
-	_show_notification("Villager idle: " + reason)
-
-func _show_notification(message: String) -> void:
-	# Reuse error label for notifications (could be separate label in future)
-	error_label.text = message
-	error_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))  # Yellow for notifications
-	error_label.visible = true
-	await get_tree().create_timer(3.0).timeout
-	error_label.visible = false
-	error_label.remove_theme_color_override("font_color")  # Reset to default
+# ============================================================================
+# Public interface for main.gd to show info/actions
+# ============================================================================
 
 func show_info(entity: Node) -> void:
 	selected_info_entity = entity
+	_hide_all_action_buttons()
+	selected_building = null
+	selected_building_type = ""
+	selected_military_unit = null
+
 	if entity is Villager:
 		_show_villager_info(entity)
+		if entity.team == 0:
+			_show_build_buttons()
 	elif entity is TradeCart:
 		_show_trade_cart_info(entity)
 	elif entity is Militia:
-		_show_militia_info(entity)
+		_show_military_info(entity, "Militia")
 	elif entity is Archer:
-		_show_archer_info(entity)
+		_show_military_info(entity, "Archer")
 	elif entity is Skirmisher:
-		_show_skirmisher_info(entity)
+		_show_military_info(entity, "Skirmisher")
 	elif entity is CavalryArcher:
-		_show_cavalry_archer_info(entity)
+		_show_military_info(entity, "Cavalry Archer")
 	elif entity is ScoutCavalry:
-		_show_scout_cavalry_info(entity)
+		_show_military_info(entity, "Scout Cavalry")
 	elif entity is Spearman:
-		_show_spearman_info(entity)
+		_show_military_info(entity, "Spearman")
 	elif entity is Sheep:
-		_show_animal_info(entity, "Sheep", "Herdable. First to spot owns it.\nCan be stolen by enemies.")
+		_show_animal_info(entity, "Sheep", "Herdable. First to spot owns it.")
 	elif entity is Deer:
 		_show_animal_info(entity, "Deer", "Huntable. Flees when attacked.")
 	elif entity is Boar:
-		_show_animal_info(entity, "Wild Boar", "Dangerous! Fights back.\nLure to TC with villagers.")
+		_show_animal_info(entity, "Wild Boar", "Dangerous! Fights back.")
 	elif entity is Wolf:
-		_show_animal_info(entity, "Wolf", "Hostile! Attacks on sight.\nNo food yield.")
+		_show_animal_info(entity, "Wolf", "Hostile! No food yield.")
 	elif entity is PelicanBicycle:
-		_show_animal_info(entity, "Pelican on Bicycle", "A rare sight! Herdable.\nHow did it learn to ride?")
+		_show_animal_info(entity, "Pelican on Bicycle", "A rare sight!")
 	elif entity is Animal:
 		_show_animal_info(entity, "Animal", "")
 	elif entity is Farm:
-		_show_building_info("Farm", "Infinite food source\nGather rate: 0.5/sec", entity)
+		_show_building_info("Farm", "Infinite food\nGather: 0.5/sec", entity)
 	elif entity is ResourceNode:
 		_show_resource_info(entity)
 	elif entity is TownCenter:
-		_show_building_info("Town Center", "Trains villagers\nDeposit: all resources", entity)
+		_show_building_info("Town Center", "Trains villagers\nDrop-off: all", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_tc_buttons(entity)
 	elif entity is Barracks:
-		_show_building_info("Barracks", "Trains militia", entity)
+		_show_building_info("Barracks", "Trains infantry", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_barracks_buttons(entity)
 	elif entity is House:
 		_show_building_info("House", "+5 population cap", entity)
 	elif entity is Mill:
-		_show_building_info("Mill", "Deposit point for food", entity)
+		_show_building_info("Mill", "Drop-off: food", entity)
 	elif entity is LumberCamp:
-		_show_building_info("Lumber Camp", "Deposit point for wood", entity)
+		_show_building_info("Lumber Camp", "Drop-off: wood", entity)
 	elif entity is MiningCamp:
-		_show_building_info("Mining Camp", "Deposit point for gold/stone", entity)
+		_show_building_info("Mining Camp", "Drop-off: gold/stone", entity)
 	elif entity is Market:
-		_show_building_info("Market", "Buy/sell resources\nTrain Trade Carts", entity)
+		_show_building_info("Market", "Buy/sell resources", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_market_buttons(entity)
 	elif entity is ArcheryRange:
-		_show_building_info("Archery Range", "Trains ranged units\nArcher, Skirmisher", entity)
+		_show_building_info("Archery Range", "Trains ranged units", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_archery_range_buttons(entity)
 	elif entity is Stable:
-		_show_building_info("Stable", "Trains cavalry units\nScout Cavalry, Cavalry Archer", entity)
+		_show_building_info("Stable", "Trains cavalry", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_stable_buttons(entity)
 	elif entity is Building:
 		_show_building_info(entity.building_name, "", entity)
 	else:
 		hide_info()
 
+
+func show_tc_panel(tc: TownCenter) -> void:
+	show_info(tc)
+
+func hide_tc_panel() -> void:
+	if selected_building_type == "tc":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func show_barracks_panel(barracks: Barracks) -> void:
+	show_info(barracks)
+
+func hide_barracks_panel() -> void:
+	if selected_building_type == "barracks":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func show_market_panel(market: Market) -> void:
+	show_info(market)
+
+func hide_market_panel() -> void:
+	if selected_building_type == "market":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func show_archery_range_panel(archery_range: ArcheryRange) -> void:
+	show_info(archery_range)
+
+func hide_archery_range_panel() -> void:
+	if selected_building_type == "archery_range":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func show_stable_panel(stable: Stable) -> void:
+	show_info(stable)
+
+func hide_stable_panel() -> void:
+	if selected_building_type == "stable":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+
+func hide_info() -> void:
+	selected_info_entity = null
+	selected_building = null
+	selected_building_type = ""
+	selected_military_unit = null
+	info_title.text = "Select a unit"
+	hp_bar.value = 100
+	hp_label.text = ""
+	attack_label.text = ""
+	armor_label.text = ""
+	info_details.text = ""
+	action_title.text = "Actions"
+	_hide_all_action_buttons()
+
+
+# ============================================================================
+# Info panel display functions
+# ============================================================================
+
 func _show_villager_info(villager: Villager) -> void:
 	info_title.text = "Villager"
+	hp_bar.max_value = villager.max_hp
+	hp_bar.value = villager.current_hp
+	hp_label.text = "%d/%d" % [villager.current_hp, villager.max_hp]
+	attack_label.text = "⚔️ 3"
+	armor_label.text = "🛡️ 0/0"
+
 	var state_text = ""
 	match villager.current_state:
 		Villager.State.IDLE:
@@ -543,7 +410,7 @@ func _show_villager_info(villager: Villager) -> void:
 		Villager.State.GATHERING:
 			state_text = "Gathering " + villager.carried_resource_type
 		Villager.State.RETURNING:
-			state_text = "Returning to drop-off"
+			state_text = "Returning"
 		Villager.State.HUNTING:
 			state_text = "Hunting"
 		Villager.State.BUILDING:
@@ -553,115 +420,86 @@ func _show_villager_info(villager: Villager) -> void:
 	if villager.carried_amount > 0:
 		details += "\nCarrying: %d %s" % [villager.carried_amount, villager.carried_resource_type]
 	info_details.text = details
-	info_panel.visible = true
 
-	# Show build panel only for player villagers
-	if villager.team == 0:
-		build_panel.visible = true
-	else:
-		build_panel.visible = false
 
-func _show_militia_info(militia: Militia) -> void:
-	info_title.text = "Militia"
-	var state_text = ""
-	match militia.current_state:
-		Militia.State.IDLE:
-			state_text = "Idle"
-		Militia.State.MOVING:
-			state_text = "Moving"
-		Militia.State.ATTACKING:
-			state_text = "Attacking"
+func _show_military_info(unit: Unit, unit_name: String) -> void:
+	info_title.text = unit_name
+	hp_bar.max_value = unit.max_hp
+	hp_bar.value = unit.current_hp
+	hp_label.text = "%d/%d" % [unit.current_hp, unit.max_hp]
 
-	var details = "Status: %s\nHP: %d/%d\nAttack: %d" % [state_text, militia.current_hp, militia.max_hp, militia.attack_damage]
-	info_details.text = details
-	info_panel.visible = true
-	show_stance_ui(militia)
+	var attack = unit.attack_damage if "attack_damage" in unit else 0
+	var melee_armor = unit.melee_armor if "melee_armor" in unit else 0
+	var pierce_armor = unit.pierce_armor if "pierce_armor" in unit else 0
 
-func _show_archer_info(archer: Archer) -> void:
-	info_title.text = "Archer"
-	var state_text = ""
-	match archer.current_state:
-		Archer.State.IDLE:
-			state_text = "Idle"
-		Archer.State.MOVING:
-			state_text = "Moving"
-		Archer.State.ATTACKING:
-			state_text = "Attacking"
+	attack_label.text = "⚔️ %d" % attack
+	armor_label.text = "🛡️ %d/%d" % [melee_armor, pierce_armor]
 
-	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: %d" % [state_text, archer.current_hp, archer.max_hp, archer.attack_damage, int(archer.attack_range / 32)]
-	info_details.text = details
-	info_panel.visible = true
-	show_stance_ui(archer)
+	var state_text = "Idle"
+	if "current_state" in unit:
+		match unit.current_state:
+			0: state_text = "Idle"  # State.IDLE
+			1: state_text = "Moving"  # State.MOVING
+			2: state_text = "Attacking"  # State.ATTACKING
 
-func _show_skirmisher_info(skirmisher: Skirmisher) -> void:
-	info_title.text = "Skirmisher"
-	var state_text = ""
-	match skirmisher.current_state:
-		Skirmisher.State.IDLE:
-			state_text = "Idle"
-		Skirmisher.State.MOVING:
-			state_text = "Moving"
-		Skirmisher.State.ATTACKING:
-			state_text = "Attacking"
+	info_details.text = "Status: %s" % state_text
 
-	var details = "Status: %s\nHP: %d/%d\nAttack: %d (+%d vs archers)\nArmor: %d/%d\nRange: %d" % [state_text, skirmisher.current_hp, skirmisher.max_hp, skirmisher.attack_damage, skirmisher.bonus_vs_archers, skirmisher.melee_armor, skirmisher.pierce_armor, int(skirmisher.attack_range / 32)]
-	info_details.text = details
-	info_panel.visible = true
-	show_stance_ui(skirmisher)
+	# Show stance buttons for player military units
+	if unit.team == 0 and unit.is_in_group("military"):
+		selected_military_unit = unit
+		stance_container.visible = true
+		_update_stance_highlight()
 
-func _show_cavalry_archer_info(cav_archer: CavalryArcher) -> void:
-	info_title.text = "Cavalry Archer"
-	var state_text = ""
-	match cav_archer.current_state:
-		CavalryArcher.State.IDLE:
-			state_text = "Idle"
-		CavalryArcher.State.MOVING:
-			state_text = "Moving"
-		CavalryArcher.State.ATTACKING:
-			state_text = "Attacking"
-
-	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nRange: %d" % [state_text, cav_archer.current_hp, cav_archer.max_hp, cav_archer.attack_damage, int(cav_archer.attack_range / 32)]
-	info_details.text = details
-	info_panel.visible = true
-	show_stance_ui(cav_archer)
-
-func _show_scout_cavalry_info(cavalry: ScoutCavalry) -> void:
-	info_title.text = "Scout Cavalry"
-	var state_text = ""
-	match cavalry.current_state:
-		ScoutCavalry.State.IDLE:
-			state_text = "Idle"
-		ScoutCavalry.State.MOVING:
-			state_text = "Moving"
-		ScoutCavalry.State.ATTACKING:
-			state_text = "Attacking"
-
-	var details = "Status: %s\nHP: %d/%d\nAttack: %d\nArmor: %d/%d" % [state_text, cavalry.current_hp, cavalry.max_hp, cavalry.attack_damage, cavalry.melee_armor, cavalry.pierce_armor]
-	info_details.text = details
-	info_panel.visible = true
-	show_stance_ui(cavalry)
-
-func _show_spearman_info(spearman: Spearman) -> void:
-	info_title.text = "Spearman"
-	var state_text = ""
-	match spearman.current_state:
-		Spearman.State.IDLE:
-			state_text = "Idle"
-		Spearman.State.MOVING:
-			state_text = "Moving"
-		Spearman.State.ATTACKING:
-			state_text = "Attacking"
-
-	var details = "Status: %s\nHP: %d/%d\nAttack: %d (+%d vs cav)" % [state_text, spearman.current_hp, spearman.max_hp, spearman.attack_damage, spearman.bonus_vs_cavalry]
-	info_details.text = details
-	info_panel.visible = true
-	show_stance_ui(spearman)
 
 func _show_trade_cart_info(cart: TradeCart) -> void:
 	info_title.text = "Trade Cart"
-	var details = "HP: %d/%d\n%s" % [cart.current_hp, cart.max_hp, cart.get_trade_info()]
-	info_details.text = details
-	info_panel.visible = true
+	hp_bar.max_value = cart.max_hp
+	hp_bar.value = cart.current_hp
+	hp_label.text = "%d/%d" % [cart.current_hp, cart.max_hp]
+	attack_label.text = ""
+	armor_label.text = ""
+	info_details.text = cart.get_trade_info()
+
+
+func _show_animal_info(animal: Animal, title: String, description: String) -> void:
+	info_title.text = title
+	hp_bar.max_value = animal.max_hp
+	hp_bar.value = animal.current_hp
+	hp_label.text = "%d/%d" % [animal.current_hp, animal.max_hp]
+	attack_label.text = ""
+	armor_label.text = ""
+
+	var owner_text = "Wild"
+	if animal.team == 0:
+		owner_text = "Player"
+	elif animal.team == 1:
+		owner_text = "AI"
+
+	info_details.text = "Food: %d | Owner: %s\n%s" % [animal.food_amount, owner_text, description]
+
+
+func _show_building_info(title: String, details: String, building: Building) -> void:
+	var display_title = title
+	if building.team != 0:
+		display_title = title + " (Enemy)"
+	elif not building.is_constructed:
+		display_title = title + " (Building)"
+
+	info_title.text = display_title
+	hp_bar.max_value = building.max_hp
+	hp_bar.value = building.current_hp
+	hp_label.text = "%d/%d" % [building.current_hp, building.max_hp]
+	attack_label.text = ""
+	armor_label.text = ""
+
+	if not building.is_constructed:
+		info_details.text = "Progress: %d%%\nBuilders: %d\n[DEL to cancel]" % [
+			building.get_construction_percent(),
+			building.get_builder_count()
+		]
+	else:
+		info_details.text = details
+
 
 func _show_resource_info(resource: ResourceNode) -> void:
 	var type_name: String
@@ -669,61 +507,100 @@ func _show_resource_info(resource: ResourceNode) -> void:
 		type_name = "Carcass"
 	else:
 		match resource.resource_type:
-			"wood":
-				type_name = "Tree"
-			"food":
-				type_name = "Berry Bush"
-			"gold":
-				type_name = "Gold Mine"
-			"stone":
-				type_name = "Stone Mine"
-			_:
-				type_name = "Resource"
+			"wood": type_name = "Tree"
+			"food": type_name = "Berry Bush"
+			"gold": type_name = "Gold Mine"
+			"stone": type_name = "Stone Mine"
+			_: type_name = "Resource"
+
 	info_title.text = type_name
-	info_details.text = "Resource: %s\nRemaining: %d" % [resource.resource_type.capitalize(), int(resource.current_amount)]
-	info_panel.visible = true
+	hp_bar.value = 0
+	hp_label.text = ""
+	attack_label.text = ""
+	armor_label.text = ""
+	info_details.text = "%s: %d remaining" % [resource.resource_type.capitalize(), int(resource.current_amount)]
 
-func _show_animal_info(animal: Animal, title: String, description: String) -> void:
-	info_title.text = title
-	var owner_text = "Wild"
-	if animal.team == 0:
-		owner_text = "Player"
-	elif animal.team == 1:
-		owner_text = "AI"
-	var details = "HP: %d/%d\nFood: %d\nOwner: %s" % [animal.current_hp, animal.max_hp, animal.food_amount, owner_text]
-	if description != "":
-		details += "\n" + description
-	info_details.text = details
-	info_panel.visible = true
 
-func _show_building_info(title: String, details: String, building: Building = null) -> void:
-	var display_title = title
-	if building:
-		if building.team != 0:
-			display_title = title + " (Enemy)"
-		elif not building.is_constructed:
-			display_title = title + " (Building...)"
-	info_title.text = display_title
+func _update_selected_entity_info() -> void:
+	if not is_instance_valid(selected_info_entity):
+		return
 
-	var display_details = details
-	if building:
+	# Live update for units and buildings
+	if selected_info_entity is Villager:
+		# Villager has special state text - delegate to full info display
+		_show_villager_info(selected_info_entity as Villager)
+	elif selected_info_entity is TradeCart:
+		# Trade cart needs HP and trade info
+		var cart = selected_info_entity as TradeCart
+		hp_bar.max_value = cart.max_hp
+		hp_bar.value = cart.current_hp
+		hp_label.text = "%d/%d" % [cart.current_hp, cart.max_hp]
+		info_details.text = cart.get_trade_info()
+	elif selected_info_entity is Unit:
+		# Generic military unit - just update HP
+		var unit = selected_info_entity as Unit
+		hp_bar.max_value = unit.max_hp
+		hp_bar.value = unit.current_hp
+		hp_label.text = "%d/%d" % [unit.current_hp, unit.max_hp]
+	elif selected_info_entity is Building:
+		var building = selected_info_entity as Building
+		hp_bar.max_value = building.max_hp
+		hp_bar.value = building.current_hp
+		hp_label.text = "%d/%d" % [building.current_hp, building.max_hp]
+
 		if not building.is_constructed:
-			display_details = "Construction: %d%%\nHP: %d/%d\nBuilders: %d\n[Press DEL to cancel]" % [
+			info_details.text = "Progress: %d%%\nBuilders: %d\n[DEL to cancel]" % [
 				building.get_construction_percent(),
-				building.current_hp,
-				building.max_hp,
 				building.get_builder_count()
 			]
+	elif selected_info_entity is Animal:
+		var animal = selected_info_entity as Animal
+		hp_bar.max_value = animal.max_hp
+		hp_bar.value = animal.current_hp
+		hp_label.text = "%d/%d" % [animal.current_hp, animal.max_hp]
+
+
+# ============================================================================
+# Stance buttons
+# ============================================================================
+
+func _update_stance_highlight() -> void:
+	if not is_instance_valid(selected_military_unit):
+		return
+
+	var buttons = [stance_agg_btn, stance_def_btn, stance_sg_btn, stance_na_btn]
+	for i in range(buttons.size()):
+		if i == selected_military_unit.stance:
+			buttons[i].add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
 		else:
-			display_details = "HP: %d/%d" % [building.current_hp, building.max_hp]
-			if details != "":
-				display_details += "\n" + details
+			buttons[i].remove_theme_color_override("font_color")
 
-	info_details.text = display_details
-	info_panel.visible = true
 
-## Delete a selected building under construction (partial refund per AoE2)
-## AoE2 refunds "the resources from the unbuilt portion of the building"
+func _on_stance_agg_pressed() -> void:
+	if is_instance_valid(selected_military_unit):
+		selected_military_unit.set_stance(0)
+		_update_stance_highlight()
+
+func _on_stance_def_pressed() -> void:
+	if is_instance_valid(selected_military_unit):
+		selected_military_unit.set_stance(1)
+		_update_stance_highlight()
+
+func _on_stance_sg_pressed() -> void:
+	if is_instance_valid(selected_military_unit):
+		selected_military_unit.set_stance(2)
+		_update_stance_highlight()
+
+func _on_stance_na_pressed() -> void:
+	if is_instance_valid(selected_military_unit):
+		selected_military_unit.set_stance(3)
+		_update_stance_highlight()
+
+
+# ============================================================================
+# Building construction deletion
+# ============================================================================
+
 func delete_selected_building() -> bool:
 	if not is_instance_valid(selected_info_entity):
 		return false
@@ -733,7 +610,6 @@ func delete_selected_building() -> bool:
 
 	var building = selected_info_entity as Building
 
-	# Only allow deleting player's under-construction buildings
 	if building.team != 0:
 		_show_error("Cannot delete enemy buildings!")
 		return false
@@ -742,86 +618,298 @@ func delete_selected_building() -> bool:
 		_show_error("Cannot delete completed buildings!")
 		return false
 
-	# Calculate refund - AoE2 refunds the unbuilt portion
+	# Calculate refund
 	var refund_ratio = 1.0 - building.construction_progress
 	var wood_refund = int(building.wood_cost * refund_ratio)
 	var food_refund = int(building.food_cost * refund_ratio)
 
-	# Refund resources
 	if wood_refund > 0:
 		GameManager.add_resource("wood", wood_refund, 0)
 	if food_refund > 0:
 		GameManager.add_resource("food", food_refund, 0)
 
-	# Release all builders properly
-	for builder in building.builders.duplicate():  # Duplicate to avoid modifying during iteration
+	# Release builders
+	for builder in building.builders.duplicate():
 		if is_instance_valid(builder):
 			building.remove_builder(builder)
 			builder.target_construction = null
 			builder.current_state = Villager.State.IDLE
 
-	# Destroy the building
 	building.queue_free()
-
-	# Clear selection
 	selected_info_entity = null
-	info_panel.visible = false
+	hide_info()
 
 	var total_refund = wood_refund + food_refund
 	if total_refund > 0:
-		_show_notification("Construction cancelled (refunded %d resources)" % total_refund)
+		_show_notification("Cancelled (refunded %d)" % total_refund)
 	else:
 		_show_notification("Construction cancelled")
 	return true
 
-func hide_info() -> void:
-	selected_info_entity = null
-	info_panel.visible = false
-	build_panel.visible = false
-	hide_stance_ui()
 
-## Update info panel for selected entity (called every frame for live updates)
-func _update_selected_entity_info() -> void:
-	if not is_instance_valid(selected_info_entity):
-		return
-	if not info_panel.visible:
-		return
+# ============================================================================
+# Action button handlers
+# ============================================================================
 
-	# Update unit info in real-time (state, HP, carrying, etc.)
-	if selected_info_entity is Villager:
-		_show_villager_info(selected_info_entity)
-	elif selected_info_entity is Militia:
-		_show_militia_info(selected_info_entity)
-	elif selected_info_entity is Archer:
-		_show_archer_info(selected_info_entity)
-	elif selected_info_entity is Skirmisher:
-		_show_skirmisher_info(selected_info_entity)
-	elif selected_info_entity is CavalryArcher:
-		_show_cavalry_archer_info(selected_info_entity)
-	elif selected_info_entity is ScoutCavalry:
-		_show_scout_cavalry_info(selected_info_entity)
-	elif selected_info_entity is Spearman:
-		_show_spearman_info(selected_info_entity)
-	elif selected_info_entity is TradeCart:
-		_show_trade_cart_info(selected_info_entity)
-	elif selected_info_entity is Animal:
-		# Animals also need live updates for HP
-		if selected_info_entity is Sheep:
-			_show_animal_info(selected_info_entity, "Sheep", "Herdable. First to spot owns it.\nCan be stolen by enemies.")
-		elif selected_info_entity is Deer:
-			_show_animal_info(selected_info_entity, "Deer", "Huntable. Flees when attacked.")
-		elif selected_info_entity is Boar:
-			_show_animal_info(selected_info_entity, "Wild Boar", "Dangerous! Fights back.\nLure to TC with villagers.")
-		elif selected_info_entity is Wolf:
-			_show_animal_info(selected_info_entity, "Wolf", "Hostile! Attacks on sight.\nNo food yield.")
-		elif selected_info_entity is PelicanBicycle:
-			_show_animal_info(selected_info_entity, "Pelican on Bicycle", "A rare sight! Herdable.\nHow did it learn to ride?")
-	elif selected_info_entity is Building:
-		# Update building info (especially during construction)
-		var building = selected_info_entity as Building
-		if not building.is_constructed:
-			# Re-show building info to update construction progress
-			_show_building_info(building.building_name, "", building)
+func _on_build_house_pressed() -> void:
+	if not GameManager.can_afford("wood", 25):
+		_show_error("Need 25 wood!")
+		return
+	get_parent().start_house_placement()
+
+func _on_build_barracks_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Need 100 wood!")
+		return
+	get_parent().start_barracks_placement()
+
+func _on_build_farm_pressed() -> void:
+	if not GameManager.can_afford("wood", 50):
+		_show_error("Need 50 wood!")
+		return
+	get_parent().start_farm_placement()
+
+func _on_build_mill_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Need 100 wood!")
+		return
+	get_parent().start_mill_placement()
+
+func _on_build_lumber_camp_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Need 100 wood!")
+		return
+	get_parent().start_lumber_camp_placement()
+
+func _on_build_mining_camp_pressed() -> void:
+	if not GameManager.can_afford("wood", 100):
+		_show_error("Need 100 wood!")
+		return
+	get_parent().start_mining_camp_placement()
+
+func _on_build_market_pressed() -> void:
+	if not GameManager.can_afford("wood", 175):
+		_show_error("Need 175 wood!")
+		return
+	get_parent().start_market_placement()
+
+func _on_build_archery_range_pressed() -> void:
+	if not GameManager.can_afford("wood", 175):
+		_show_error("Need 175 wood!")
+		return
+	get_parent().start_archery_range_placement()
+
+func _on_build_stable_pressed() -> void:
+	if not GameManager.can_afford("wood", 175):
+		_show_error("Need 175 wood!")
+		return
+	get_parent().start_stable_placement()
+
+
+func _on_train_villager_pressed() -> void:
+	if selected_building is TownCenter:
+		var tc = selected_building as TownCenter
+		if not tc.train_villager():
+			if not GameManager.can_afford("food", TownCenter.VILLAGER_COST):
+				_show_error("Need 50 food!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_militia_pressed() -> void:
+	if selected_building is Barracks:
+		var barracks = selected_building as Barracks
+		if not barracks.train_militia():
+			if not GameManager.can_afford("food", Barracks.MILITIA_FOOD_COST):
+				_show_error("Need 60 food!")
+			elif not GameManager.can_afford("wood", Barracks.MILITIA_WOOD_COST):
+				_show_error("Need 20 wood!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_spearman_pressed() -> void:
+	if selected_building is Barracks:
+		var barracks = selected_building as Barracks
+		if not barracks.train_spearman():
+			if not GameManager.can_afford("food", Barracks.SPEARMAN_FOOD_COST):
+				_show_error("Need 35 food!")
+			elif not GameManager.can_afford("wood", Barracks.SPEARMAN_WOOD_COST):
+				_show_error("Need 25 wood!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_archer_pressed() -> void:
+	if selected_building is ArcheryRange:
+		var ar = selected_building as ArcheryRange
+		if not ar.train_archer():
+			if not GameManager.can_afford("wood", ArcheryRange.ARCHER_WOOD_COST):
+				_show_error("Need 25 wood!")
+			elif not GameManager.can_afford("gold", ArcheryRange.ARCHER_GOLD_COST):
+				_show_error("Need 45 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_skirmisher_pressed() -> void:
+	if selected_building is ArcheryRange:
+		var ar = selected_building as ArcheryRange
+		if not ar.train_skirmisher():
+			if not GameManager.can_afford("food", ArcheryRange.SKIRMISHER_FOOD_COST):
+				_show_error("Need 25 food!")
+			elif not GameManager.can_afford("wood", ArcheryRange.SKIRMISHER_WOOD_COST):
+				_show_error("Need 35 wood!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_scout_cavalry_pressed() -> void:
+	if selected_building is Stable:
+		var stable = selected_building as Stable
+		if not stable.train_scout_cavalry():
+			if not GameManager.can_afford("food", Stable.SCOUT_CAVALRY_FOOD_COST):
+				_show_error("Need 80 food!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_cavalry_archer_pressed() -> void:
+	if selected_building is Stable:
+		var stable = selected_building as Stable
+		if not stable.train_cavalry_archer():
+			if not GameManager.can_afford("wood", Stable.CAVALRY_ARCHER_WOOD_COST):
+				_show_error("Need 40 wood!")
+			elif not GameManager.can_afford("gold", Stable.CAVALRY_ARCHER_GOLD_COST):
+				_show_error("Need 70 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+
+func _on_buy_wood_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.buy_resource("wood"):
+			_show_error("Need %d gold!" % GameManager.get_market_buy_price("wood"))
+
+func _on_buy_food_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.buy_resource("food"):
+			_show_error("Need %d gold!" % GameManager.get_market_buy_price("food"))
+
+func _on_buy_stone_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.buy_resource("stone"):
+			_show_error("Need %d gold!" % GameManager.get_market_buy_price("stone"))
+
+func _on_sell_wood_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.sell_resource("wood"):
+			_show_error("Need 100 wood!")
+
+func _on_sell_food_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.sell_resource("food"):
+			_show_error("Need 100 food!")
+
+func _on_sell_stone_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.sell_resource("stone"):
+			_show_error("Need 100 stone!")
+
+func _on_train_trade_cart_pressed() -> void:
+	if selected_building is Market:
+		var market = selected_building as Market
+		if not market.train_trade_cart():
+			if not GameManager.can_afford("wood", Market.TRADE_CART_WOOD_COST):
+				_show_error("Need 100 wood!")
+			elif not GameManager.can_afford("gold", Market.TRADE_CART_GOLD_COST):
+				_show_error("Need 50 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+
+func _on_cancel_pressed() -> void:
+	if selected_building and is_instance_valid(selected_building):
+		selected_building.cancel_training()
+
+
+# ============================================================================
+# Minimap
+# ============================================================================
+
+func _on_minimap_clicked(world_position: Vector2) -> void:
+	var camera = get_viewport().get_camera_2d()
+	if is_instance_valid(camera) and camera.has_method("jump_to"):
+		camera.jump_to(world_position)
+
+
+# ============================================================================
+# Notifications and overlays
+# ============================================================================
+
+func _show_error(message: String) -> void:
+	_notification_counter += 1
+	var my_counter = _notification_counter
+	error_label.text = message
+	error_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
+	error_label.visible = true
+	await get_tree().create_timer(2.0).timeout
+	if my_counter == _notification_counter:
+		error_label.visible = false
+
+func _show_notification(message: String) -> void:
+	_notification_counter += 1
+	var my_counter = _notification_counter
+	error_label.text = message
+	error_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	error_label.visible = true
+	await get_tree().create_timer(3.0).timeout
+	if my_counter == _notification_counter:
+		error_label.visible = false
+
+func _on_villager_idle(_villager: Node, reason: String) -> void:
+	_show_notification("Villager idle: " + reason)
+
+
+func _setup_attack_notification() -> void:
+	attack_notification_label = Label.new()
+	attack_notification_label.name = "AttackNotification"
+	attack_notification_label.text = ""
+	attack_notification_label.visible = false
+	attack_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	attack_notification_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	attack_notification_label.add_theme_font_size_override("font_size", 24)
+	attack_notification_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
+	attack_notification_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	attack_notification_label.position = Vector2(-150, 50)
+	attack_notification_label.custom_minimum_size = Vector2(300, 40)
+	add_child(attack_notification_label)
+
+
+func _on_player_under_attack(attack_type: String) -> void:
+	var message: String
+	match attack_type:
+		"military":
+			message = "YOUR UNITS ARE UNDER ATTACK!"
+		"villager":
+			message = "YOUR VILLAGERS ARE UNDER ATTACK!"
+		"building":
+			message = "YOUR BUILDINGS ARE UNDER ATTACK!"
+		_:
+			message = "YOU ARE UNDER ATTACK!"
+
+	attack_notification_label.text = message
+	attack_notification_label.visible = true
+
+	var tween = create_tween()
+	tween.tween_interval(2.5)
+	tween.tween_callback(func(): attack_notification_label.modulate.a = 1.0)
+	tween.tween_property(attack_notification_label, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(func():
+		attack_notification_label.visible = false
+		attack_notification_label.modulate.a = 1.0
+	)
+
 
 func _on_game_over(winner: int) -> void:
 	game_over_panel.visible = true
@@ -832,127 +920,11 @@ func _on_game_over(winner: int) -> void:
 		game_over_label.text = "DEFEAT"
 		game_over_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
 
+
 func _on_restart_pressed() -> void:
-	selected_tc = null
-	selected_barracks = null
-	selected_market = null
-	selected_archery_range = null
-	selected_stable = null
+	selected_building = null
+	selected_building_type = ""
+	selected_info_entity = null
+	selected_military_unit = null
 	GameManager.reset()
 	get_tree().reload_current_scene()
-
-## Setup attack notification label (created dynamically)
-func _setup_attack_notification() -> void:
-	attack_notification_label = Label.new()
-	attack_notification_label.name = "AttackNotification"
-	attack_notification_label.text = ""
-	attack_notification_label.visible = false
-	attack_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	attack_notification_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	attack_notification_label.add_theme_font_size_override("font_size", 24)
-	attack_notification_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
-	# Position at top center of screen
-	attack_notification_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	attack_notification_label.position = Vector2(-150, 50)
-	attack_notification_label.custom_minimum_size = Vector2(300, 40)
-	add_child(attack_notification_label)
-
-## Called when player units/buildings are under attack
-func _on_player_under_attack(attack_type: String) -> void:
-	var message: String
-	match attack_type:
-		"military":
-			message = "⚔ YOUR UNITS ARE UNDER ATTACK! ⚔"
-		"villager":
-			message = "🔔 YOUR VILLAGERS ARE UNDER ATTACK! 🔔"
-		"building":
-			message = "🏰 YOUR BUILDINGS ARE UNDER ATTACK! 🏰"
-		_:
-			message = "⚠ YOU ARE UNDER ATTACK! ⚠"
-
-	attack_notification_label.text = message
-	attack_notification_label.visible = true
-
-	# Auto-hide after 3 seconds
-	var tween = create_tween()
-	tween.tween_interval(2.5)
-	tween.tween_callback(func(): attack_notification_label.modulate.a = 1.0)
-	tween.tween_property(attack_notification_label, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(func():
-		attack_notification_label.visible = false
-		attack_notification_label.modulate.a = 1.0
-	)
-
-## Setup stance buttons (added to info panel dynamically)
-func _setup_stance_buttons() -> void:
-	stance_container = HBoxContainer.new()
-	stance_container.name = "StanceContainer"
-	stance_container.visible = false
-	stance_container.custom_minimum_size = Vector2(0, 30)
-
-	var stance_names = ["AGG", "DEF", "SG", "NA"]
-	var stance_tooltips = ["Aggressive: Chase and attack enemies", "Defensive: Attack nearby, limited chase", "Stand Ground: Attack in range only", "No Attack: Never auto-attack"]
-
-	for i in range(4):
-		var btn = Button.new()
-		btn.text = stance_names[i]
-		btn.tooltip_text = stance_tooltips[i]
-		btn.custom_minimum_size = Vector2(40, 25)
-		btn.pressed.connect(_on_stance_button_pressed.bind(i))
-		stance_container.add_child(btn)
-		stance_buttons.append(btn)
-
-	# Add to info panel's VBoxContainer
-	var vbox = info_panel.get_node("VBoxContainer")
-	vbox.add_child(stance_container)
-
-## Called when a stance button is pressed
-func _on_stance_button_pressed(stance_index: int) -> void:
-	if not is_instance_valid(selected_military_unit):
-		return
-
-	selected_military_unit.set_stance(stance_index)
-	_update_stance_button_highlight()
-
-## Update stance button highlighting to show current stance
-func _update_stance_button_highlight() -> void:
-	if not is_instance_valid(selected_military_unit):
-		return
-
-	for i in range(stance_buttons.size()):
-		if i == selected_military_unit.stance:
-			stance_buttons[i].add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
-		else:
-			stance_buttons[i].remove_theme_color_override("font_color")
-
-## Show stance UI for a military unit
-func show_stance_ui(unit: Unit) -> void:
-	selected_military_unit = unit
-	stance_container.visible = true
-	_update_stance_button_highlight()
-
-## Hide stance UI
-func hide_stance_ui() -> void:
-	selected_military_unit = null
-	stance_container.visible = false
-
-# Cancel button handlers
-func _on_tc_cancel_pressed() -> void:
-	if selected_tc:
-		selected_tc.cancel_training()
-
-func _on_barracks_cancel_pressed() -> void:
-	if selected_barracks:
-		selected_barracks.cancel_training()
-
-func _on_market_cancel_pressed() -> void:
-	if selected_market:
-		selected_market.cancel_training()
-
-func _on_archery_range_cancel_pressed() -> void:
-	if selected_archery_range:
-		selected_archery_range.cancel_training()
-
-func _on_stable_cancel_pressed() -> void:
-	if selected_stable:
-		selected_stable.cancel_training()

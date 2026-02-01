@@ -195,3 +195,11 @@ Track mechanics that work in code but have no visual feedback for the player. Ad
 - **Build panel visibility**: The build panel should only show when a villager is selected, not always visible. Check selection in HUD update and hide panel when no villagers are selected.
 
 - **AI builder assignment**: AI should cap builders per building (2 is a good limit) to avoid over-committing villagers to construction. Use `_manage_construction()` in the AI decision loop to assign idle villagers.
+
+### Phase 2.6A - UI Overhaul & Minimap
+
+- **Minimap fog of war integration**: When drawing entities on the minimap, must check fog of war visibility state before rendering enemy entities. Enemy units should only appear when VISIBLE, enemy buildings when EXPLORED or VISIBLE. Failure to do this leaks information to the player.
+
+- **Notification race conditions**: When using `await` with `create_timer()` to auto-hide UI elements, multiple rapid calls can interfere. Use a counter pattern: increment counter on show, store it, check after await that current counter matches stored value before hiding.
+
+- **Minimap grid vs display size**: The minimap uses a 60x60 grid (matching fog of war) but displays at a larger size (150x120). `draw_texture_rect()` handles the scaling. Don't manually calculate scale for each pixel.

@@ -1,369 +1,415 @@
-[gd_scene load_steps=2 format=3 uid="uid://chud0000001"]
+[gd_scene load_steps=3 format=3 uid="uid://chud0000001"]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/ui/minimap.gd" id="2_minimap"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
 
-[node name="TopBar" type="HBoxContainer" parent="."]
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 700.0
-offset_bottom = 40.0
-theme_override_constants/separation = 20
+[node name="TopBar" type="PanelContainer" parent="."]
+offset_right = 1280.0
+offset_bottom = 32.0
 
-[node name="WoodLabel" type="Label" parent="TopBar"]
+[node name="TopBarContent" type="HBoxContainer" parent="TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="WoodIcon" type="Label" parent="TopBar/TopBarContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
-theme_override_font_sizes/font_size = 18
-text = "Wood: 200"
+theme_override_font_sizes/font_size = 16
+text = "🪵"
 
-[node name="FoodLabel" type="Label" parent="TopBar"]
+[node name="WoodLabel" type="Label" parent="TopBar/TopBarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.4, 0.2, 1)
+theme_override_font_sizes/font_size = 16
+text = "200"
+
+[node name="Spacer1" type="Control" parent="TopBar/TopBarContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(10, 0)
+
+[node name="FoodIcon" type="Label" parent="TopBar/TopBarContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
-theme_override_font_sizes/font_size = 18
-text = "Food: 200"
+theme_override_font_sizes/font_size = 16
+text = "🍖"
 
-[node name="GoldLabel" type="Label" parent="TopBar"]
+[node name="FoodLabel" type="Label" parent="TopBar/TopBarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 16
+text = "200"
+
+[node name="Spacer2" type="Control" parent="TopBar/TopBarContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(10, 0)
+
+[node name="GoldIcon" type="Label" parent="TopBar/TopBarContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1.0, 0.85, 0.0, 1)
-theme_override_font_sizes/font_size = 18
-text = "Gold: 0"
+theme_override_font_sizes/font_size = 16
+text = "🪙"
 
-[node name="StoneLabel" type="Label" parent="TopBar"]
+[node name="GoldLabel" type="Label" parent="TopBar/TopBarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.0, 0.85, 0.0, 1)
+theme_override_font_sizes/font_size = 16
+text = "0"
+
+[node name="Spacer3" type="Control" parent="TopBar/TopBarContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(10, 0)
+
+[node name="StoneIcon" type="Label" parent="TopBar/TopBarContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_font_sizes/font_size = 18
-text = "Stone: 0"
+theme_override_font_sizes/font_size = 16
+text = "🪨"
 
-[node name="PopLabel" type="Label" parent="TopBar"]
+[node name="StoneLabel" type="Label" parent="TopBar/TopBarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 16
+text = "0"
+
+[node name="Spacer4" type="Control" parent="TopBar/TopBarContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(20, 0)
+
+[node name="PopIcon" type="Label" parent="TopBar/TopBarContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 18
-text = "Pop: 3/5"
-
-[node name="BuildPanel" type="PanelContainer" parent="."]
-visible = false
-offset_left = 970.0
-offset_top = 10.0
-offset_right = 1270.0
-offset_bottom = 200.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="BuildPanel"]
-layout_mode = 2
-
-[node name="BuildHouseButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build House (25 Wood)"
-
-[node name="BuildBarracksButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Barracks (100 Wood)"
-
-[node name="BuildFarmButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Farm (50 Wood)"
-
-[node name="BuildMillButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Mill (100 Wood)"
-
-[node name="BuildLumberCampButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Lumber Camp (100 Wood)"
-
-[node name="BuildMiningCampButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Mining Camp (100 Wood)"
-
-[node name="BuildMarketButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Market (175 Wood)"
-
-[node name="BuildArcheryRangeButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Archery Range (175 Wood)"
-
-[node name="BuildStableButton" type="Button" parent="BuildPanel/VBoxContainer"]
-layout_mode = 2
-text = "Build Stable (175 Wood)"
-
-[node name="TCPanel" type="PanelContainer" parent="."]
-visible = false
-offset_left = 970.0
-offset_top = 210.0
-offset_right = 1270.0
-offset_bottom = 330.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="TCPanel"]
-layout_mode = 2
-
-[node name="TCLabel" type="Label" parent="TCPanel/VBoxContainer"]
-layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "Town Center"
-horizontal_alignment = 1
+text = "👤"
 
-[node name="TrainVillagerButton" type="Button" parent="TCPanel/VBoxContainer"]
+[node name="PopLabel" type="Label" parent="TopBar/TopBarContent"]
 layout_mode = 2
-text = "Train Villager (50 Food)"
-
-[node name="QueueContainer" type="HBoxContainer" parent="TCPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="TrainProgress" type="ProgressBar" parent="TCPanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-visible = false
-value = 50.0
-
-[node name="QueueLabel" type="Label" parent="TCPanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-text = ""
-
-[node name="CancelButton" type="Button" parent="TCPanel/VBoxContainer"]
-layout_mode = 2
-text = "Cancel"
-
-[node name="BarracksPanel" type="PanelContainer" parent="."]
-visible = false
-offset_left = 970.0
-offset_top = 210.0
-offset_right = 1270.0
-offset_bottom = 330.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="BarracksPanel"]
-layout_mode = 2
-
-[node name="BarracksLabel" type="Label" parent="BarracksPanel/VBoxContainer"]
-layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 16
-text = "Barracks"
-horizontal_alignment = 1
+text = "3/5"
 
-[node name="TrainMilitiaButton" type="Button" parent="BarracksPanel/VBoxContainer"]
-layout_mode = 2
-text = "Train Militia (60 Food, 20 Wood)"
-
-[node name="TrainSpearmanButton" type="Button" parent="BarracksPanel/VBoxContainer"]
-layout_mode = 2
-text = "Train Spearman (35 Food, 25 Wood)"
-
-[node name="QueueContainer" type="HBoxContainer" parent="BarracksPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="BarracksTrainProgress" type="ProgressBar" parent="BarracksPanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-visible = false
-value = 50.0
-
-[node name="QueueLabel" type="Label" parent="BarracksPanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-text = ""
-
-[node name="CancelButton" type="Button" parent="BarracksPanel/VBoxContainer"]
-layout_mode = 2
-text = "Cancel"
-
-[node name="MarketPanel" type="PanelContainer" parent="."]
-visible = false
-offset_left = 750.0
-offset_top = 210.0
-offset_right = 1270.0
-offset_bottom = 430.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarketPanel"]
-layout_mode = 2
-
-[node name="MarketLabel" type="Label" parent="MarketPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Market"
-horizontal_alignment = 1
-
-[node name="PriceContainer" type="HBoxContainer" parent="MarketPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="BuyColumn" type="VBoxContainer" parent="MarketPanel/VBoxContainer/PriceContainer"]
+[node name="Spacer5" type="Control" parent="TopBar/TopBarContent"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BuyLabel" type="Label" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+[node name="AgeLabel" type="Label" parent="TopBar/TopBarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.85, 0.7, 1)
+theme_override_font_sizes/font_size = 16
+text = "Dark Age"
+
+[node name="BottomPanel" type="PanelContainer" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -150.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BottomContent" type="HBoxContainer" parent="BottomPanel"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="LeftSection" type="PanelContainer" parent="BottomPanel/BottomContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+
+[node name="InfoContainer" type="VBoxContainer" parent="BottomPanel/BottomContent/LeftSection"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="InfoTitle" type="Label" parent="BottomPanel/BottomContent/LeftSection/InfoContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Select a unit"
+horizontal_alignment = 1
+
+[node name="HPContainer" type="HBoxContainer" parent="BottomPanel/BottomContent/LeftSection/InfoContainer"]
+layout_mode = 2
+
+[node name="HPIcon" type="Label" parent="BottomPanel/BottomContent/LeftSection/InfoContainer/HPContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "❤️"
+
+[node name="HPBar" type="ProgressBar" parent="BottomPanel/BottomContent/LeftSection/InfoContainer/HPContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+value = 100.0
+show_percentage = false
+
+[node name="HPLabel" type="Label" parent="BottomPanel/BottomContent/LeftSection/InfoContainer/HPContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+theme_override_font_sizes/font_size = 12
+text = "100/100"
+
+[node name="StatsContainer" type="HBoxContainer" parent="BottomPanel/BottomContent/LeftSection/InfoContainer"]
+layout_mode = 2
+
+[node name="AttackLabel" type="Label" parent="BottomPanel/BottomContent/LeftSection/InfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "⚔️ 5"
+
+[node name="Spacer" type="Control" parent="BottomPanel/BottomContent/LeftSection/InfoContainer/StatsContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(15, 0)
+
+[node name="ArmorLabel" type="Label" parent="BottomPanel/BottomContent/LeftSection/InfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "🛡️ 0/0"
+
+[node name="InfoDetails" type="Label" parent="BottomPanel/BottomContent/LeftSection/InfoContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Status: Idle"
+autowrap_mode = 2
+
+[node name="CenterSection" type="PanelContainer" parent="BottomPanel/BottomContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActionContainer" type="VBoxContainer" parent="BottomPanel/BottomContent/CenterSection"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ActionTitle" type="Label" parent="BottomPanel/BottomContent/CenterSection/ActionContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
-text = "Buy (100 units)"
+text = "Actions"
 horizontal_alignment = 1
 
-[node name="BuyWoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+[node name="ActionGrid" type="GridContainer" parent="BottomPanel/BottomContent/CenterSection/ActionContainer"]
 layout_mode = 2
-text = "Wood: 100g"
+columns = 4
 
-[node name="BuyFoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+[node name="BuildHouseButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
 layout_mode = 2
-text = "Food: 100g"
+custom_minimum_size = Vector2(100, 25)
+text = "House (25W)"
 
-[node name="BuyStoneButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/BuyColumn"]
+[node name="BuildBarracksButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
 layout_mode = 2
-text = "Stone: 130g"
+custom_minimum_size = Vector2(100, 25)
+text = "Barracks (100W)"
 
-[node name="SellColumn" type="VBoxContainer" parent="MarketPanel/VBoxContainer/PriceContainer"]
+[node name="BuildFarmButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Farm (50W)"
+
+[node name="BuildMillButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Mill (100W)"
+
+[node name="BuildLumberCampButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Lumber Camp (100W)"
+
+[node name="BuildMiningCampButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Mining Camp (100W)"
+
+[node name="BuildMarketButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Market (175W)"
+
+[node name="BuildArcheryRangeButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Archery Range (175W)"
+
+[node name="BuildStableButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Stable (175W)"
+
+[node name="TrainVillagerButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Train Villager (50F)"
+
+[node name="TrainMilitiaButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Militia (60F, 20W)"
+
+[node name="TrainSpearmanButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Spearman (35F, 25W)"
+
+[node name="TrainArcherButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Archer (25W, 45G)"
+
+[node name="TrainSkirmisherButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Skirmisher (25F, 35W)"
+
+[node name="TrainScoutCavalryButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Scout Cavalry (80F)"
+
+[node name="TrainCavalryArcherButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Cav Archer (40W, 70G)"
+
+[node name="BuyWoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(90, 25)
+text = "Buy Wood"
+
+[node name="BuyFoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(90, 25)
+text = "Buy Food"
+
+[node name="BuyStoneButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(90, 25)
+text = "Buy Stone"
+
+[node name="SellWoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(90, 25)
+text = "Sell Wood"
+
+[node name="SellFoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(90, 25)
+text = "Sell Food"
+
+[node name="SellStoneButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(90, 25)
+text = "Sell Stone"
+
+[node name="TrainTradeCartButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Trade Cart (100W, 50G)"
+
+[node name="CancelButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(80, 25)
+text = "Cancel"
+
+[node name="QueueContainer" type="HBoxContainer" parent="BottomPanel/BottomContent/CenterSection/ActionContainer"]
+layout_mode = 2
+
+[node name="TrainProgress" type="ProgressBar" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/QueueContainer"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
+custom_minimum_size = Vector2(200, 20)
+value = 50.0
 
-[node name="SellLabel" type="Label" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
+[node name="QueueLabel" type="Label" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/QueueContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
-text = "Sell (100 units)"
-horizontal_alignment = 1
-
-[node name="SellWoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
-layout_mode = 2
-text = "Wood: 70g"
-
-[node name="SellFoodButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
-layout_mode = 2
-text = "Food: 70g"
-
-[node name="SellStoneButton" type="Button" parent="MarketPanel/VBoxContainer/PriceContainer/SellColumn"]
-layout_mode = 2
-text = "Stone: 91g"
-
-[node name="Separator" type="HSeparator" parent="MarketPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="TrainTradeCartButton" type="Button" parent="MarketPanel/VBoxContainer"]
-layout_mode = 2
-text = "Train Trade Cart (100W, 50G)"
-
-[node name="QueueContainer" type="HBoxContainer" parent="MarketPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="MarketTrainProgress" type="ProgressBar" parent="MarketPanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-visible = false
-value = 50.0
-
-[node name="QueueLabel" type="Label" parent="MarketPanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
 text = ""
 
-[node name="CancelButton" type="Button" parent="MarketPanel/VBoxContainer"]
-layout_mode = 2
-text = "Cancel"
-
-[node name="ArcheryRangePanel" type="PanelContainer" parent="."]
+[node name="StanceContainer" type="HBoxContainer" parent="BottomPanel/BottomContent/CenterSection/ActionContainer"]
 visible = false
-offset_left = 970.0
-offset_top = 210.0
-offset_right = 1270.0
-offset_bottom = 330.0
+layout_mode = 2
+theme_override_constants/separation = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ArcheryRangePanel"]
+[node name="StanceAgg" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(45, 25)
+tooltip_text = "Aggressive: Chase and attack enemies"
+text = "AGG"
+
+[node name="StanceDef" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(45, 25)
+tooltip_text = "Defensive: Attack nearby, limited chase"
+text = "DEF"
+
+[node name="StanceSG" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(45, 25)
+tooltip_text = "Stand Ground: Attack in range only"
+text = "SG"
+
+[node name="StanceNA" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(45, 25)
+tooltip_text = "No Attack: Never auto-attack"
+text = "NA"
+
+[node name="RightSection" type="PanelContainer" parent="BottomPanel/BottomContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(180, 0)
+
+[node name="MinimapContainer" type="VBoxContainer" parent="BottomPanel/BottomContent/RightSection"]
 layout_mode = 2
 
-[node name="ArcheryRangeLabel" type="Label" parent="ArcheryRangePanel/VBoxContainer"]
+[node name="MinimapLabel" type="Label" parent="BottomPanel/BottomContent/RightSection/MinimapContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Archery Range"
+theme_override_font_sizes/font_size = 12
+text = "Minimap"
 horizontal_alignment = 1
 
-[node name="TrainArcherButton" type="Button" parent="ArcheryRangePanel/VBoxContainer"]
+[node name="Minimap" type="Control" parent="BottomPanel/BottomContent/RightSection/MinimapContainer"]
 layout_mode = 2
-text = "Train Archer (25 Wood, 45 Gold)"
-
-[node name="TrainSkirmisherButton" type="Button" parent="ArcheryRangePanel/VBoxContainer"]
-layout_mode = 2
-text = "Train Skirmisher (25 Food, 35 Wood)"
-
-[node name="QueueContainer" type="HBoxContainer" parent="ArcheryRangePanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="ArcheryRangeTrainProgress" type="ProgressBar" parent="ArcheryRangePanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-visible = false
-value = 50.0
-
-[node name="QueueLabel" type="Label" parent="ArcheryRangePanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-text = ""
-
-[node name="CancelButton" type="Button" parent="ArcheryRangePanel/VBoxContainer"]
-layout_mode = 2
-text = "Cancel"
-
-[node name="StablePanel" type="PanelContainer" parent="."]
-visible = false
-offset_left = 970.0
-offset_top = 210.0
-offset_right = 1270.0
-offset_bottom = 330.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="StablePanel"]
-layout_mode = 2
-
-[node name="StableLabel" type="Label" parent="StablePanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Stable"
-horizontal_alignment = 1
-
-[node name="TrainScoutCavalryButton" type="Button" parent="StablePanel/VBoxContainer"]
-layout_mode = 2
-text = "Train Scout Cavalry (80 Food)"
-
-[node name="TrainCavalryArcherButton" type="Button" parent="StablePanel/VBoxContainer"]
-layout_mode = 2
-text = "Train Cav Archer (40 Wood, 70 Gold)"
-
-[node name="QueueContainer" type="HBoxContainer" parent="StablePanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="StableTrainProgress" type="ProgressBar" parent="StablePanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-visible = false
-value = 50.0
-
-[node name="QueueLabel" type="Label" parent="StablePanel/VBoxContainer/QueueContainer"]
-layout_mode = 2
-text = ""
-
-[node name="CancelButton" type="Button" parent="StablePanel/VBoxContainer"]
-layout_mode = 2
-text = "Cancel"
-
-[node name="InfoPanel" type="PanelContainer" parent="."]
-visible = false
-offset_left = 970.0
-offset_top = 340.0
-offset_right = 1270.0
-offset_bottom = 490.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="InfoPanel"]
-layout_mode = 2
-
-[node name="InfoTitle" type="Label" parent="InfoPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Entity Name"
-horizontal_alignment = 1
-
-[node name="InfoDetails" type="Label" parent="InfoPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "Details here"
+custom_minimum_size = Vector2(150, 120)
+script = ExtResource("2_minimap")
 
 [node name="ErrorLabel" type="Label" parent="."]
 visible = false
-offset_left = 970.0
-offset_top = 500.0
-offset_right = 1270.0
-offset_bottom = 530.0
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -180.0
+offset_right = 150.0
+offset_bottom = -160.0
+grow_horizontal = 2
+grow_vertical = 0
 theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
 text = "Error message here"
 horizontal_alignment = 1
 
@@ -395,32 +441,33 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Play Again"
 
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildHouseButton" to="." method="_on_build_house_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildBarracksButton" to="." method="_on_build_barracks_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildFarmButton" to="." method="_on_build_farm_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMillButton" to="." method="_on_build_mill_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildLumberCampButton" to="." method="_on_build_lumber_camp_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMiningCampButton" to="." method="_on_build_mining_camp_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildMarketButton" to="." method="_on_build_market_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildArcheryRangeButton" to="." method="_on_build_archery_range_pressed"]
-[connection signal="pressed" from="BuildPanel/VBoxContainer/BuildStableButton" to="." method="_on_build_stable_pressed"]
-[connection signal="pressed" from="TCPanel/VBoxContainer/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
-[connection signal="pressed" from="BarracksPanel/VBoxContainer/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
-[connection signal="pressed" from="BarracksPanel/VBoxContainer/TrainSpearmanButton" to="." method="_on_train_spearman_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyFoodButton" to="." method="_on_buy_food_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/BuyColumn/BuyStoneButton" to="." method="_on_buy_stone_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellWoodButton" to="." method="_on_sell_wood_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellFoodButton" to="." method="_on_sell_food_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/PriceContainer/SellColumn/SellStoneButton" to="." method="_on_sell_stone_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/TrainTradeCartButton" to="." method="_on_train_trade_cart_pressed"]
-[connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/TrainArcherButton" to="." method="_on_train_archer_pressed"]
-[connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/TrainSkirmisherButton" to="." method="_on_train_skirmisher_pressed"]
-[connection signal="pressed" from="StablePanel/VBoxContainer/TrainScoutCavalryButton" to="." method="_on_train_scout_cavalry_pressed"]
-[connection signal="pressed" from="StablePanel/VBoxContainer/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
-[connection signal="pressed" from="TCPanel/VBoxContainer/CancelButton" to="." method="_on_tc_cancel_pressed"]
-[connection signal="pressed" from="BarracksPanel/VBoxContainer/CancelButton" to="." method="_on_barracks_cancel_pressed"]
-[connection signal="pressed" from="MarketPanel/VBoxContainer/CancelButton" to="." method="_on_market_cancel_pressed"]
-[connection signal="pressed" from="ArcheryRangePanel/VBoxContainer/CancelButton" to="." method="_on_archery_range_cancel_pressed"]
-[connection signal="pressed" from="StablePanel/VBoxContainer/CancelButton" to="." method="_on_stable_cancel_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildHouseButton" to="." method="_on_build_house_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildBarracksButton" to="." method="_on_build_barracks_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildFarmButton" to="." method="_on_build_farm_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMillButton" to="." method="_on_build_mill_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildLumberCampButton" to="." method="_on_build_lumber_camp_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMiningCampButton" to="." method="_on_build_mining_camp_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMarketButton" to="." method="_on_build_market_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildArcheryRangeButton" to="." method="_on_build_archery_range_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton" to="." method="_on_build_stable_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSpearmanButton" to="." method="_on_train_spearman_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainArcherButton" to="." method="_on_train_archer_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSkirmisherButton" to="." method="_on_train_skirmisher_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScoutCavalryButton" to="." method="_on_train_scout_cavalry_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyFoodButton" to="." method="_on_buy_food_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyStoneButton" to="." method="_on_buy_stone_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/SellWoodButton" to="." method="_on_sell_wood_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/SellFoodButton" to="." method="_on_sell_food_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/SellStoneButton" to="." method="_on_sell_stone_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainTradeCartButton" to="." method="_on_train_trade_cart_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/CancelButton" to="." method="_on_cancel_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceAgg" to="." method="_on_stance_agg_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceDef" to="." method="_on_stance_def_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceSG" to="." method="_on_stance_sg_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceNA" to="." method="_on_stance_na_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]
+[connection signal="minimap_clicked" from="BottomPanel/BottomContent/RightSection/MinimapContainer/Minimap" to="." method="_on_minimap_clicked"]
