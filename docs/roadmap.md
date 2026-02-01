@@ -1,6 +1,6 @@
 # AoE2 Clone - Roadmap
 
-**Last updated:** 2026-01-30 (added Phase 3: Strong AI, renumbered subsequent phases)
+**Last updated:** 2026-02-01 (Phase 3: Strong AI complete)
 
 ## Goal
 
@@ -84,7 +84,11 @@ Before starting each phase, follow this process:
 
 - **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
 - **Run the test agent** to write automated tests for the phase. The test agent receives the checkpoint doc and relevant source files, writes tests, and returns a brief summary of what was tested. Add this summary to the checkpoint doc's "Test Coverage" section.
-- Update `docs/gotchas.md` with new learnings
+- **Update `docs/gotchas.md`** — This is REQUIRED, not optional. Add a new section header for the phase (e.g., "### Phase 3E - Economic Intelligence") and document:
+  - Patterns that worked or didn't work
+  - Non-obvious implementation details future agents need to know
+  - Bugs encountered and their fixes
+  - Any "gotcha" that cost you time and could trip up future work
 - **Write a checkpoint doc** in `docs/phase_checkpoints/` using the template. This is required for both DIRECT and ORCHESTRATOR modes - it's how future sessions know what was built.
 - Verify game still launches and plays correctly
 
@@ -362,7 +366,7 @@ Cursor sprites location: `assets/sprites_extracted/cursors/`
 
 ---
 
-## Phase 3: Strong AI
+## Phase 3: Strong AI (Complete)
 **Goal:** Transform AI from functional to competitive - a real challenge for players
 
 This phase makes the AI play well, not just play. Phase 2C made the AI use available features; this phase makes it use them intelligently.
@@ -372,9 +376,9 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 **Sub-phases (approved 2026-02-01):**
 - **3A**: Macro & Build Orders - build order system, continuous villager production, production scaling, idle villager reassignment — *Complete*
 - **3B**: Scouting & Information - scout patrol patterns, enemy base tracking, army composition tracking, threat assessment — *Complete*
-- **3C**: Combat Intelligence - counter-unit production, army composition goals, attack timing, target prioritization, retreat, focus fire
-- **3D**: Micro & Tactics - ranged kiting, villager flee behavior, TC garrison, split attention, reinforcement waves
-- **3E**: Economic Intelligence - resource balance targets, floating resource detection, farm placement, forward building, expansion
+- **3C**: Combat Intelligence - counter-unit production, army composition goals, attack timing, target prioritization, retreat, focus fire — *Complete*
+- **3D**: Micro & Tactics - ranged kiting, villager flee behavior, TC garrison, split attention, reinforcement waves — *Complete*
+- **3E**: Economic Intelligence - resource balance targets, floating resource detection, farm placement, forward building, expansion — *Complete*
 
 ---
 

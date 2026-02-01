@@ -82,6 +82,21 @@ const HARASS_FORCE_SIZE: int = 3  # Number of units for harassment squad
 const REINFORCEMENT_RALLY_DISTANCE: float = 200.0  # Distance to rally point before joining attack
 const KITE_CHECK_INTERVAL: float = 0.3  # How often to check for kiting opportunities
 
+# Economic Intelligence constants (Phase 3E)
+const FLOATING_RESOURCE_THRESHOLD: int = 500  # Resource level considered "floating"
+const FLOATING_RESOURCE_REALLOC_THRESHOLD: int = 800  # Realloc villagers if resource this high
+const FORWARD_BUILDING_RATIO: float = 0.3  # Forward building placed 30% toward enemy
+const EXPANSION_VILLAGER_THRESHOLD: int = 25  # Villagers before considering expansion
+const EXPANSION_SAFETY_RADIUS: float = 300.0  # Must be this far from enemies to expand
+const RESOURCE_DEPLETION_DISTANCE: float = 600.0  # Build camp if no resources within this
+const EXPANSION_MAX_DISTANCE: float = 1200.0  # Maximum distance for expansion camps
+const FARM_RING_INNER_RADIUS: float = 70.0  # Inner radius for farm ring around mill/TC
+const FARM_RING_OUTER_RADIUS: float = 140.0  # Outer radius for farm ring
+const FARM_RING_SPACING: float = 70.0  # Spacing between farms in ring
+
+# Economic strategy modes (Phase 3E)
+enum EconomyMode { BOOM, BALANCED, MILITARY }
+
 # Army composition target ratios (adjusts based on enemy)
 # Default: 40% infantry, 40% ranged, 20% cavalry
 var army_composition_goals: Dictionary = {
@@ -178,6 +193,24 @@ var reinforcement_rally_point: Vector2 = Vector2.ZERO  # Where reinforcements ga
 var active_attack_position: Vector2 = Vector2.ZERO  # Where main army is attacking
 var kite_check_timer: float = 0.0  # Timer for kiting checks
 
+# Economic Intelligence (Phase 3E)
+var current_economy_mode: EconomyMode = EconomyMode.BOOM  # Start with economy focus
+var dynamic_villager_targets: Dictionary = {  # Dynamic targets based on strategy
+	"food": 10,
+	"wood": 8,
+	"gold": 6,
+	"stone": 2
+}
+var floating_resources: Dictionary = {  # Track which resources are floating
+	"food": false,
+	"wood": false,
+	"gold": false,
+	"stone": false
+}
+var expansion_camps_built: int = 0  # Track expansion camps built
+var last_resource_balance_check: float = 0.0  # Timer for balance checks
+const RESOURCE_BALANCE_INTERVAL: float = 5.0  # Check resource balance every 5 seconds
+
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
 	await get_tree().process_frame
@@ -241,6 +274,14 @@ func _process(delta: float) -> void:
 		_assess_threats()
 		_manage_unit_retreat()  # Phase 3C: Check for units that should retreat
 		_coordinate_combat_focus_fire()  # Phase 3C: Focus fire during active combat
+
+	# Resource balance check (Phase 3E) - less frequent
+	last_resource_balance_check += delta
+	if last_resource_balance_check >= RESOURCE_BALANCE_INTERVAL:
+		last_resource_balance_check = 0.0
+		_update_resource_balance_targets()
+		_check_floating_resources()
+		_consider_expansion()
 
 	# Micro management (Phase 3D) - faster updates for responsive micro
 	kite_check_timer += delta
@@ -516,28 +557,29 @@ func _make_decisions() -> void:
 		if villager_count >= 15:
 			_build_stable()
 
-	# === PRODUCTION BUILDING SCALING ===
+	# === PRODUCTION BUILDING SCALING (Phase 3E: Forward Building) ===
 	# Scale up military production when floating resources
+	# Additional military buildings placed forward (closer to enemy)
 
-	# 10. Build second barracks
+	# 10. Build second barracks (forward)
 	if _count_barracks() < 2 and villager_count >= SECOND_BARRACKS_THRESHOLD:
 		if _is_floating_resources() and GameManager.can_afford("wood", 100, AI_TEAM):
-			_build_barracks()
+			_build_barracks_forward()
 
-	# 11. Build third barracks (late game)
+	# 11. Build third barracks (forward, late game)
 	if _count_barracks() < 3 and villager_count >= THIRD_BARRACKS_THRESHOLD:
 		if _is_floating_resources() and GameManager.can_afford("wood", 100, AI_TEAM):
-			_build_barracks()
+			_build_barracks_forward()
 
-	# 12. Build second archery range
+	# 12. Build second archery range (forward)
 	if _count_archery_ranges() < 2 and villager_count >= SECOND_RANGE_THRESHOLD:
 		if _is_floating_resources() and GameManager.can_afford("wood", 175, AI_TEAM):
-			_build_archery_range()
+			_build_archery_range_forward()
 
-	# 13. Build second stable
+	# 13. Build second stable (forward)
 	if _count_stables() < 2 and villager_count >= SECOND_STABLE_THRESHOLD:
 		if _is_floating_resources() and GameManager.can_afford("wood", 175, AI_TEAM):
-			_build_stable()
+			_build_stable_forward()
 
 	# 14. Train military units (mixed composition) with queue maintenance
 	_train_military()
@@ -611,13 +653,14 @@ func _maintain_villager_production() -> void:
 			break
 
 ## Check if AI is floating resources (should spend more)
+## Phase 3E: Updated threshold to match FLOATING_RESOURCE_THRESHOLD constant
 func _is_floating_resources() -> bool:
 	var wood = GameManager.get_resource("wood", AI_TEAM)
 	var food = GameManager.get_resource("food", AI_TEAM)
 	var gold = GameManager.get_resource("gold", AI_TEAM)
 
-	# Floating if any resource exceeds 300 (should be spending it)
-	return wood > 300 or food > 300 or gold > 300
+	# Floating if any resource exceeds threshold (should be spending it)
+	return wood > FLOATING_RESOURCE_THRESHOLD or food > FLOATING_RESOURCE_THRESHOLD or gold > FLOATING_RESOURCE_THRESHOLD
 
 ## Manage construction of buildings - assign idle villagers to incomplete buildings
 func _manage_construction() -> void:
@@ -720,11 +763,11 @@ func _get_needed_resource(allocation: Dictionary) -> String:
 	if total_gatherers == 0:
 		return "food"  # Default to food if no one is gathering
 
-	# Calculate deficit for each resource (target - current)
-	var food_deficit = FOOD_VILLAGERS - allocation["food"]
-	var wood_deficit = WOOD_VILLAGERS - allocation["wood"]
-	var gold_deficit = GOLD_VILLAGERS - allocation["gold"]
-	var stone_deficit = STONE_VILLAGERS - allocation["stone"]
+	# Use dynamic targets (Phase 3E) instead of static constants
+	var food_deficit = dynamic_villager_targets["food"] - allocation["food"]
+	var wood_deficit = dynamic_villager_targets["wood"] - allocation["wood"]
+	var gold_deficit = dynamic_villager_targets["gold"] - allocation["gold"]
+	var stone_deficit = dynamic_villager_targets["stone"] - allocation["stone"]
 
 	# Also consider absolute resource levels (emergency needs)
 	var food = GameManager.get_resource("food", AI_TEAM)
@@ -736,6 +779,8 @@ func _get_needed_resource(allocation: Dictionary) -> String:
 		return "food"
 	if wood < 50:
 		return "wood"
+	if gold < 50 and _has_archery_range():  # Need gold for archers
+		return "gold"
 
 	# Return resource with highest deficit
 	var max_deficit = food_deficit
@@ -874,24 +919,8 @@ func _build_farm() -> void:
 	buildings_under_construction.append(farm)
 
 func _find_farm_position(near_pos: Vector2) -> Vector2:
-	# Farms are 2x2 (64x64 pixels)
-	var farm_size = Vector2(64, 64)
-
-	# Try positions in a grid around the base position
-	var offsets = [
-		Vector2(70, 0), Vector2(-70, 0), Vector2(0, 70), Vector2(0, -70),
-		Vector2(70, 70), Vector2(-70, 70), Vector2(70, -70), Vector2(-70, -70),
-		Vector2(140, 0), Vector2(-140, 0), Vector2(0, 140), Vector2(0, -140),
-		Vector2(140, 70), Vector2(-140, 70), Vector2(140, -70), Vector2(-140, -70),
-	]
-
-	for offset in offsets:
-		var pos = near_pos + offset
-		if _is_valid_building_position(pos, farm_size):
-			return pos
-
-	# Fallback
-	return near_pos + Vector2(80, 80)
+	# Phase 3E: Use ring pattern for optimized farm placement
+	return _find_farm_position_ring(near_pos)
 
 func _find_resource_of_type(from_pos: Vector2, resource_type: String) -> Node:  # Returns ResourceNode or Farm
 	var resources = get_tree().get_nodes_in_group("resources")
@@ -1203,6 +1232,29 @@ func _build_barracks() -> void:
 	builder.command_build(new_barracks)
 	buildings_under_construction.append(new_barracks)
 
+## Build barracks at forward position (Phase 3E)
+func _build_barracks_forward() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
+		return
+
+	var barracks_scene = load(BARRACKS_SCENE_PATH)
+	var new_barracks = barracks_scene.instantiate()
+
+	# Use forward building position if enemy base known
+	new_barracks.global_position = _get_forward_building_position(Vector2(96, 96))
+	new_barracks.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(new_barracks)
+	ai_barracks.append(new_barracks)
+
+	new_barracks.start_construction()
+	builder.command_build(new_barracks)
+	buildings_under_construction.append(new_barracks)
+
 # Archery Range functions (supports multiple)
 func _has_archery_range() -> bool:
 	return _count_archery_ranges() > 0
@@ -1246,6 +1298,28 @@ func _build_archery_range() -> void:
 	builder.command_build(new_range)
 	buildings_under_construction.append(new_range)
 
+## Build archery range at forward position (Phase 3E)
+func _build_archery_range_forward() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
+	if not GameManager.spend_resource("wood", 175, AI_TEAM):
+		return
+
+	var scene = load(ARCHERY_RANGE_SCENE_PATH)
+	var new_range = scene.instantiate()
+
+	new_range.global_position = _get_forward_building_position(Vector2(96, 96))
+	new_range.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(new_range)
+	ai_archery_ranges.append(new_range)
+
+	new_range.start_construction()
+	builder.command_build(new_range)
+	buildings_under_construction.append(new_range)
+
 # Stable functions (supports multiple)
 func _has_stable() -> bool:
 	return _count_stables() > 0
@@ -1285,6 +1359,28 @@ func _build_stable() -> void:
 	ai_stables.append(new_stable)
 
 	# Start construction
+	new_stable.start_construction()
+	builder.command_build(new_stable)
+	buildings_under_construction.append(new_stable)
+
+## Build stable at forward position (Phase 3E)
+func _build_stable_forward() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
+	if not GameManager.spend_resource("wood", 175, AI_TEAM):
+		return
+
+	var scene = load(STABLE_SCENE_PATH)
+	var new_stable = scene.instantiate()
+
+	new_stable.global_position = _get_forward_building_position(Vector2(96, 96))
+	new_stable.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(new_stable)
+	ai_stables.append(new_stable)
+
 	new_stable.start_construction()
 	builder.command_build(new_stable)
 	buildings_under_construction.append(new_stable)
@@ -1453,7 +1549,7 @@ func _get_military_count() -> int:
 	var count = 0
 	var military_units = get_tree().get_nodes_in_group("military")
 	for unit in military_units:
-		if unit.team == AI_TEAM:
+		if unit.team == AI_TEAM and not unit.is_dead:
 			count += 1
 	return count
 
@@ -1671,7 +1767,7 @@ func _get_ai_villagers() -> Array:
 	var result = []
 	var villagers = get_tree().get_nodes_in_group("villagers")
 	for v in villagers:
-		if v.team == AI_TEAM:
+		if v.team == AI_TEAM and not v.is_dead:
 			result.append(v)
 	return result
 
@@ -3455,3 +3551,384 @@ func _is_unit_idle_or_patrolling(unit: Node2D) -> bool:
 		return unit.current_state == CavalryArcher.State.IDLE
 
 	return false
+
+# ============================================================================
+# PHASE 3E: ECONOMIC INTELLIGENCE
+# ============================================================================
+
+## Update economy mode based on game state
+func _determine_economy_mode() -> EconomyMode:
+	var villager_count = _get_ai_villagers().size()
+	var military_count = _get_military_count()
+
+	# Early game: focus on booming
+	if villager_count < 15:
+		return EconomyMode.BOOM
+
+	# If under threat, prioritize military
+	if current_threat_level >= THREAT_MODERATE:
+		return EconomyMode.MILITARY
+
+	# If we have military advantage, can afford to boom more
+	var enemy_strength = _get_enemy_strength_estimate()
+	var our_strength = _get_military_strength()
+	if our_strength > enemy_strength * 1.5:
+		return EconomyMode.BOOM
+
+	# Default to balanced
+	return EconomyMode.BALANCED
+
+## Update dynamic villager allocation targets based on current economy mode
+func _update_resource_balance_targets() -> void:
+	var old_mode = current_economy_mode
+	current_economy_mode = _determine_economy_mode()
+
+	# Adjust targets based on mode
+	match current_economy_mode:
+		EconomyMode.BOOM:
+			# Heavy food focus for villager production
+			dynamic_villager_targets["food"] = 12
+			dynamic_villager_targets["wood"] = 10
+			dynamic_villager_targets["gold"] = 4
+			dynamic_villager_targets["stone"] = 2
+
+		EconomyMode.MILITARY:
+			# Balance food/gold for military, wood for buildings
+			dynamic_villager_targets["food"] = 10
+			dynamic_villager_targets["wood"] = 8
+			dynamic_villager_targets["gold"] = 8
+			dynamic_villager_targets["stone"] = 2
+
+		EconomyMode.BALANCED:
+			# Standard balanced allocation
+			dynamic_villager_targets["food"] = 10
+			dynamic_villager_targets["wood"] = 8
+			dynamic_villager_targets["gold"] = 6
+			dynamic_villager_targets["stone"] = 2
+
+	# Further adjust based on what we're running low on
+	_adjust_targets_for_shortages()
+
+## Adjust targets if we have critical shortages
+func _adjust_targets_for_shortages() -> void:
+	var food = GameManager.get_resource("food", AI_TEAM)
+	var wood = GameManager.get_resource("wood", AI_TEAM)
+	var gold = GameManager.get_resource("gold", AI_TEAM)
+
+	# Emergency adjustments
+	if food < 100:
+		dynamic_villager_targets["food"] += 2
+	if wood < 100:
+		dynamic_villager_targets["wood"] += 2
+	if gold < 50 and _has_archery_range():  # Need gold for archers
+		dynamic_villager_targets["gold"] += 2
+
+## Check for floating resources and take action
+func _check_floating_resources() -> void:
+	var food = GameManager.get_resource("food", AI_TEAM)
+	var wood = GameManager.get_resource("wood", AI_TEAM)
+	var gold = GameManager.get_resource("gold", AI_TEAM)
+	var stone = GameManager.get_resource("stone", AI_TEAM)
+
+	# Update floating status
+	floating_resources["food"] = food > FLOATING_RESOURCE_THRESHOLD
+	floating_resources["wood"] = wood > FLOATING_RESOURCE_THRESHOLD
+	floating_resources["gold"] = gold > FLOATING_RESOURCE_THRESHOLD
+	floating_resources["stone"] = stone > FLOATING_RESOURCE_THRESHOLD
+
+	# If any resource is floating high, take action
+	if food > FLOATING_RESOURCE_REALLOC_THRESHOLD:
+		_handle_floating_resource("food")
+	if wood > FLOATING_RESOURCE_REALLOC_THRESHOLD:
+		_handle_floating_resource("wood")
+	if gold > FLOATING_RESOURCE_REALLOC_THRESHOLD:
+		_handle_floating_resource("gold")
+
+## Handle a floating resource - either spend it or reallocate villagers
+func _handle_floating_resource(resource_type: String) -> void:
+	match resource_type:
+		"food":
+			# Floating food = train more villagers or military
+			if _get_ai_villagers().size() < TARGET_VILLAGERS:
+				_maintain_villager_production()
+			else:
+				_train_military()
+			# Reduce food villagers if still floating
+			if dynamic_villager_targets["food"] > 6:
+				dynamic_villager_targets["food"] -= 1
+				dynamic_villager_targets["wood"] += 1  # Shift to wood
+
+		"wood":
+			# Floating wood = build more buildings or farms
+			if _should_build_farm():
+				_build_farm()
+			# Build extra military buildings
+			if _is_floating_resources():
+				if _count_barracks() < 3:
+					_build_barracks()
+				elif _count_archery_ranges() < 2:
+					_build_archery_range()
+			# Reduce wood villagers
+			if dynamic_villager_targets["wood"] > 4:
+				dynamic_villager_targets["wood"] -= 1
+				dynamic_villager_targets["gold"] += 1
+
+		"gold":
+			# Floating gold = train more expensive units
+			_train_military()
+			# Could also buy resources at market
+			if _has_market() and GameManager.get_resource("food", AI_TEAM) < 200:
+				ai_market.buy_resource("food")
+			# Reduce gold villagers
+			if dynamic_villager_targets["gold"] > 3:
+				dynamic_villager_targets["gold"] -= 1
+				dynamic_villager_targets["food"] += 1
+
+## Consider expansion to new resource areas
+func _consider_expansion() -> void:
+	var villager_count = _get_ai_villagers().size()
+
+	# Need established economy first
+	if villager_count < EXPANSION_VILLAGER_THRESHOLD:
+		return
+
+	# Check if main base resources are getting depleted
+	var needs_wood_expansion = _check_resource_depletion("wood")
+	var needs_gold_expansion = _check_resource_depletion("gold")
+	var needs_stone_expansion = _check_resource_depletion("stone")
+
+	# Build expansion camps if needed
+	if needs_wood_expansion and GameManager.can_afford("wood", 100, AI_TEAM):
+		_build_expansion_lumber_camp()
+	elif needs_gold_expansion and GameManager.can_afford("wood", 100, AI_TEAM):
+		_build_expansion_mining_camp("gold")
+	elif needs_stone_expansion and GameManager.can_afford("wood", 100, AI_TEAM):
+		_build_expansion_mining_camp("stone")
+
+	# Note: 2nd TC requires Castle Age (Phase 4) - logic prepared but gated
+	# _consider_second_tc()
+
+## Check if resources of a type are depleted near base
+func _check_resource_depletion(resource_type: String) -> bool:
+	var resources = get_tree().get_nodes_in_group("resources")
+	var nearby_count = 0
+
+	for resource in resources:
+		if resource is Farm:
+			continue
+		if not resource.has_resources():
+			continue
+		if resource.get_resource_type() != resource_type:
+			continue
+
+		var dist = resource.global_position.distance_to(AI_BASE_POSITION)
+		if dist < RESOURCE_DEPLETION_DISTANCE:
+			nearby_count += 1
+
+	# Consider depleted if fewer than 2 nearby
+	return nearby_count < 2
+
+## Build lumber camp at a distant wood resource
+func _build_expansion_lumber_camp() -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
+	# Find wood resource far from base but not too far
+	var target_pos = _find_expansion_resource_position("wood")
+	if target_pos == Vector2.ZERO:
+		return
+
+	# Check if safe (no enemy units nearby)
+	if not _is_position_safe(target_pos):
+		return
+
+	# Check if we already have a camp nearby
+	var existing_camps = get_tree().get_nodes_in_group("lumber_camps")
+	for camp in existing_camps:
+		if camp.team == AI_TEAM and camp.global_position.distance_to(target_pos) < 200:
+			return  # Already have one there
+
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
+		return
+
+	var scene = load(LUMBER_CAMP_SCENE_PATH)
+	var camp = scene.instantiate()
+	camp.global_position = target_pos
+	camp.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(camp)
+	camp.start_construction()
+	builder.command_build(camp)
+	buildings_under_construction.append(camp)
+	expansion_camps_built += 1
+
+## Build mining camp at a distant gold/stone resource
+func _build_expansion_mining_camp(resource_type: String) -> void:
+	var builder = _find_idle_builder()
+	if not builder:
+		return
+
+	var target_pos = _find_expansion_resource_position(resource_type)
+	if target_pos == Vector2.ZERO:
+		return
+
+	if not _is_position_safe(target_pos):
+		return
+
+	# Check if we already have a camp nearby
+	var existing_camps = get_tree().get_nodes_in_group("mining_camps")
+	for camp in existing_camps:
+		if camp.team == AI_TEAM and camp.global_position.distance_to(target_pos) < 200:
+			return
+
+	if not GameManager.spend_resource("wood", 100, AI_TEAM):
+		return
+
+	var scene = load(MINING_CAMP_SCENE_PATH)
+	var camp = scene.instantiate()
+	camp.global_position = target_pos
+	camp.team = AI_TEAM
+
+	get_parent().get_node("Buildings").add_child(camp)
+	camp.start_construction()
+	builder.command_build(camp)
+	buildings_under_construction.append(camp)
+	expansion_camps_built += 1
+
+## Find position of distant resource for expansion
+func _find_expansion_resource_position(resource_type: String) -> Vector2:
+	var resources = get_tree().get_nodes_in_group("resources")
+	var best_pos = Vector2.ZERO
+	var best_score = -INF
+
+	for resource in resources:
+		if resource is Farm:
+			continue
+		if not resource.has_resources():
+			continue
+		if resource.get_resource_type() != resource_type:
+			continue
+
+		var dist = resource.global_position.distance_to(AI_BASE_POSITION)
+
+		# Want resources that are far from base (> 600) but not too far
+		if dist < RESOURCE_DEPLETION_DISTANCE or dist > EXPANSION_MAX_DISTANCE:
+			continue
+
+		# Score based on distance (prefer medium distance)
+		var score = 100 - abs(dist - 800) / 10
+
+		# Prefer positions away from known enemy
+		if known_enemy_tc_position != Vector2.ZERO:
+			var enemy_dist = resource.global_position.distance_to(known_enemy_tc_position)
+			score += enemy_dist / 50  # Bonus for being far from enemy
+
+		if score > best_score:
+			best_score = score
+			best_pos = resource.global_position
+
+	return best_pos
+
+## Check if a position is safe from enemies
+func _is_position_safe(pos: Vector2) -> bool:
+	var units = get_tree().get_nodes_in_group("units")
+
+	for unit in units:
+		if unit.team == PLAYER_TEAM and not unit.is_dead:
+			if unit.global_position.distance_to(pos) < EXPANSION_SAFETY_RADIUS:
+				return false
+
+	return true
+
+## Get forward building position (toward enemy)
+func _get_forward_building_position(building_size: Vector2) -> Vector2:
+	# If we don't know enemy base, use standard position
+	if known_enemy_tc_position == Vector2.ZERO:
+		return AI_BASE_POSITION + _find_building_spot(building_size)
+
+	# Calculate position between our base and enemy
+	var direction = (known_enemy_tc_position - AI_BASE_POSITION).normalized()
+	var forward_dist = AI_BASE_POSITION.distance_to(known_enemy_tc_position) * FORWARD_BUILDING_RATIO
+
+	# Start from forward position and find valid spot
+	var forward_base = AI_BASE_POSITION + direction * forward_dist
+
+	# Search for valid position near forward base
+	var search_offsets = [
+		Vector2(0, 0),
+		Vector2(-50, 0), Vector2(50, 0), Vector2(0, -50), Vector2(0, 50),
+		Vector2(-50, -50), Vector2(50, -50), Vector2(-50, 50), Vector2(50, 50),
+		Vector2(-100, 0), Vector2(100, 0), Vector2(0, -100), Vector2(0, 100),
+	]
+
+	for offset in search_offsets:
+		var pos = forward_base + offset
+		# Phase 3E: Check both valid building position AND safety from enemies
+		if _is_valid_building_position(pos, building_size) and _is_position_safe(pos):
+			return pos
+
+	# Fallback to standard position if forward position is unsafe
+	return AI_BASE_POSITION + _find_building_spot(building_size)
+
+## Improved farm position finding - ring pattern around TC/Mill
+func _find_farm_position_ring(near_pos: Vector2) -> Vector2:
+	var farm_size = Vector2(64, 64)
+
+	# Generate positions in rings around the base position
+	var ring_positions: Array[Vector2] = []
+
+	# Inner ring (8 positions)
+	for i in range(8):
+		var angle = i * PI / 4  # 45 degree increments
+		var pos = near_pos + Vector2(cos(angle), sin(angle)) * FARM_RING_INNER_RADIUS
+		ring_positions.append(pos)
+
+	# Outer ring (12 positions)
+	for i in range(12):
+		var angle = i * PI / 6  # 30 degree increments
+		var pos = near_pos + Vector2(cos(angle), sin(angle)) * FARM_RING_OUTER_RADIUS
+		ring_positions.append(pos)
+
+	# Find first valid position
+	for pos in ring_positions:
+		if _is_valid_building_position(pos, farm_size):
+			return pos
+
+	# Fallback to original method
+	return _find_farm_position_fallback(near_pos)
+
+## Fallback farm position finding (original method)
+func _find_farm_position_fallback(near_pos: Vector2) -> Vector2:
+	var farm_size = Vector2(64, 64)
+	var offsets = [
+		Vector2(70, 0), Vector2(-70, 0), Vector2(0, 70), Vector2(0, -70),
+		Vector2(70, 70), Vector2(-70, 70), Vector2(70, -70), Vector2(-70, -70),
+		Vector2(140, 0), Vector2(-140, 0), Vector2(0, 140), Vector2(0, -140),
+	]
+
+	for offset in offsets:
+		var pos = near_pos + offset
+		if _is_valid_building_position(pos, farm_size):
+			return pos
+
+	return near_pos + Vector2(80, 80)
+
+## Get dynamic villager target for a resource type
+func get_dynamic_villager_target(resource_type: String) -> int:
+	return dynamic_villager_targets.get(resource_type, 5)
+
+## Check if a specific resource is floating
+func is_resource_floating(resource_type: String) -> bool:
+	return floating_resources.get(resource_type, false)
+
+## Get current economy mode as string (for debugging)
+func get_economy_mode_string() -> String:
+	match current_economy_mode:
+		EconomyMode.BOOM:
+			return "BOOM"
+		EconomyMode.MILITARY:
+			return "MILITARY"
+		EconomyMode.BALANCED:
+			return "BALANCED"
+	return "UNKNOWN"
