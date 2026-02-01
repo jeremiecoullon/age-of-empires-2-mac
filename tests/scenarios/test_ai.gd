@@ -25,6 +25,14 @@ extends Node
 ## - Army composition tracking
 ## - Threat assessment levels
 ## - Building type identification
+##
+## Phase 3C tests verify:
+## - Counter-unit production logic
+## - Army composition goal updates
+## - Attack timing (strength comparison, vulnerability checks)
+## - Target prioritization scoring
+## - Retreat behavior (HP threshold, state checking)
+## - Focus fire coordination
 
 class_name TestAI
 
@@ -93,6 +101,38 @@ func get_all_tests() -> Array[Callable]:
 		test_enemy_has_more_returns_false_when_equal,
 		test_enemy_has_more_returns_true_when_enemy_has_more,
 		test_building_type_string_returns_correct_types,
+		# Phase 3C: Counter-unit production tests
+		test_get_counter_for_unit_returns_correct_counters,
+		test_get_counter_for_unit_defaults_to_militia,
+		test_get_counter_unit_priority_returns_default_with_low_intel,
+		test_get_counter_unit_priority_counters_archers_with_skirmishers,
+		test_get_counter_unit_priority_counters_cavalry_with_spearmen,
+		# Phase 3C: Army composition goal tests
+		test_army_composition_goals_has_default_ratios,
+		test_update_army_composition_goals_adjusts_for_ranged_enemy,
+		test_update_army_composition_goals_adjusts_for_cavalry_enemy,
+		test_update_army_composition_goals_adjusts_for_infantry_enemy,
+		# Phase 3C: Attack timing tests
+		test_get_military_strength_counts_ai_units,
+		test_get_military_strength_weights_unit_types,
+		test_get_enemy_strength_estimate_uses_estimated_army,
+		test_has_military_advantage_requires_threshold,
+		test_is_enemy_vulnerable_true_when_low_military,
+		test_is_enemy_vulnerable_true_when_villagers_seen_recently,
+		# Phase 3C: Target prioritization tests
+		test_prioritize_target_prefers_villagers,
+		test_prioritize_target_prefers_ranged_over_military,
+		test_prioritize_target_prefers_low_hp,
+		test_prioritize_target_returns_null_for_empty_list,
+		# Phase 3C: Retreat behavior tests
+		test_is_unit_attacking_returns_false_for_idle_unit,
+		test_should_unit_retreat_false_at_full_hp,
+		test_should_unit_retreat_true_at_low_hp_in_combat,
+		test_retreating_units_starts_empty,
+		# Phase 3C: Focus fire tests
+		test_count_units_attacking_target_returns_zero_with_no_attackers,
+		test_get_attackers_on_target_delegates_to_count,
+		test_find_focus_fire_target_returns_null_with_no_enemies,
 	]
 
 
@@ -967,5 +1007,600 @@ func test_building_type_string_returns_correct_types() -> Assertions.AssertResul
 	if type_str != "barracks":
 		return Assertions.AssertResult.new(false,
 			"_get_building_type_string() for Barracks should return 'barracks', got: %s" % type_str)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3C: Counter-Unit Production Tests ===
+
+func test_get_counter_for_unit_returns_correct_counters() -> Assertions.AssertResult:
+	## _get_counter_for_unit should return correct counter units from COUNTER_UNITS dict
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Test key counter matchups
+	var archer_counter = controller._get_counter_for_unit("archer")
+	var cavalry_counter = controller._get_counter_for_unit("scout_cavalry")
+	var militia_counter = controller._get_counter_for_unit("militia")
+
+	_cleanup_ai_controller(controller)
+
+	if archer_counter != "skirmisher":
+		return Assertions.AssertResult.new(false,
+			"Counter for archer should be 'skirmisher', got: %s" % archer_counter)
+
+	if cavalry_counter != "spearman":
+		return Assertions.AssertResult.new(false,
+			"Counter for scout_cavalry should be 'spearman', got: %s" % cavalry_counter)
+
+	if militia_counter != "archer":
+		return Assertions.AssertResult.new(false,
+			"Counter for militia should be 'archer', got: %s" % militia_counter)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_counter_for_unit_defaults_to_militia() -> Assertions.AssertResult:
+	## _get_counter_for_unit should return 'militia' for unknown unit types
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var unknown_counter = controller._get_counter_for_unit("unknown_unit")
+
+	_cleanup_ai_controller(controller)
+
+	if unknown_counter != "militia":
+		return Assertions.AssertResult.new(false,
+			"Counter for unknown unit type should default to 'militia', got: %s" % unknown_counter)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_counter_unit_priority_returns_default_with_low_intel() -> Assertions.AssertResult:
+	## _get_counter_unit_priority should return default when enemy intel is low
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Ensure enemy army estimate is below threshold (< 3)
+	controller.estimated_enemy_army.total_military = 2
+
+	var priority = controller._get_counter_unit_priority()
+
+	_cleanup_ai_controller(controller)
+
+	if priority.type != "militia":
+		return Assertions.AssertResult.new(false,
+			"Should default to 'militia' with low intel, got: %s" % priority.type)
+
+	if priority.reason != "default":
+		return Assertions.AssertResult.new(false,
+			"Reason should be 'default' with low intel, got: %s" % priority.reason)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_counter_unit_priority_counters_archers_with_skirmishers() -> Assertions.AssertResult:
+	## _get_counter_unit_priority should prioritize skirmishers against archer-heavy enemy
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set up enemy composition with many archers
+	controller.estimated_enemy_army.archer = 5
+	controller.estimated_enemy_army.militia = 1
+	controller.estimated_enemy_army.total_military = 6
+
+	var priority = controller._get_counter_unit_priority()
+
+	_cleanup_ai_controller(controller)
+
+	# Note: The actual result depends on the logic in _get_counter_unit_priority
+	# It checks dominant unit type and the anti-archer check
+	if priority.type != "skirmisher":
+		return Assertions.AssertResult.new(false,
+			"Should prioritize 'skirmisher' against archers, got: %s (reason: %s)" % [priority.type, priority.reason])
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_counter_unit_priority_counters_cavalry_with_spearmen() -> Assertions.AssertResult:
+	## _get_counter_unit_priority should prioritize spearmen against cavalry-heavy enemy
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set up enemy composition with many cavalry
+	controller.estimated_enemy_army.scout_cavalry = 4
+	controller.estimated_enemy_army.militia = 1
+	controller.estimated_enemy_army.total_military = 5
+
+	var priority = controller._get_counter_unit_priority()
+
+	_cleanup_ai_controller(controller)
+
+	if priority.type != "spearman":
+		return Assertions.AssertResult.new(false,
+			"Should prioritize 'spearman' against cavalry, got: %s (reason: %s)" % [priority.type, priority.reason])
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3C: Army Composition Goal Tests ===
+
+func test_army_composition_goals_has_default_ratios() -> Assertions.AssertResult:
+	## army_composition_goals should have default ratios (40/40/20)
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var infantry = controller.army_composition_goals.infantry
+	var ranged = controller.army_composition_goals.ranged
+	var cavalry = controller.army_composition_goals.cavalry
+
+	_cleanup_ai_controller(controller)
+
+	if abs(infantry - 0.4) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"Default infantry ratio should be 0.4, got: %f" % infantry)
+
+	if abs(ranged - 0.4) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"Default ranged ratio should be 0.4, got: %f" % ranged)
+
+	if abs(cavalry - 0.2) > 0.01:
+		return Assertions.AssertResult.new(false,
+			"Default cavalry ratio should be 0.2, got: %f" % cavalry)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_update_army_composition_goals_adjusts_for_ranged_enemy() -> Assertions.AssertResult:
+	## _update_army_composition_goals should increase ranged ratio against archer-heavy enemy
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set enemy composition: heavy archers (>50% ranged)
+	controller.estimated_enemy_army.archer = 6
+	controller.estimated_enemy_army.militia = 2
+	controller.estimated_enemy_army.total_military = 8
+
+	controller._update_army_composition_goals()
+
+	var ranged = controller.army_composition_goals.ranged
+	var cavalry = controller.army_composition_goals.cavalry
+
+	_cleanup_ai_controller(controller)
+
+	# Against heavy archers, should prioritize ranged (skirmishers) and cavalry
+	if ranged < 0.45:
+		return Assertions.AssertResult.new(false,
+			"Ranged ratio should increase against archer enemy, got: %f" % ranged)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_update_army_composition_goals_adjusts_for_cavalry_enemy() -> Assertions.AssertResult:
+	## _update_army_composition_goals should increase infantry ratio against cavalry-heavy enemy
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set enemy composition: heavy cavalry (>40% cavalry)
+	controller.estimated_enemy_army.scout_cavalry = 5
+	controller.estimated_enemy_army.militia = 3
+	controller.estimated_enemy_army.total_military = 8
+
+	controller._update_army_composition_goals()
+
+	var infantry = controller.army_composition_goals.infantry
+
+	_cleanup_ai_controller(controller)
+
+	# Against heavy cavalry, should prioritize infantry (spearmen)
+	if infantry < 0.45:
+		return Assertions.AssertResult.new(false,
+			"Infantry ratio should increase against cavalry enemy, got: %f" % infantry)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_update_army_composition_goals_adjusts_for_infantry_enemy() -> Assertions.AssertResult:
+	## _update_army_composition_goals should increase ranged ratio against infantry-heavy enemy
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set enemy composition: heavy infantry (>50% infantry)
+	controller.estimated_enemy_army.militia = 5
+	controller.estimated_enemy_army.spearman = 3
+	controller.estimated_enemy_army.total_military = 8
+
+	controller._update_army_composition_goals()
+
+	var ranged = controller.army_composition_goals.ranged
+
+	_cleanup_ai_controller(controller)
+
+	# Against heavy infantry, should prioritize ranged (archers)
+	if ranged < 0.45:
+		return Assertions.AssertResult.new(false,
+			"Ranged ratio should increase against infantry enemy, got: %f" % ranged)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3C: Attack Timing Tests ===
+
+func test_get_military_strength_counts_ai_units() -> Assertions.AssertResult:
+	## _get_military_strength should return strength score for AI military units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Start with no military
+	var strength_before = controller._get_military_strength()
+
+	# Spawn some AI military
+	runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)
+	runner.spawner.spawn_militia(Vector2(1620, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var strength_after = controller._get_military_strength()
+
+	_cleanup_ai_controller(controller)
+
+	if strength_before != 0:
+		return Assertions.AssertResult.new(false,
+			"Strength should be 0 with no military, got: %d" % strength_before)
+
+	# Each militia is worth 2 strength, so 2 militia = 4
+	if strength_after != 4:
+		return Assertions.AssertResult.new(false,
+			"Strength should be 4 with 2 militia (2 each), got: %d" % strength_after)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_military_strength_weights_unit_types() -> Assertions.AssertResult:
+	## _get_military_strength should weight different unit types differently
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn 1 militia (2 strength), 1 archer (3 strength), 1 scout cavalry (3 strength)
+	runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)
+	runner.spawner.spawn_archer(Vector2(1620, 1600), AI_TEAM)
+	runner.spawner.spawn_scout_cavalry(Vector2(1640, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var strength = controller._get_military_strength()
+
+	_cleanup_ai_controller(controller)
+
+	# 2 + 3 + 3 = 8
+	if strength != 8:
+		return Assertions.AssertResult.new(false,
+			"Strength should be 8 (militia=2 + archer=3 + scout=3), got: %d" % strength)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_enemy_strength_estimate_uses_estimated_army() -> Assertions.AssertResult:
+	## _get_enemy_strength_estimate should calculate from estimated_enemy_army
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# No enemy intel = 0 strength
+	var strength_before = controller._get_enemy_strength_estimate()
+
+	# Set estimated enemy composition
+	controller.estimated_enemy_army.militia = 2  # 2 * 2 = 4
+	controller.estimated_enemy_army.archer = 1   # 1 * 3 = 3
+	# Total = 7
+
+	var strength_after = controller._get_enemy_strength_estimate()
+
+	_cleanup_ai_controller(controller)
+
+	if strength_before != 0:
+		return Assertions.AssertResult.new(false,
+			"Enemy strength should be 0 with no intel, got: %d" % strength_before)
+
+	if strength_after != 7:
+		return Assertions.AssertResult.new(false,
+			"Enemy strength should be 7 (2*2 + 1*3), got: %d" % strength_after)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_has_military_advantage_requires_threshold() -> Assertions.AssertResult:
+	## _has_military_advantage should require ATTACK_ADVANTAGE_THRESHOLD more strength
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set up scenario: AI has 5 strength, enemy has 4
+	# Advantage threshold is 3, so 5 - 4 = 1, not enough
+	runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)  # +2
+	runner.spawner.spawn_archer(Vector2(1620, 1600), AI_TEAM)   # +3 = 5 total
+	await runner.wait_frames(2)
+
+	controller.estimated_enemy_army.militia = 2  # 2 * 2 = 4
+
+	var has_advantage = controller._has_military_advantage()
+
+	_cleanup_ai_controller(controller)
+
+	# 5 >= 4 + 3 is false (5 < 7)
+	if has_advantage:
+		return Assertions.AssertResult.new(false,
+			"Should NOT have advantage when difference < threshold (5 vs 4, threshold 3)")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_enemy_vulnerable_true_when_low_military() -> Assertions.AssertResult:
+	## _is_enemy_vulnerable should return true when enemy has <= 2 military
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set low enemy military
+	controller.estimated_enemy_army.total_military = 2
+
+	var is_vulnerable = controller._is_enemy_vulnerable()
+
+	_cleanup_ai_controller(controller)
+
+	if not is_vulnerable:
+		return Assertions.AssertResult.new(false,
+			"Enemy should be vulnerable when total_military <= 2")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_enemy_vulnerable_true_when_villagers_seen_recently() -> Assertions.AssertResult:
+	## _is_enemy_vulnerable should return true when villagers seen recently
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Set enemy villagers seen and recent sighting
+	controller.estimated_enemy_army.villagers = 5
+	controller.estimated_enemy_army.total_military = 10  # Not low
+	controller.last_enemy_sighting_time = Time.get_ticks_msec() / 1000.0 - 10.0  # 10 seconds ago
+
+	var is_vulnerable = controller._is_enemy_vulnerable()
+
+	_cleanup_ai_controller(controller)
+
+	if not is_vulnerable:
+		return Assertions.AssertResult.new(false,
+			"Enemy should be vulnerable when villagers seen recently (within 30s)")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3C: Target Prioritization Tests ===
+
+func test_prioritize_target_prefers_villagers() -> Assertions.AssertResult:
+	## _prioritize_target_from_list should prioritize villagers over military
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn player villager and militia
+	var villager = runner.spawner.spawn_villager(Vector2(200, 200), 0)
+	var militia = runner.spawner.spawn_militia(Vector2(220, 200), 0)
+	await runner.wait_frames(2)
+
+	var targets = [militia, villager]
+	var best = controller._prioritize_target_from_list(targets)
+
+	_cleanup_ai_controller(controller)
+
+	if best != villager:
+		return Assertions.AssertResult.new(false,
+			"Should prioritize villager over militia")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_prioritize_target_prefers_ranged_over_military() -> Assertions.AssertResult:
+	## _prioritize_target_from_list should prefer ranged units over melee military
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn player archer and militia at same distance from AI base
+	var archer = runner.spawner.spawn_archer(Vector2(200, 200), 0)
+	var militia = runner.spawner.spawn_militia(Vector2(200, 220), 0)
+	await runner.wait_frames(2)
+
+	var targets = [militia, archer]
+	var best = controller._prioritize_target_from_list(targets)
+
+	_cleanup_ai_controller(controller)
+
+	if best != archer:
+		return Assertions.AssertResult.new(false,
+			"Should prioritize archer (ranged) over militia (melee)")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_prioritize_target_prefers_low_hp() -> Assertions.AssertResult:
+	## _prioritize_target_from_list should prefer low HP targets (same unit type)
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn two militia, damage one
+	var militia1 = runner.spawner.spawn_militia(Vector2(200, 200), 0)
+	var militia2 = runner.spawner.spawn_militia(Vector2(200, 220), 0)
+	await runner.wait_frames(2)
+
+	# Damage militia1 to low HP
+	militia1.current_hp = 10  # Low HP
+	# militia2 stays at full HP
+
+	var targets = [militia2, militia1]
+	var best = controller._prioritize_target_from_list(targets)
+
+	_cleanup_ai_controller(controller)
+
+	if best != militia1:
+		return Assertions.AssertResult.new(false,
+			"Should prioritize low HP militia over full HP militia")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_prioritize_target_returns_null_for_empty_list() -> Assertions.AssertResult:
+	## _prioritize_target_from_list should return null for empty target list
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var best = controller._prioritize_target_from_list([])
+
+	_cleanup_ai_controller(controller)
+
+	if best != null:
+		return Assertions.AssertResult.new(false,
+			"Should return null for empty target list")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3C: Retreat Behavior Tests ===
+
+func test_is_unit_attacking_returns_false_for_idle_unit() -> Assertions.AssertResult:
+	## _is_unit_attacking should return false for idle units
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn idle AI militia
+	var militia = runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	# Unit should start idle
+	var is_attacking = controller._is_unit_attacking(militia)
+
+	_cleanup_ai_controller(controller)
+
+	if is_attacking:
+		return Assertions.AssertResult.new(false,
+			"_is_unit_attacking should return false for idle unit")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_should_unit_retreat_false_at_full_hp() -> Assertions.AssertResult:
+	## _should_unit_retreat should return false for unit at full HP
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn AI militia at full HP
+	var militia = runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	var should_retreat = controller._should_unit_retreat(militia)
+
+	_cleanup_ai_controller(controller)
+
+	if should_retreat:
+		return Assertions.AssertResult.new(false,
+			"Should not retreat at full HP")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_should_unit_retreat_true_at_low_hp_in_combat() -> Assertions.AssertResult:
+	## _should_unit_retreat should return true for low HP unit near enemies
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn AI militia and damage it severely (below 25% threshold)
+	var militia = runner.spawner.spawn_militia(Vector2(1600, 1600), AI_TEAM)
+	await runner.wait_frames(2)
+
+	# Set HP below retreat threshold (25%)
+	militia.current_hp = int(militia.max_hp * 0.2)  # 20% HP
+
+	# Spawn enemy nearby to trigger retreat check
+	runner.spawner.spawn_militia(Vector2(1620, 1600), 0)  # Player militia nearby
+	await runner.wait_frames(2)
+
+	var should_retreat = controller._should_unit_retreat(militia)
+
+	_cleanup_ai_controller(controller)
+
+	if not should_retreat:
+		return Assertions.AssertResult.new(false,
+			"Should retreat at low HP (20%%) with enemy nearby")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_retreating_units_starts_empty() -> Assertions.AssertResult:
+	## retreating_units array should start empty
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	var count = controller.retreating_units.size()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"retreating_units should start empty, has: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3C: Focus Fire Tests ===
+
+func test_count_units_attacking_target_returns_zero_with_no_attackers() -> Assertions.AssertResult:
+	## _count_units_attacking_target should return 0 when no units are attacking target
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn a player unit as potential target
+	var target = runner.spawner.spawn_militia(Vector2(200, 200), 0)
+	await runner.wait_frames(2)
+
+	var count = controller._count_units_attacking_target(target)
+
+	_cleanup_ai_controller(controller)
+
+	if count != 0:
+		return Assertions.AssertResult.new(false,
+			"Should return 0 when no units attacking target, got: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_get_attackers_on_target_delegates_to_count() -> Assertions.AssertResult:
+	## get_attackers_on_target (public API) should delegate to _count_units_attacking_target
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn a player unit as potential target
+	var target = runner.spawner.spawn_militia(Vector2(200, 200), 0)
+	await runner.wait_frames(2)
+
+	# Both methods should return the same value
+	var private_count = controller._count_units_attacking_target(target)
+	var public_count = controller.get_attackers_on_target(target)
+
+	_cleanup_ai_controller(controller)
+
+	if private_count != public_count:
+		return Assertions.AssertResult.new(false,
+			"get_attackers_on_target should match _count_units_attacking_target")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_find_focus_fire_target_returns_null_with_no_enemies() -> Assertions.AssertResult:
+	## _find_focus_fire_target should return null when no enemies nearby
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# No enemies spawned, search near AI base
+	var target = controller._find_focus_fire_target(Vector2(1600, 1600))
+
+	_cleanup_ai_controller(controller)
+
+	if target != null:
+		return Assertions.AssertResult.new(false,
+			"Should return null when no enemies nearby")
 
 	return Assertions.AssertResult.new(true)
