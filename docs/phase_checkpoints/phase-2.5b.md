@@ -97,12 +97,7 @@ Currently only wood costs are refunded (primary building resource).
 
 ## Known Issues
 
-| Issue | Status | Notes |
-|-------|--------|-------|
-| Combat test timing | Pre-existing | 5 combat tests fail - timing sensitive with avoidance |
-| Hunting test timing | Pre-existing | 2 hunting tests fail - timing sensitive with avoidance |
-
-These 7 test failures existed before Phase 2.5B and are timing-related, not construction-related.
+None. All tests pass (263/263).
 
 ---
 

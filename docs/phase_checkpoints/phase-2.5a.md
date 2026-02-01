@@ -91,12 +91,7 @@ Movement pattern changed from direct velocity assignment to:
 
 ## Known Issues
 
-| Issue | Status | Notes |
-|-------|--------|-------|
-| Combat test timing | Pre-existing | 5 combat tests fail with avoidance - units may need more time to attack |
-| Hunting test timing | Pre-existing | 2 hunting tests fail - timing sensitive with avoidance |
-
-These test failures are timing-related and don't affect actual gameplay. Units attack correctly in-game; the tests need adjustment to account for avoidance overhead.
+None. All tests pass (263/263).
 
 ---
 
@@ -135,8 +130,8 @@ These test failures are timing-related and don't affect actual gameplay. Units a
 
 - **Tests updated:** 5 (behavior changed from "cannot train" to "can queue")
 - **Tests added:** 8 new queue tests
-- **Test results:** 237 passed, 7 failed (224 passed, 12 failed before phase)
-- **Net improvement:** +5 tests fixed (queue tests), +13 total tests
+- **Test results:** 263 passed, 0 failed
+- **Net improvement:** All tests passing
 
 ---
 
