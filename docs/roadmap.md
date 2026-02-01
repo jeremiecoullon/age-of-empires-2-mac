@@ -367,7 +367,18 @@ Cursor sprites location: `assets/sprites_extracted/cursors/`
 
 This phase makes the AI play well, not just play. Phase 2C made the AI use available features; this phase makes it use them intelligently.
 
-**3A: Macro & Build Orders**
+**Difficulty:** Single difficulty level ("Very Difficult") - the AI plays to win.
+
+**Sub-phases (approved 2026-02-01):**
+- **3A**: Macro & Build Orders - build order system, continuous villager production, production scaling, idle villager reassignment
+- **3B**: Scouting & Information - scout patrol patterns, enemy base tracking, army composition tracking, threat assessment
+- **3C**: Combat Intelligence - counter-unit production, army composition goals, attack timing, target prioritization, retreat, focus fire
+- **3D**: Micro & Tactics - ranged kiting, villager flee behavior, TC garrison, split attention, reinforcement waves
+- **3E**: Economic Intelligence - resource balance targets, floating resource detection, farm placement, forward building, expansion
+
+---
+
+### Phase 3A: Macro & Build Orders
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -378,7 +389,11 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Production building scaling | AI | Build 2nd/3rd barracks/range when floating resources |
 | Idle villager reassignment | AI | Detect and fix idle villagers immediately |
 
-**3B: Scouting & Information**
+**3A Done when:** AI executes a structured build order, never idles TC, scales production buildings, reassigns idle villagers.
+
+---
+
+### Phase 3B: Scouting & Information
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -388,7 +403,11 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Army composition tracking | AI | Estimate what units enemy is making |
 | Threat assessment | AI | Know when enemy is attacking, with how much |
 
-**3C: Combat Intelligence**
+**3B Done when:** AI scouts effectively, tracks enemy base location, estimates enemy army composition.
+
+---
+
+### Phase 3C: Combat Intelligence
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -399,7 +418,11 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Retreat behavior | AI | Pull back badly damaged units, don't suicide |
 | Focus fire | AI | Concentrate attacks on single targets |
 
-**3D: Micro & Tactics**
+**3C Done when:** AI counters player army composition, times attacks well, prioritizes targets, retreats damaged units.
+
+---
+
+### Phase 3D: Micro & Tactics
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -409,7 +432,11 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Split attention | AI | Can harass + defend simultaneously |
 | Reinforcement waves | AI | Send new units to join existing army |
 
-**3E: Economic Intelligence**
+**3D Done when:** AI micro-manages units in combat, villagers flee to TC, can multitask harassment and defense.
+
+---
+
+### Phase 3E: Economic Intelligence
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -419,16 +446,9 @@ This phase makes the AI play well, not just play. Phase 2C made the AI use avail
 | Forward building | AI | Build military buildings closer to enemy for faster reinforcement |
 | Expansion behavior | AI | Build 2nd TC / expand to new resources when safe |
 
-**Difficulty Levels (optional)**
+**3E Done when:** AI balances economy for current goals, doesn't float resources, optimizes farm placement.
 
-| Level | Behavior |
-|-------|----------|
-| Easy | Slower decisions, no micro, attacks late |
-| Medium | Standard build orders, basic counter-play |
-| Hard | Optimized builds, good micro, aggressive timing |
-| Hardest | Near-perfect execution, reads player strategy |
-
-**Done when:** Playing against Hard AI feels like playing against a competent human opponent. The AI should win sometimes.
+**Phase 3 Done when:** Playing against the AI feels like playing against a competent human opponent. The AI should win sometimes.
 
 ---
 

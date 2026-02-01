@@ -1,7 +1,7 @@
 extends Node
-## AI Tests - Tests for AI Controller economic and military decisions (Phase 2C)
+## AI Tests - Tests for AI Controller economic and military decisions
 ##
-## These tests verify:
+## Phase 2C tests verify:
 ## - Villager training decisions
 ## - Villager allocation to resources
 ## - Farm building decisions
@@ -10,6 +10,14 @@ extends Node
 ## - Mixed army training decisions
 ## - Attack threshold logic
 ## - Building rebuilding logic
+##
+## Phase 3A tests verify:
+## - Build order system
+## - Build order step execution
+## - Continuous villager production (TC queue maintenance)
+## - Production building scaling (multiple barracks/ranges/stables)
+## - Floating resource detection
+## - Idle villager reassignment
 
 class_name TestAI
 
@@ -53,6 +61,16 @@ func get_all_tests() -> Array[Callable]:
 		# Market decision tests
 		test_should_build_market_false_without_surplus,
 		test_should_build_market_true_with_surplus_and_low_gold,
+		# Phase 3A: Build order tests
+		test_build_order_creates_steps,
+		test_build_order_dark_age_has_villager_steps,
+		test_build_order_dark_age_has_building_steps,
+		# Phase 3A: Continuous villager production tests
+		test_is_floating_resources_false_when_low,
+		test_is_floating_resources_true_when_high,
+		# Phase 3A: Production building scaling tests
+		test_count_archery_ranges_counts_ai_only,
+		test_count_stables_counts_ai_only,
 	]
 
 
@@ -554,5 +572,175 @@ func test_should_build_market_true_with_surplus_and_low_gold() -> Assertions.Ass
 	if not should_build:
 		return Assertions.AssertResult.new(false,
 			"Should build market with surplus wood (400) and low gold (50)")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3A: Build Order Tests ===
+
+func test_build_order_creates_steps() -> Assertions.AssertResult:
+	## BuildOrder class should create a proper build order with steps
+	var bo = BuildOrder.new("Test")
+
+	# Add some steps
+	bo.add_step(BuildOrder.Step.queue_villager("food"))
+	bo.add_step(BuildOrder.Step.build("house"))
+	bo.add_step(BuildOrder.Step.wait_villagers(5))
+
+	if bo.size() != 3:
+		return Assertions.AssertResult.new(false,
+			"Build order should have 3 steps, got: %d" % bo.size())
+
+	var step1 = bo.get_step(0)
+	if step1.type != BuildOrder.StepType.QUEUE_VILLAGER:
+		return Assertions.AssertResult.new(false,
+			"First step should be QUEUE_VILLAGER")
+
+	if step1.target_resource != "food":
+		return Assertions.AssertResult.new(false,
+			"First step target_resource should be 'food', got: %s" % step1.target_resource)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_build_order_dark_age_has_villager_steps() -> Assertions.AssertResult:
+	## Dark Age build order should start with villager queueing
+	var bo = BuildOrder.create_dark_age_build_order()
+
+	if bo.size() < 10:
+		return Assertions.AssertResult.new(false,
+			"Dark Age build order should have many steps, got: %d" % bo.size())
+
+	# First few steps should queue villagers
+	var villager_steps = 0
+	for i in range(min(5, bo.size())):
+		var step = bo.get_step(i)
+		if step.type == BuildOrder.StepType.QUEUE_VILLAGER:
+			villager_steps += 1
+
+	if villager_steps < 3:
+		return Assertions.AssertResult.new(false,
+			"First 5 steps should have at least 3 villager queues, got: %d" % villager_steps)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_build_order_dark_age_has_building_steps() -> Assertions.AssertResult:
+	## Dark Age build order should include key buildings
+	var bo = BuildOrder.create_dark_age_build_order()
+
+	var has_house = false
+	var has_lumber_camp = false
+	var has_barracks = false
+
+	for i in range(bo.size()):
+		var step = bo.get_step(i)
+		if step.type == BuildOrder.StepType.BUILD_BUILDING:
+			if step.building_type == "house":
+				has_house = true
+			elif step.building_type == "lumber_camp":
+				has_lumber_camp = true
+			elif step.building_type == "barracks":
+				has_barracks = true
+
+	if not has_house:
+		return Assertions.AssertResult.new(false,
+			"Dark Age build order should include house building")
+
+	if not has_lumber_camp:
+		return Assertions.AssertResult.new(false,
+			"Dark Age build order should include lumber camp building")
+
+	if not has_barracks:
+		return Assertions.AssertResult.new(false,
+			"Dark Age build order should include barracks building")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3A: Floating Resources Tests ===
+
+func test_is_floating_resources_false_when_low() -> Assertions.AssertResult:
+	## _is_floating_resources should return false when all resources < 300
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	GameManager.ai_resources["wood"] = 200
+	GameManager.ai_resources["food"] = 200
+	GameManager.ai_resources["gold"] = 100
+
+	var floating = controller._is_floating_resources()
+
+	_cleanup_ai_controller(controller)
+
+	if floating:
+		return Assertions.AssertResult.new(false,
+			"Should not be floating with wood=200, food=200, gold=100")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_is_floating_resources_true_when_high() -> Assertions.AssertResult:
+	## _is_floating_resources should return true when any resource > 300
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	GameManager.ai_resources["wood"] = 400  # Over threshold
+	GameManager.ai_resources["food"] = 200
+	GameManager.ai_resources["gold"] = 100
+
+	var floating = controller._is_floating_resources()
+
+	_cleanup_ai_controller(controller)
+
+	if not floating:
+		return Assertions.AssertResult.new(false,
+			"Should be floating with wood=400 (>300)")
+
+	return Assertions.AssertResult.new(true)
+
+
+# === Phase 3A: Production Building Scaling Tests ===
+
+func test_count_archery_ranges_counts_ai_only() -> Assertions.AssertResult:
+	## _count_archery_ranges should only count AI team archery ranges
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn archery ranges for both teams
+	runner.spawner.spawn_archery_range(Vector2(200, 200), 0)  # Player
+	runner.spawner.spawn_archery_range(Vector2(1600, 1600), AI_TEAM)  # AI
+	runner.spawner.spawn_archery_range(Vector2(1700, 1600), AI_TEAM)  # AI
+	await runner.wait_frames(2)
+
+	var count = controller._count_archery_ranges()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 2:
+		return Assertions.AssertResult.new(false,
+			"Should count 2 AI archery ranges, got: %d" % count)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_count_stables_counts_ai_only() -> Assertions.AssertResult:
+	## _count_stables should only count AI team stables
+	var controller = _create_ai_controller()
+	await runner.wait_frames(2)
+
+	# Spawn stables for both teams
+	runner.spawner.spawn_stable(Vector2(200, 200), 0)  # Player
+	runner.spawner.spawn_stable(Vector2(300, 200), 0)  # Player
+	runner.spawner.spawn_stable(Vector2(1600, 1600), AI_TEAM)  # AI
+	await runner.wait_frames(2)
+
+	var count = controller._count_stables()
+
+	_cleanup_ai_controller(controller)
+
+	if count != 1:
+		return Assertions.AssertResult.new(false,
+			"Should count 1 AI stable, got: %d" % count)
 
 	return Assertions.AssertResult.new(true)
