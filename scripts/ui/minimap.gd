@@ -1,8 +1,8 @@
 extends Control
 class_name Minimap
 
-## Diamond-shaped minimap displaying terrain, units, buildings, and fog of war
-## Rotated 45° to match AoE2 isometric style. Click to pan camera.
+## Square minimap displaying terrain, units, buildings, and fog of war.
+## Simple 1:1 mapping: world X = minimap X, world Y = minimap Y.
 
 const TILE_SIZE: int = 32
 const MAP_SIZE: int = 1920  # Map dimensions in pixels
@@ -13,8 +13,8 @@ const PLAYER_TEAM: int = 0
 const AI_TEAM: int = 1
 const NEUTRAL_TEAM: int = -1
 
-# Minimap dimensions (square, rotated 45° to form diamond)
-var minimap_size: Vector2 = Vector2(106, 106)
+# Minimap dimensions - set from Control size in _ready (110x110 in scene)
+var minimap_size: Vector2 = Vector2(110, 110)
 
 # Rendering
 var minimap_image: Image
@@ -241,16 +241,16 @@ func _update_camera_rect() -> void:
 		viewport_size / zoom
 	)
 
-	# Convert to minimap coordinates
-	var scale = minimap_size / Vector2(MAP_SIZE, MAP_SIZE)
+	# Convert to minimap coordinates (simple scale)
+	var scale_factor = minimap_size / Vector2(MAP_SIZE, MAP_SIZE)
 	camera_rect = Rect2(
-		world_rect.position * scale,
-		world_rect.size * scale
+		world_rect.position * scale_factor,
+		world_rect.size * scale_factor
 	)
 
 
 func _draw() -> void:
-	# Draw the minimap image (60x60 grid) scaled to control size (150x120)
+	# Draw the minimap image (60x60 grid) scaled to control size
 	draw_texture_rect(minimap_texture, Rect2(Vector2.ZERO, minimap_size), false)
 
 	# Draw camera viewport indicator (white rectangle)
@@ -259,6 +259,7 @@ func _draw() -> void:
 
 
 func _world_to_tile(world_pos: Vector2) -> Vector2i:
+	# Simple 1:1 mapping from world to grid coordinates
 	var tx = clampi(int(world_pos.x / TILE_SIZE), 0, GRID_SIZE - 1)
 	var ty = clampi(int(world_pos.y / TILE_SIZE), 0, GRID_SIZE - 1)
 	return Vector2i(tx, ty)
@@ -269,21 +270,25 @@ func _set_pixel_safe(x: int, y: int, color: Color) -> void:
 		minimap_image.set_pixel(x, y, color)
 
 
+signal minimap_right_clicked(world_position: Vector2)
+
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			_handle_click(event.position)
+	if event is InputEventMouseButton and event.pressed:
+		var world_pos = _local_to_world(event.position)
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			minimap_clicked.emit(world_pos)
+			get_viewport().set_input_as_handled()
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			minimap_right_clicked.emit(world_pos)
 			get_viewport().set_input_as_handled()
 
 
-func _handle_click(local_pos: Vector2) -> void:
-	# Convert minimap position to world position
-	# The minimap is rotated 45° so local coordinates are already in rotated space
+func _local_to_world(local_pos: Vector2) -> Vector2:
+	# Convert minimap click position to world position (simple scale)
 	var normalized = local_pos / minimap_size
 	var world_pos = normalized * Vector2(MAP_SIZE, MAP_SIZE)
 
 	# Clamp to map bounds
 	world_pos.x = clampf(world_pos.x, 0, MAP_SIZE)
 	world_pos.y = clampf(world_pos.y, 0, MAP_SIZE)
-
-	minimap_clicked.emit(world_pos)
+	return world_pos

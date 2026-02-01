@@ -125,7 +125,7 @@ grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("3_bottom_bar_bg")
 expand_mode = 1
-stretch_mode = 6
+stretch_mode = 0
 
 [node name="BottomContent" type="HBoxContainer" parent="BottomPanel"]
 layout_mode = 1
@@ -429,12 +429,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -53.0
-offset_top = -53.0
-offset_right = 53.0
-offset_bottom = 53.0
-rotation = 0.785398
-pivot_offset = Vector2(53, 53)
+offset_left = -145.0
+offset_top = -55.0
+offset_right = -35.0
+offset_bottom = 55.0
 script = ExtResource("2_minimap")
 
 [node name="ErrorLabel" type="Label" parent="."]
@@ -513,3 +511,4 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceNA" to="." method="_on_stance_na_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]
 [connection signal="minimap_clicked" from="BottomPanel/BottomContent/RightSection/Minimap" to="." method="_on_minimap_clicked"]
+[connection signal="minimap_right_clicked" from="BottomPanel/BottomContent/RightSection/Minimap" to="." method="_on_minimap_right_clicked"]

@@ -838,9 +838,17 @@ func _on_cancel_pressed() -> void:
 # ============================================================================
 
 func _on_minimap_clicked(world_position: Vector2) -> void:
+	# Left click: jump camera to location
 	var camera = get_viewport().get_camera_2d()
 	if is_instance_valid(camera) and camera.has_method("jump_to"):
 		camera.jump_to(world_position)
+
+
+func _on_minimap_right_clicked(world_position: Vector2) -> void:
+	# Right click: move selected units to location
+	for unit in GameManager.selected_units:
+		if is_instance_valid(unit) and unit.has_method("move_to"):
+			unit.move_to(world_position)
 
 
 # ============================================================================
