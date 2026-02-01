@@ -64,7 +64,7 @@ extends CanvasLayer
 @onready var stance_na_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/StanceContainer/StanceNA
 
 # Minimap
-@onready var minimap: Minimap = $BottomPanel/BottomContent/RightSection/MinimapContainer/Minimap
+@onready var minimap: Minimap = $BottomPanel/BottomContent/RightSection/Minimap
 
 # Overlays
 @onready var error_label: Label = $ErrorLabel

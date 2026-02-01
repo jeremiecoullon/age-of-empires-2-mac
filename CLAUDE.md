@@ -116,19 +116,21 @@ See `docs/roadmap.md` → "Post-Phase" for the full workflow.
 
 ## Running Tests
 
-**Always use the test runner script.** This validates the Godot project can import (catches .tscn/.tres syntax errors) before running tests.
+**Always run tests in two steps:**
 
-```bash
-./run_tests.sh
-```
+1. **Validate project import** (catches .tscn/.tres syntax errors):
+   ```bash
+   godot --headless --import --path .
+   ```
 
-The script:
-1. Runs `godot --headless --import` to validate all scene/resource files load correctly
-2. Runs the actual test suite
+2. **Run the test suite**:
+   ```bash
+   godot --headless --path . tests/test_scene.tscn
+   ```
 
-Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures.
+Both steps are required. The import step catches scene file errors that won't show up in tests (since tests use mock HUD).
 
-Do not ask the user to run tests manually in the GUI.
+Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures. Do not ask the user to run tests manually in the GUI.
 
 ---
 

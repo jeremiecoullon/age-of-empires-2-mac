@@ -1,8 +1,8 @@
 extends Control
 class_name Minimap
 
-## Minimap displaying terrain, units, buildings, and fog of war
-## Click to pan camera to that location
+## Diamond-shaped minimap displaying terrain, units, buildings, and fog of war
+## Rotated 45° to match AoE2 isometric style. Click to pan camera.
 
 const TILE_SIZE: int = 32
 const MAP_SIZE: int = 1920  # Map dimensions in pixels
@@ -13,8 +13,8 @@ const PLAYER_TEAM: int = 0
 const AI_TEAM: int = 1
 const NEUTRAL_TEAM: int = -1
 
-# Minimap dimensions (will be set based on Control size)
-var minimap_size: Vector2 = Vector2(180, 180)
+# Minimap dimensions (square, rotated 45° to form diamond)
+var minimap_size: Vector2 = Vector2(106, 106)
 
 # Rendering
 var minimap_image: Image
@@ -278,6 +278,7 @@ func _gui_input(event: InputEvent) -> void:
 
 func _handle_click(local_pos: Vector2) -> void:
 	# Convert minimap position to world position
+	# The minimap is rotated 45° so local coordinates are already in rotated space
 	var normalized = local_pos / minimap_size
 	var world_pos = normalized * Vector2(MAP_SIZE, MAP_SIZE)
 
