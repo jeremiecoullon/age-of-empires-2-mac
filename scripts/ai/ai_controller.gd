@@ -1755,14 +1755,6 @@ func _prioritize_target_from_list(targets: Array) -> Node2D:
 
 	return best_target
 
-## Check if a unit is idle or just standing around
-func _is_unit_idle_or_patrolling(unit: Node2D) -> bool:
-	if unit.has_method("get") and "current_state" in unit:
-		var state = unit.current_state
-		# Most military units have State.IDLE = 0
-		return state == 0  # IDLE state
-	return true  # Assume idle if we can't check
-
 func _get_ai_villagers() -> Array:
 	var result = []
 	var villagers = get_tree().get_nodes_in_group("villagers")

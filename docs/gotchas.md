@@ -120,6 +120,8 @@ Track layout/visual issues for future polish.
 
 - **Call _update_facing_direction() after move_and_slide()**: Subclasses that override movement must call `_update_facing_direction()` after `move_and_slide()` to update the sprite facing. The base Unit class doesn't automatically handle this since subclasses fully override _physics_process().
 
+- **Validate minimum frames for 8-dir animations**: Before creating an 8-directional animation, verify the sprite folder has at least 8 frames. If fewer frames exist, fall back to a single-direction animation to avoid index errors.
+
 - **Asset sources updated**: AoE sprites now used for: villager, militia, sheep, deer, boar, wolf (units with 8-dir idle animations); town_center, house, barracks, mill, lumber_camp, mining_camp (buildings); tree, berry_bush, gold_mine, stone_mine, food_carcass (resources). Farm and Market use custom SVG placeholders (no AoE sprites available).
 
 ### Phase 1E - Market & Trading
@@ -190,6 +192,8 @@ Track layout/visual issues for future polish.
 
 - **Consolidate static sprite loading in base class**: The `_load_static_sprite(texture, scale)` method in Unit base class handles single-image sprites (SVG placeholders). Subclasses don't need to duplicate this code.
 
+- **Live UI updates via _process()**: Updating UI elements every frame in `_process()` works but could be throttled for performance if the updates become expensive. For now it's acceptable, but consider throttling if profiling shows issues.
+
 ### Phase 2.5B - Villager-Based Building Construction
 
 - **is_functional() pattern**: Use `is_functional()` instead of just `is_constructed` when checking if a building is usable. A building may be constructed but destroyed (from combat), or under construction but not yet usable. The pattern: `return is_constructed and not is_destroyed`.
@@ -226,6 +230,18 @@ Track layout/visual issues for future polish.
 
 - **macOS cursor API bug (Godot 4.5.1)**: `Input.set_custom_mouse_cursor()` and `DisplayServer.cursor_set_custom_image()` only work on the first call on macOS with Metal renderer. Subsequent calls are ignored and the cursor stays stuck on the initial texture. **Workaround**: Use a sprite-based cursor: (1) hide system cursor with `Input.mouse_mode = Input.MOUSE_MODE_HIDDEN`, (2) create a CanvasLayer + Sprite2D that follows mouse position, (3) change sprite texture instead of calling cursor API. Remember to restore system cursor in `_exit_tree()`.
 
+- **Cursor hidden when switching to Godot editor (macOS)**: When running the game from the Godot editor and switching to the editor window, the system cursor may remain hidden. This happens despite polling `window.has_focus()` and calling `Input.mouse_mode = Input.MOUSE_MODE_VISIBLE` on focus loss. **No known fix** - appears to be a macOS/Godot limitation when running from the editor. The cursor restores correctly when the game closes. Likely works fine in standalone builds.
+
+### Phase 3A - Macro & Build Orders
+
+- **Pending villager assignment tracking**: When tracking resource assignments for newly spawned villagers, handle edge cases carefully. Villager death during spawn can cause assignment queue desync. Check both pending and actually-idle states when reassigning.
+
+- **Build order step completion verification**: Ensure build order steps that queue villagers actually complete the queue operation before advancing to the next step. Easy to mark a step complete without verifying the action succeeded.
+
+- **Cache group lookups in loops**: When iterating villagers and calling functions that query groups (like `_get_ai_villagers()`), cache the result once outside the loop. Calling `get_tree().get_nodes_in_group()` per iteration creates O(n²) behavior.
+
+- **Build order graceful degradation**: Build order may skip steps (like camp building) if preconditions aren't met (e.g., no resource cluster found nearby). This is acceptable on edge maps - the AI continues with the next step rather than getting stuck.
+
 ### Phase 3B - Scouting & Information
 
 - **Scout state machine integration**: When adding states like COMBAT to a state machine, remember to add transitions INTO that state, not just the handler. Easy to define a state but never enter it because no code sets the state to that value.
@@ -255,6 +271,8 @@ Track layout/visual issues for future polish.
 - **Unit role tracking with multiple arrays**: When units can be in different "roles" (main_army, harass_squad, kiting_units, retreating_units), clearly document which combinations are valid and check all relevant arrays before reassigning. A unit might be in multiple arrays temporarily (e.g., kiting while in main_army), which is acceptable but should be intentional.
 
 - **Harass targeting economy, not military**: Harassment squads should target enemy villagers and resource areas, not enemy military positions. Using `enemy_army_last_position` for harassment defeats the purpose - target known TC positions offset toward resources instead.
+
+- **Cache group lookups in micro loops**: When checking conditions for many units (e.g., threat detection for each ranged unit), cache the group lookup once rather than per-unit. Calling `get_tree().get_nodes_in_group()` inside a unit iteration loop creates O(n²) behavior that becomes noticeable with larger armies.
 
 ### Phase 3E - Economic Intelligence
 

@@ -317,16 +317,16 @@ func test_get_needed_resource_emergency_wood() -> Assertions.AssertResult:
 # === Farm Decision Tests ===
 
 func test_should_build_farm_false_at_max_farms() -> Assertions.AssertResult:
-	## Should not build farm when already at TARGET_FARMS (6)
+	## Should not build farm when already at TARGET_FARMS (8)
 	var controller = _create_ai_controller()
 	await runner.wait_frames(2)
 
 	# Give AI plenty of wood
 	GameManager.ai_resources["wood"] = 500
 
-	# Spawn 6 farms for AI (at TARGET_FARMS limit)
-	for i in range(6):
-		runner.spawner.spawn_farm(Vector2(200 + i * 80, 200), AI_TEAM)
+	# Spawn 8 farms for AI (at TARGET_FARMS limit)
+	for i in range(8):
+		runner.spawner.spawn_farm(Vector2(200 + (i % 4) * 80, 200 + (i / 4) * 80), AI_TEAM)
 	await runner.wait_frames(2)
 
 	var should_build = controller._should_build_farm()
@@ -487,6 +487,7 @@ func test_should_attack_false_after_attacking() -> Assertions.AssertResult:
 
 func test_should_attack_true_with_economy_and_military() -> Assertions.AssertResult:
 	## Should attack when economy and military thresholds met
+	## Note: When enemy base not scouted, AI requires 10+ military to attack blind
 	var controller = _create_ai_controller()
 	await runner.wait_frames(2)
 
@@ -495,8 +496,8 @@ func test_should_attack_true_with_economy_and_military() -> Assertions.AssertRes
 		runner.spawner.spawn_villager(Vector2(1700 + (i % 5) * 30, 1700 + (i / 5) * 30), AI_TEAM)
 	await runner.wait_frames(2)
 
-	# Spawn 6 military (>= 5 threshold)
-	for i in range(6):
+	# Spawn 10 military (>= 10 for blind attack without scouting)
+	for i in range(10):
 		runner.spawner.spawn_militia(Vector2(1600, 1600 + i * 20), AI_TEAM)
 	await runner.wait_frames(2)
 
@@ -509,7 +510,7 @@ func test_should_attack_true_with_economy_and_military() -> Assertions.AssertRes
 
 	if not should_attack:
 		return Assertions.AssertResult.new(false,
-			"Should attack with 16 villagers and 6 military")
+			"Should attack with 16 villagers and 10 military (blind attack)")
 
 	return Assertions.AssertResult.new(true)
 
@@ -817,11 +818,11 @@ func test_is_floating_resources_false_when_low() -> Assertions.AssertResult:
 
 
 func test_is_floating_resources_true_when_high() -> Assertions.AssertResult:
-	## _is_floating_resources should return true when any resource > 300
+	## _is_floating_resources should return true when any resource > 500 (FLOATING_RESOURCE_THRESHOLD)
 	var controller = _create_ai_controller()
 	await runner.wait_frames(2)
 
-	GameManager.ai_resources["wood"] = 400  # Over threshold
+	GameManager.ai_resources["wood"] = 600  # Over threshold of 500
 	GameManager.ai_resources["food"] = 200
 	GameManager.ai_resources["gold"] = 100
 
@@ -831,7 +832,7 @@ func test_is_floating_resources_true_when_high() -> Assertions.AssertResult:
 
 	if not floating:
 		return Assertions.AssertResult.new(false,
-			"Should be floating with wood=400 (>300)")
+			"Should be floating with wood=600 (>500)")
 
 	return Assertions.AssertResult.new(true)
 

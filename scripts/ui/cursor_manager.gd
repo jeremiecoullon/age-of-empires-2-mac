@@ -62,26 +62,10 @@ var _cached_hover_animal: Node = null
 func _ready() -> void:
 	# Create sprite-based cursor
 	_setup_cursor_sprite()
-	# Connect to window focus signals
-	get_viewport().get_window().focus_entered.connect(_on_window_focus_entered)
-	get_viewport().get_window().focus_exited.connect(_on_window_focus_exited)
 	# Hide system cursor (only when window is focused)
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	# Set default cursor
 	_set_cursor(CursorType.DEFAULT)
-
-
-func _on_window_focus_entered() -> void:
-	_window_focused = true
-	_update_cursor_visibility()
-
-
-func _on_window_focus_exited() -> void:
-	_window_focused = false
-	# Always show system cursor when window loses focus
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if _cursor_sprite:
-		_cursor_sprite.visible = false
 
 
 func _setup_cursor_sprite() -> void:
@@ -107,6 +91,13 @@ func initialize(main: Node2D) -> void:
 
 
 func _process(delta: float) -> void:
+	# Poll window focus state (more reliable than signals on macOS)
+	var window = get_viewport().get_window()
+	var focused = window.has_focus() if window else false
+	if focused != _window_focused:
+		_window_focused = focused
+		_update_cursor_visibility()
+
 	# Check if mouse is over UI elements
 	var over_ui := _is_mouse_over_ui()
 	if over_ui != _cursor_over_ui:
