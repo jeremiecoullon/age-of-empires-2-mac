@@ -68,7 +68,7 @@ Track layout/visual issues for future polish.
 
 - **TownCenter needs team-aware training**: When TownCenter trains villagers, it must use its own team for resource spending and population, not hardcode team 0. Otherwise AI Town Centers spend player resources.
 
-- **Typed arrays in GDScript 4**: When using `Array[String]` as an export, don't assign with `= ["a", "b"]` - this creates an untyped array. Use `.assign(["a", "b"])` instead. Also use `.has()` instead of `in` operator for checking membership in typed arrays.
+- **Typed arrays in GDScript 4**: When using `Array[String]` as an export, don't assign with `= ["a", "b"]` - this creates an untyped array. Use `.assign(["a", "b"])` instead. Also use `.has()` instead of `in` operator for checking membership in typed arrays. **Important:** The `.filter()` method always returns an untyped `Array`, even when called on a typed array. You cannot assign it directly back: `my_typed_array = my_typed_array.filter(...)` will error at runtime. Use `.assign()` instead: `my_typed_array.assign(my_typed_array.filter(...))`.
 
 ### Phase 1B - Animals & Food Sources
 

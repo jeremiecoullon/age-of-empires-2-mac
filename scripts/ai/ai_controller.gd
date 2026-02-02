@@ -665,9 +665,9 @@ func _is_floating_resources() -> bool:
 ## Manage construction of buildings - assign idle villagers to incomplete buildings
 func _manage_construction() -> void:
 	# Clean up completed or destroyed buildings
-	buildings_under_construction = buildings_under_construction.filter(func(b):
+	buildings_under_construction.assign(buildings_under_construction.filter(func(b):
 		return is_instance_valid(b) and not b.is_destroyed and not b.is_constructed
-	)
+	))
 
 	if buildings_under_construction.is_empty():
 		return
@@ -1190,7 +1190,7 @@ func _count_barracks() -> int:
 
 func _refresh_barracks_list() -> void:
 	# Remove invalid/destroyed barracks from list
-	ai_barracks = ai_barracks.filter(func(b): return is_instance_valid(b) and not b.is_destroyed)
+	ai_barracks.assign(ai_barracks.filter(func(b): return is_instance_valid(b) and not b.is_destroyed))
 
 	# Add any barracks we don't have in our list
 	var barracks_list = get_tree().get_nodes_in_group("barracks")
@@ -1268,7 +1268,7 @@ func _count_archery_ranges() -> int:
 	return count
 
 func _refresh_archery_ranges_list() -> void:
-	ai_archery_ranges = ai_archery_ranges.filter(func(r): return is_instance_valid(r) and not r.is_destroyed)
+	ai_archery_ranges.assign(ai_archery_ranges.filter(func(r): return is_instance_valid(r) and not r.is_destroyed))
 	var ranges = get_tree().get_nodes_in_group("archery_ranges")
 	for r in ranges:
 		if r.team == AI_TEAM and not r.is_destroyed:
@@ -1333,7 +1333,7 @@ func _count_stables() -> int:
 	return count
 
 func _refresh_stables_list() -> void:
-	ai_stables = ai_stables.filter(func(s): return is_instance_valid(s) and not s.is_destroyed)
+	ai_stables.assign(ai_stables.filter(func(s): return is_instance_valid(s) and not s.is_destroyed))
 	var stables = get_tree().get_nodes_in_group("stables")
 	for s in stables:
 		if s.team == AI_TEAM and not s.is_destroyed:
@@ -2647,8 +2647,8 @@ func _assess_threats() -> void:
 		current_threat_level = THREAT_MINOR
 
 ## Get all threats near any AI building
-func _get_all_threats_near_base(radius: float) -> Array:
-	var threats = []
+func _get_all_threats_near_base(radius: float) -> Array[Node2D]:
+	var threats: Array[Node2D] = []
 	var ai_building_positions: Array[Vector2] = []
 
 	# Collect AI building positions
@@ -2883,9 +2883,9 @@ func _get_enemies_near_position(pos: Vector2, radius: float) -> Array:
 ## Manage retreating units - make damaged units pull back
 func _manage_unit_retreat() -> void:
 	# Clean up retreating units list
-	retreating_units = retreating_units.filter(func(u):
+	retreating_units.assign(retreating_units.filter(func(u):
 		return is_instance_valid(u) and not u.is_dead
-	)
+	))
 
 	# Check if retreating units are safe
 	for unit in retreating_units.duplicate():  # Duplicate to allow removal
@@ -3164,9 +3164,9 @@ func _get_nearest_melee_threat(pos: Vector2, max_distance: float) -> Node2D:
 ## Manage ranged unit kiting - back away from melee units while attacking
 func _manage_ranged_kiting() -> void:
 	# Clean up kiting units list
-	kiting_units = kiting_units.filter(func(u):
+	kiting_units.assign(kiting_units.filter(func(u):
 		return is_instance_valid(u) and not u.is_dead
-	)
+	))
 
 	# Check all AI ranged units
 	var military = get_tree().get_nodes_in_group("military")
@@ -3223,9 +3223,9 @@ func _manage_villager_flee() -> void:
 		return
 
 	# Clean up fleeing villagers list
-	fleeing_villagers = fleeing_villagers.filter(func(v):
+	fleeing_villagers.assign(fleeing_villagers.filter(func(v):
 		return is_instance_valid(v) and not v.is_dead
-	)
+	))
 
 	# Check if fleeing villagers have reached safety
 	for villager in fleeing_villagers.duplicate():
@@ -3342,12 +3342,12 @@ func _deactivate_town_bell() -> void:
 ## Manage reinforcement waves - send new units to join attacking army
 func _manage_reinforcements() -> void:
 	# Clean up main army and harass squad
-	main_army = main_army.filter(func(u):
+	main_army.assign(main_army.filter(func(u):
 		return is_instance_valid(u) and not u.is_dead
-	)
-	harass_squad = harass_squad.filter(func(u):
+	))
+	harass_squad.assign(harass_squad.filter(func(u):
 		return is_instance_valid(u) and not u.is_dead
-	)
+	))
 
 	# If no active attack, nothing to reinforce
 	if main_army.is_empty() and active_attack_position == Vector2.ZERO:
