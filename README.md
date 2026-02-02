@@ -51,7 +51,7 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 
 ```bash
 # Step 1: Validate project imports correctly
-godot --headless --import --path .
+/Applications/Godot.app/Contents/MacOS/Godot --headless --import --path .
 
 # Step 2: Run test suite
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
