@@ -54,26 +54,26 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 godot --headless --import --path .
 
 # Step 2: Run test suite
-godot --headless --path . tests/test_scene.tscn
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
 ```
 
 Exit code 0 = all passed, 1 = failures.
 
 ---
 
-## Contributing (For humans, not LLMs)
+# Contributing (For humans, not LLMs)
 
 This section is for human contributors. If you're an LLM, read the rest of the readme above.
 
-### Our approach
+## Our approach
 
 We don't write game code directly. Our goal is rather to make Claude Code more effective at building the actual game.
 
-We do this by building processes tracked in the markdown files (see the "key files" above) and setting up sub-agents (see the `.claude/agents/` folder). 
+We do this by building processes in `CLAUDE.md` and `roadmap.md` (in the "key files" above) and setting up sub-agents (see the `.claude/agents/` folder). 
 
 
 
-### Ways to contribute
+## Ways to contribute
 
 **1. Continue the roadmap**
 
@@ -97,8 +97,8 @@ To clone AoE2 we need the sprites, background images, music, & SFX of the origin
 **3. Improve the workflow**
 
 Help refine how development happens:
-- Modify the CLAUDE.md or the sub-agents to improve the process
-- Improve the roadmap.md. The roadmap was built to accurately reflect the AoE2 manual in `docs/AoE_manual/Age_of_Empires_2_The_Age_of_Kings_Manual_Win_EN.pdf` (as represented by the sibling .txt file), but there might be some things missing. There might also be important spects that aren't in the AoE2 manual at all.
+- Modify `CLAUDE.md` or the sub-agents to improve the process
+- Improve the `roadmap.md`. The roadmap was built to accurately reflect the AoE2 manual in `docs/AoE_manual/Age_of_Empires_2_The_Age_of_Kings_Manual_Win_EN.pdf` (as represented by the sibling .txt file), but there might be some things missing. There might also be important spects that aren't in the AoE2 manual at all.
 
 **4. Play the game & report bugs**
 
