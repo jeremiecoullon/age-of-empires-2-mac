@@ -116,17 +116,22 @@ class TrainVillagerRule extends AIRule:
 # =============================================================================
 
 class BuildBarracksRule extends AIRule:
+	var _barracks_queued: bool = false
+
 	func _init():
 		rule_name = "build_barracks"
 
 	func conditions(gs: AIGameState) -> bool:
 		# Build barracks when we have none and have some economy going
-		return gs.get_building_count("barracks") == 0 \
+		# Only queue once (avoid building multiple while first is under construction)
+		return not _barracks_queued \
+			and gs.get_building_count("barracks") == 0 \
 			and gs.get_civilian_population() >= 5 \
 			and gs.can_build("barracks")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("barracks")
+		_barracks_queued = true
 
 
 # =============================================================================

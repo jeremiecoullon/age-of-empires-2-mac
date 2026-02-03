@@ -32,9 +32,14 @@ const VILLAGER_SCENE: PackedScene = preload("res://scenes/units/villager.tscn")
 # Decision timing
 const DECISION_INTERVAL: float = 0.5  # Evaluate rules every 0.5 seconds
 const VILLAGER_ASSIGN_INTERVAL: float = 2.0  # Assign villagers every 2 seconds
+const DEBUG_PRINT_INTERVAL: float = 10.0  # Print debug state every 10 seconds
 
 var decision_timer: float = 0.0
 var villager_assign_timer: float = 0.0
+var debug_print_timer: float = 0.0
+
+## Debug: Set to true to print AI state every 10 seconds
+@export var debug_print_enabled: bool = true
 
 # Game state wrapper
 var game_state: AIGameState = null
@@ -136,6 +141,13 @@ func _process(delta: float) -> void:
 		villager_assign_timer = 0.0
 		_assign_villagers()
 
+	# Debug print loop
+	if debug_print_enabled:
+		debug_print_timer += delta
+		if debug_print_timer >= DEBUG_PRINT_INTERVAL:
+			debug_print_timer = 0.0
+			_print_debug_state()
+
 
 func _evaluate_rules() -> void:
 	# Refresh game state cache
@@ -236,6 +248,107 @@ func _get_most_needed_resource(
 # =============================================================================
 # DEBUG METHODS (for testing/tuning)
 # =============================================================================
+
+func _print_debug_state() -> void:
+	var game_time = Time.get_ticks_msec() / 1000.0
+
+	# Get villager distribution
+	var villagers_by_task = game_state.get_villagers_by_task()
+	var food_gatherers = villagers_by_task["food"].size()
+	var wood_gatherers = villagers_by_task["wood"].size()
+	var gold_gatherers = villagers_by_task["gold"].size()
+	var stone_gatherers = villagers_by_task["stone"].size()
+	var idle_villagers = villagers_by_task["idle"].size()
+	var builders = villagers_by_task["building"].size()
+
+	# Get military breakdown
+	var militia_count = game_state.get_unit_count("militia")
+	var spearman_count = game_state.get_unit_count("spearman")
+	var archer_count = game_state.get_unit_count("archer")
+	var scout_count = game_state.get_unit_count("scout_cavalry")
+
+	# Get building counts
+	var tc_count = game_state.get_building_count("town_center")
+	var house_count = game_state.get_building_count("house")
+	var barracks_count = game_state.get_building_count("barracks")
+	var farm_count = game_state.get_building_count("farm")
+	var mill_count = game_state.get_building_count("mill")
+	var lumber_camp_count = game_state.get_building_count("lumber_camp")
+	var mining_camp_count = game_state.get_building_count("mining_camp")
+	var market_count = game_state.get_building_count("market")
+
+	# Format timers
+	var timer_strs = []
+	for timer_id in timers:
+		var remaining = timers[timer_id] - game_time
+		timer_strs.append("T%d: %.1fs" % [timer_id, remaining])
+	var timers_str = ", ".join(timer_strs) if timer_strs.size() > 0 else "none"
+
+	# Format goals
+	var goal_strs = []
+	for goal_id in goals:
+		goal_strs.append("G%d=%d" % [goal_id, goals[goal_id]])
+	var goals_str = ", ".join(goal_strs) if goal_strs.size() > 0 else "none"
+
+	var separator = "======================================================================"
+	print("")
+	print(separator)
+	print("AI DEBUG STATE @ %.1fs" % game_time)
+	print(separator)
+	print("")
+	print("RESOURCES:")
+	print("  Food: %d | Wood: %d | Gold: %d | Stone: %d" % [
+		game_state.get_resource("food"),
+		game_state.get_resource("wood"),
+		game_state.get_resource("gold"),
+		game_state.get_resource("stone")
+	])
+	print("")
+	print("POPULATION: %d / %d (headroom: %d)" % [
+		game_state.get_population(),
+		game_state.get_population_cap(),
+		game_state.get_housing_headroom()
+	])
+	print("  Villagers: %d total" % game_state.get_civilian_population())
+	print("    - Food: %d, Wood: %d, Gold: %d, Stone: %d" % [food_gatherers, wood_gatherers, gold_gatherers, stone_gatherers])
+	print("    - Idle: %d, Building: %d" % [idle_villagers, builders])
+	print("  Military: %d total" % game_state.get_military_population())
+	print("    - Militia: %d, Spearman: %d, Archer: %d, Scout: %d" % [militia_count, spearman_count, archer_count, scout_count])
+	print("")
+	print("BUILDINGS:")
+	print("  TC: %d | Houses: %d | Barracks: %d" % [tc_count, house_count, barracks_count])
+	print("  Farms: %d | Mill: %d | Lumber Camp: %d | Mining Camp: %d" % [farm_count, mill_count, lumber_camp_count, mining_camp_count])
+	print("  Market: %d" % market_count)
+	print("")
+	print("STRATEGIC NUMBERS:")
+	print("  Food%%: %d | Wood%%: %d | Gold%%: %d | Stone%%: %d" % [
+		strategic_numbers["sn_food_gatherer_percentage"],
+		strategic_numbers["sn_wood_gatherer_percentage"],
+		strategic_numbers["sn_gold_gatherer_percentage"],
+		strategic_numbers["sn_stone_gatherer_percentage"]
+	])
+	print("  Target Villagers: %d | Min Attack Group: %d" % [
+		strategic_numbers["sn_target_villagers"],
+		strategic_numbers["sn_minimum_attack_group_size"]
+	])
+	print("")
+	print("STATE:")
+	print("  Under Attack: %s" % str(game_state.is_under_attack()))
+	print("  Timers: %s" % timers_str)
+	print("  Goals: %s" % goals_str)
+	print("")
+	print("CAN AFFORD:")
+	print("  Train Villager: %s | Train Militia: %s" % [
+		str(game_state.can_train("villager")),
+		str(game_state.can_train("militia"))
+	])
+	print("  Build House: %s | Build Barracks: %s" % [
+		str(game_state.can_build("house")),
+		str(game_state.can_build("barracks"))
+	])
+	print(separator)
+	print("")
+
 
 func get_status() -> Dictionary:
 	return {
