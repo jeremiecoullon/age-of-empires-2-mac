@@ -237,3 +237,21 @@ Track layout/visual issues for future polish.
 The original Phase 3 (procedural AI) was scrapped due to architectural issues. The learnings from that failed implementation are documented in `docs/ai_player_designs/phase3_failure_summary.md`.
 
 **Key takeaway**: Procedural AI with tightly coupled systems led to "whack-a-mole" debugging where fixing one behavior broke others. Phase 3.1 replaces this with a rule-based system where rules are independent.
+
+### Phase 3.1A - Rule-Based AI Core
+
+- **AIGameState wraps all queries**: Rules should never access game objects directly. Go through AIGameState which provides a clean interface and allows caching/de-duplication.
+
+- **Action de-duplication pattern**: Rules queue intentions (e.g., `gs.train("villager")`), then `execute_actions()` runs once at end of tick. This prevents multiple rules from issuing conflicting commands.
+
+- **Limit AI training queue size**: Without queue limits, rules can over-commit resources by queueing many units. Check `building.get_queue_size()` in `can_train()` and limit to 3 per building.
+
+- **Use preload() for AI building scenes**: AI creates buildings at runtime. Use preloaded PackedScene constants, not `load()` at runtime, to avoid file I/O during gameplay.
+
+- **is_under_attack() must check all buildings**: Don't just check distance from Town Center. AI buildings spread out - check if enemy military is near ANY AI building. Per gotchas.md Phase 2E: "Buildings may spread out."
+
+- **Attack fallback when TC destroyed**: If player TC is destroyed during the game, AI attack logic should find an alternative target (any player building) rather than silently doing nothing.
+
+- **Use group checks over type checks**: `resource.is_in_group("farms")` is more robust than `resource is Farm`. The latter requires the Farm class to be loaded and can fail if load order changes.
+
+- **Spawning AI starting base**: The AIController spawns the AI's starting Town Center, House, and Villagers on `_ready()`. This keeps the main scene clean and allows AI initialization logic to be self-contained.
