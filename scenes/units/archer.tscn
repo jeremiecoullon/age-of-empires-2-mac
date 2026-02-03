@@ -23,10 +23,11 @@ shape = SubResource("RectangleShape2D_archer")
 path_desired_distance = 4.0
 target_desired_distance = 4.0
 avoidance_enabled = true
-radius = 12.0
-neighbor_distance = 50.0
+radius = 20.0
+neighbor_distance = 100.0
 max_neighbors = 10
 max_speed = 100.0
+avoidance_priority = 0.5
 
 [node name="SelectionIndicator" type="Sprite2D" parent="."]
 modulate = Color(0, 1, 0, 0.7)

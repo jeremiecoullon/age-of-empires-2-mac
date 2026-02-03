@@ -278,6 +278,17 @@ func command_build(building: Building) -> void:
 	current_state = State.BUILDING
 	building.add_builder(self)
 
+## Stop current action and become idle (used by AI to interrupt villagers for building)
+func stop_current_action() -> void:
+	# Clean up any targets
+	if target_construction and is_instance_valid(target_construction):
+		target_construction.remove_builder(self)
+	target_construction = null
+	target_resource = null
+	target_animal = null
+	current_state = State.IDLE
+	velocity = Vector2.ZERO
+
 func _process_building(delta: float) -> void:
 	# Check if building still exists and needs construction
 	if not is_instance_valid(target_construction) or target_construction.is_destroyed:

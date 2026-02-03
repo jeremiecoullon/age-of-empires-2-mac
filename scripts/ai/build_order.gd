@@ -68,14 +68,14 @@ func size() -> int:
 	return steps.size()
 
 ## Create a standard Dark Age build order
-## Optimized for fast economy into military production
+## Based on competitive AoE2 builds - fast economy with early farms
 static func create_dark_age_build_order() -> BuildOrder:
 	var bo = BuildOrder.new("Dark Age Standard")
 
 	# Starting: 3 villagers, ~200 food, ~200 wood
-	# Goal: 22 villagers, farms, barracks, archery range, stable
+	# Based on 21-22 pop competitive builds
 
-	# Phase 1: Initial food gathering (sheep/berries)
+	# Phase 1: Initial food gathering (sheep under TC)
 	# Queue 3 vils to food (we start with 3, going to 6)
 	bo.add_step(Step.queue_villager("food"))
 	bo.add_step(Step.queue_villager("food"))
@@ -85,76 +85,60 @@ static func create_dark_age_build_order() -> BuildOrder:
 	bo.add_step(Step.wait_villagers(4))
 	bo.add_step(Step.build("house"))
 
-	# Phase 2: Wood economy
-	# Send next 4 vils to wood
-	bo.add_step(Step.queue_villager("wood"))
-	bo.add_step(Step.queue_villager("wood"))
-	bo.add_step(Step.queue_villager("wood"))
-	bo.add_step(Step.queue_villager("wood"))
+	# Phase 2: Wood economy - EARLIER lumber camp (vil 7)
+	bo.add_step(Step.queue_villager("wood"))  # vil 7 - builds lumber camp
+	bo.add_step(Step.build("lumber_camp"))     # Build immediately at 7 pop
+	bo.add_step(Step.queue_villager("wood"))  # vil 8
+	bo.add_step(Step.queue_villager("wood"))  # vil 9
 
-	# Build lumber camp near trees
-	bo.add_step(Step.wait_villagers(8))
-	bo.add_step(Step.build("lumber_camp"))
-
-	# Build second house at pop 9
+	# Build second house proactively
 	bo.add_step(Step.build("house"))
 
-	# Phase 3: More food for military
-	bo.add_step(Step.queue_villager("food"))
-	bo.add_step(Step.queue_villager("food"))
-	bo.add_step(Step.queue_villager("food"))
+	# Phase 3: More food + mill for berries/farms
+	bo.add_step(Step.queue_villager("food"))  # vil 10
+	bo.add_step(Step.queue_villager("food"))  # vil 11
+	bo.add_step(Step.build("mill"))           # Mill at 11 pop for berries/farms
 
-	# Build mill for farm efficiency
-	bo.add_step(Step.wait_villagers(12))
-	bo.add_step(Step.build("mill"))
+	# Phase 4: Start farms early as sheep run out
+	bo.add_step(Step.queue_villager("food"))  # vil 12
+	bo.add_step(Step.build("farm"))           # First farm at 12 pop
+	bo.add_step(Step.build("farm"))           # Second farm
 
-	# Phase 4: Gold economy (for archers)
-	bo.add_step(Step.queue_villager("gold"))
-	bo.add_step(Step.queue_villager("gold"))
-	bo.add_step(Step.queue_villager("gold"))
+	# Phase 5: More wood for buildings
+	bo.add_step(Step.queue_villager("wood"))  # vil 13
+	bo.add_step(Step.queue_villager("wood"))  # vil 14
+	bo.add_step(Step.build("house"))          # Third house
 
-	# Build mining camp near gold
+	# Phase 6: Gold for archers
+	bo.add_step(Step.queue_villager("gold"))  # vil 15
+	bo.add_step(Step.queue_villager("gold"))  # vil 16
 	bo.add_step(Step.build("mining_camp"))
 
-	# Build third house
-	bo.add_step(Step.build("house"))
-
-	# Phase 5: Military buildings
-	bo.add_step(Step.wait_villagers(15))
-	bo.add_step(Step.wait_resources("wood", 175))
+	# Phase 7: Military buildings
+	bo.add_step(Step.wait_resources("wood", 100))
 	bo.add_step(Step.build("barracks"))
 
-	# More villagers while barracks builds
-	bo.add_step(Step.queue_villager("food"))
-	bo.add_step(Step.queue_villager("wood"))
-	bo.add_step(Step.queue_villager("gold"))
+	bo.add_step(Step.queue_villager("food"))  # vil 17
+	bo.add_step(Step.build("house"))          # Fourth house
+	bo.add_step(Step.build("farm"))           # Third farm
 
-	# Build fourth house
-	bo.add_step(Step.build("house"))
-
-	# Build archery range
-	bo.add_step(Step.wait_villagers(18))
+	# Archery range
+	bo.add_step(Step.queue_villager("gold"))  # vil 18
 	bo.add_step(Step.wait_resources("wood", 175))
 	bo.add_step(Step.build("archery_range"))
 
-	# Continue economy
-	bo.add_step(Step.queue_villager("food"))
-	bo.add_step(Step.queue_villager("wood"))
+	bo.add_step(Step.queue_villager("wood"))  # vil 19
+	bo.add_step(Step.queue_villager("food"))  # vil 20
+	bo.add_step(Step.build("house"))          # Fifth house
 
-	# Build stable
+	# Stable
 	bo.add_step(Step.wait_resources("wood", 175))
 	bo.add_step(Step.build("stable"))
 
-	# Build farms as berries run out
-	bo.add_step(Step.build("farm"))
-	bo.add_step(Step.build("farm"))
+	bo.add_step(Step.queue_villager("food"))  # vil 21
+	bo.add_step(Step.queue_villager("wood"))  # vil 22
+	bo.add_step(Step.build("farm"))           # Fourth farm
 
-	# Fifth house
-	bo.add_step(Step.build("house"))
-
-	# Target: 22 villagers, then focus on military
-	bo.add_step(Step.queue_villager("food"))
-	bo.add_step(Step.queue_villager("food"))
 	bo.add_step(Step.wait_villagers(22))
 
 	return bo

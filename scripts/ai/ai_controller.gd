@@ -82,6 +82,11 @@ const HARASS_FORCE_SIZE: int = 3  # Number of units for harassment squad
 const REINFORCEMENT_RALLY_DISTANCE: float = 200.0  # Distance to rally point before joining attack
 const KITE_CHECK_INTERVAL: float = 0.3  # How often to check for kiting opportunities
 
+# Hunting limits (prevent all villagers chasing animals)
+const MAX_HUNTERS: int = 2  # Max villagers that can hunt at once
+const MAX_HUNT_DISTANCE: float = 400.0  # Don't chase animals far from base
+const SHEEP_PRIORITY_DISTANCE: float = 300.0  # Sheep within this range of TC are high priority
+
 # Economic Intelligence constants (Phase 3E)
 const FLOATING_RESOURCE_THRESHOLD: int = 500  # Resource level considered "floating"
 const FLOATING_RESOURCE_REALLOC_THRESHOLD: int = 800  # Realloc villagers if resource this high
@@ -90,9 +95,9 @@ const EXPANSION_VILLAGER_THRESHOLD: int = 25  # Villagers before considering exp
 const EXPANSION_SAFETY_RADIUS: float = 300.0  # Must be this far from enemies to expand
 const RESOURCE_DEPLETION_DISTANCE: float = 600.0  # Build camp if no resources within this
 const EXPANSION_MAX_DISTANCE: float = 1200.0  # Maximum distance for expansion camps
-const FARM_RING_INNER_RADIUS: float = 70.0  # Inner radius for farm ring around mill/TC
-const FARM_RING_OUTER_RADIUS: float = 140.0  # Outer radius for farm ring
-const FARM_RING_SPACING: float = 70.0  # Spacing between farms in ring
+const FARM_RING_INNER_RADIUS: float = 100.0  # Inner radius for farm ring around mill/TC (was 70)
+const FARM_RING_OUTER_RADIUS: float = 180.0  # Outer radius for farm ring (was 140)
+const FARM_RING_SPACING: float = 90.0  # Spacing between farms in ring (was 70)
 
 # Economic strategy modes (Phase 3E)
 enum EconomyMode { BOOM, BALANCED, MILITARY }
@@ -211,11 +216,120 @@ var expansion_camps_built: int = 0  # Track expansion camps built
 var last_resource_balance_check: float = 0.0  # Timer for balance checks
 const RESOURCE_BALANCE_INTERVAL: float = 5.0  # Check resource balance every 5 seconds
 
+# ============ DEBUG LOGGING ============
+const AI_DEBUG: bool = true  # Set to false to disable debug logging
+const DEBUG_INTERVAL: float = 10.0  # State dump every 10 seconds
+var debug_timer: float = 0.0
+var game_start_time: float = 0.0
+
+func _log_state() -> void:
+	if not AI_DEBUG:
+		return
+	var elapsed = (Time.get_ticks_msec() / 1000.0) - game_start_time
+	var vils = _get_ai_villagers()
+	var vil_count = vils.size()
+	var idle_vils = vils.filter(func(v): return v.current_state == Villager.State.IDLE).size()
+	var mil_count = _get_military_count()
+	var f = GameManager.get_resource("food", AI_TEAM)
+	var w = GameManager.get_resource("wood", AI_TEAM)
+	var g = GameManager.get_resource("gold", AI_TEAM)
+	var s = GameManager.get_resource("stone", AI_TEAM)
+	var pop = GameManager.get_population(AI_TEAM)
+	var cap = GameManager.get_population_cap(AI_TEAM)
+	var tc_queue = ai_tc.get_queue_size() if is_instance_valid(ai_tc) and not ai_tc.is_destroyed else 0
+	var tc_functional = ai_tc.is_functional() if is_instance_valid(ai_tc) else false
+
+	# Count buildings
+	var building_list = []
+	if is_instance_valid(ai_tc) and not ai_tc.is_destroyed:
+		building_list.append("TC")
+	building_list.append("%dH" % _count_houses())
+	if ai_lumber_camp and not ai_lumber_camp.is_destroyed:
+		building_list.append("LC")
+	if ai_mining_camp and not ai_mining_camp.is_destroyed:
+		building_list.append("MC")
+	if ai_mill and not ai_mill.is_destroyed:
+		building_list.append("Mill")
+	building_list.append("%dBar" % _count_barracks())
+	building_list.append("%dAR" % _count_archery_ranges())
+	building_list.append("%dStb" % _count_stables())
+	var farm_count = _count_farms()
+	if farm_count > 0:
+		building_list.append("%dFarm" % farm_count)
+
+	var bo_status = "step %d/%d" % [build_order_step, build_order.size()] if build_order else "none"
+	if build_order_complete:
+		bo_status = "COMPLETE"
+
+	var mode_str = "BOOM" if current_economy_mode == EconomyMode.BOOM else ("BAL" if current_economy_mode == EconomyMode.BALANCED else "MIL")
+
+	# Count food sources, hunters, and resource allocation
+	var hunters = _count_current_hunters()
+	var sheep = _count_sheep_near_base()
+	var berries = _count_berries_near_base()
+	var allocation = _count_villager_allocation()
+
+	print("[%.1fs] AI: %d vils (%d idle) | %d mil | %dF %dW %dG %dS | Pop %d/%d | TC_Q:%d | %s | BO:%s" % [
+		elapsed, vil_count, idle_vils, mil_count, f, w, g, s, pop, cap, tc_queue, ",".join(building_list), bo_status
+	])
+	print("         Allocation: %dF %dW %dG %dS (hunt:%d) | Sources: %d sheep, %d berry, %d farms" % [
+		allocation["food"], allocation["wood"], allocation["gold"], allocation["stone"], hunters, sheep, berries, _count_farms()
+	])
+
+func _log_event(event: String) -> void:
+	if not AI_DEBUG:
+		return
+	var elapsed = (Time.get_ticks_msec() / 1000.0) - game_start_time
+	print("[%.1fs] EVENT: %s" % [elapsed, event])
+
+func _log_build_order_status() -> void:
+	if not AI_DEBUG or build_order_complete:
+		return
+	if build_order == null or build_order_step >= build_order.size():
+		return
+	var step = build_order.get_step(build_order_step)
+	if step == null:
+		return
+	var elapsed = (Time.get_ticks_msec() / 1000.0) - game_start_time
+	var reason = ""
+	match step.type:
+		BuildOrder.StepType.QUEUE_VILLAGER:
+			var can_pop = GameManager.can_add_population(AI_TEAM)
+			var can_afford = GameManager.can_afford("food", 50, AI_TEAM)
+			var tc_queue = ai_tc.get_queue_size() if is_instance_valid(ai_tc) else 0
+			var tc_func = ai_tc.is_functional() if is_instance_valid(ai_tc) else false
+			reason = "QUEUE_VIL(%s) - pop:%s afford:%s tc_q:%d tc_func:%s" % [step.target_resource, can_pop, can_afford, tc_queue, tc_func]
+		BuildOrder.StepType.BUILD_BUILDING:
+			var builder = _find_idle_builder()
+			reason = "BUILD(%s) - builder:%s" % [step.building_type, builder != null]
+		BuildOrder.StepType.WAIT_VILLAGERS:
+			var current = _get_ai_villagers().size()
+			reason = "WAIT_VILS(%d) - have:%d" % [step.count, current]
+		BuildOrder.StepType.WAIT_RESOURCES:
+			var current = GameManager.get_resource(step.resource_type, AI_TEAM)
+			reason = "WAIT_RES(%s=%d) - have:%d" % [step.resource_type, step.count, current]
+		BuildOrder.StepType.ASSIGN_VILLAGERS:
+			reason = "ASSIGN(%d to %s)" % [step.count, step.target_resource]
+	print("[%.1fs] BO_STEP %d: %s" % [elapsed, build_order_step, reason])
+
+func _count_houses() -> int:
+	var count = 0
+	for house in get_tree().get_nodes_in_group("houses"):
+		if house.team == AI_TEAM and not house.is_destroyed:
+			count += 1
+	return count
+
+# ============ END DEBUG LOGGING ============
+
 func _ready() -> void:
 	# Wait a frame for the scene to be fully loaded
 	await get_tree().process_frame
+	game_start_time = Time.get_ticks_msec() / 1000.0
 	_spawn_ai_base()
 	_initialize_build_order()
+	if AI_DEBUG:
+		print("=== AI DEBUG MODE ENABLED ===")
+		print("State dumps every %.0fs, events logged in real-time" % DEBUG_INTERVAL)
 
 func _spawn_ai_base() -> void:
 	# Spawn AI Town Center
@@ -249,6 +363,14 @@ func _initialize_build_order() -> void:
 func _process(delta: float) -> void:
 	if GameManager.game_ended:
 		return
+
+	# Debug state dump (every 10s)
+	if AI_DEBUG:
+		debug_timer += delta
+		if debug_timer >= DEBUG_INTERVAL:
+			debug_timer = 0.0
+			_log_state()
+			_log_build_order_status()
 
 	# Update attack cooldown
 	if attack_cooldown > 0:
@@ -352,6 +474,7 @@ func _execute_queue_villager(target_resource: String) -> bool:
 
 	if ai_tc.train_villager():
 		pending_villager_assignments.append(target_resource)
+		_log_event("Queued villager -> %s (queue: %d)" % [target_resource, ai_tc.get_queue_size()])
 		return true
 
 	return false
@@ -374,7 +497,8 @@ func _execute_build_building(building_type: String) -> bool:
 					_build_lumber_camp(wood_pos)
 					return true
 				else:
-					# No wood cluster found, skip this step
+					# No wood cluster found near base
+					_log_event("WARNING: No wood found within 600 of base for lumber camp")
 					return true
 		"mining_camp":
 			if GameManager.can_afford("wood", 100, AI_TEAM):
@@ -388,6 +512,7 @@ func _execute_build_building(building_type: String) -> bool:
 						_build_mining_camp(stone_pos)
 						return true
 					else:
+						_log_event("WARNING: No gold/stone found within 600 of base for mining camp")
 						return true  # Skip if no minerals
 		"mill":
 			if GameManager.can_afford("wood", 100, AI_TEAM):
@@ -478,13 +603,37 @@ func _check_idle_villagers() -> void:
 			allocation[needed] += 1  # Update allocation for next idle villager
 
 ## Assign a single villager to gather a specific resource type
+## Uses same priority as _assign_idle_villagers: sheep near TC > berries > farms > limited hunting
 func _assign_villager_to_resource(villager: Villager, resource_type: String) -> void:
-	# For food, try hunting first
 	if resource_type == "food":
-		var animal = _find_huntable_animal(villager.global_position)
-		if animal:
-			villager.command_hunt(animal)
+		# PRIORITY ORDER for food (same as _assign_idle_villagers):
+		# 1. Sheep near TC (safe, efficient)
+		var sheep = _find_sheep_near_tc()
+		if sheep:
+			villager.command_hunt(sheep)
 			return
+
+		# 2. Berries
+		var berries = _find_berries_near_base()
+		if berries:
+			villager.command_gather(berries)
+			return
+
+		# 3. Farms
+		var farm = _find_ai_farm()
+		if farm:
+			villager.command_gather(farm)
+			return
+
+		# 4. Hunt other animals ONLY if under limit
+		var current_hunters = _count_current_hunters()
+		if current_hunters < MAX_HUNTERS:
+			var animal = _find_huntable_animal_limited(villager.global_position)
+			if animal:
+				villager.command_hunt(animal)
+				return
+
+		# 5. No food source - fall through to generic resource finding
 
 	var resource = _find_resource_of_type(villager.global_position, resource_type)
 	if resource:
@@ -715,20 +864,54 @@ func _assign_idle_villagers() -> void:
 	if idle_villagers.is_empty():
 		return
 
-	# Count current villager allocation
+	# Count current villager allocation AND hunters
 	var allocation = _count_villager_allocation()
+	var current_hunters = _count_current_hunters()
 
 	for villager in idle_villagers:
 		# Determine what resource this villager should gather based on allocation
 		var needed_resource = _get_needed_resource(allocation)
 
-		# First priority: hunt nearby animals for food (if we need food)
 		if needed_resource == "food":
-			var animal = _find_huntable_animal(villager.global_position)
-			if animal:
-				villager.command_hunt(animal)
+			# PRIORITY ORDER for food:
+			# 1. Sheep near TC (safe, efficient)
+			# 2. Berries (with mill)
+			# 3. Farms (if we have them)
+			# 4. Hunt animals (LIMITED to MAX_HUNTERS, and only sheep/close animals)
+
+			# Try sheep near TC first
+			var sheep = _find_sheep_near_tc()
+			if sheep:
+				villager.command_hunt(sheep)
+				allocation["food"] += 1
+				current_hunters += 1
+				continue
+
+			# Try berries (they're in "resources" group with type "food")
+			var berries = _find_berries_near_base()
+			if berries:
+				villager.command_gather(berries)
 				allocation["food"] += 1
 				continue
+
+			# Try farms
+			var farm = _find_ai_farm()
+			if farm:
+				villager.command_gather(farm)
+				allocation["food"] += 1
+				continue
+
+			# Only hunt other animals if under hunter limit
+			if current_hunters < MAX_HUNTERS:
+				var animal = _find_huntable_animal_limited(villager.global_position)
+				if animal:
+					villager.command_hunt(animal)
+					allocation["food"] += 1
+					current_hunters += 1
+					continue
+
+			# No food source available - this villager will stay idle or gather something else
+			# Fall through to gather any resource
 
 		var resource = _find_resource_of_type(villager.global_position, needed_resource)
 		if resource:
@@ -774,8 +957,14 @@ func _get_needed_resource(allocation: Dictionary) -> String:
 	var wood = GameManager.get_resource("wood", AI_TEAM)
 	var gold = GameManager.get_resource("gold", AI_TEAM)
 
-	# Emergency thresholds - override normal allocation
-	if food < 50:
+	# CRITICAL: Always maintain minimum wood gatherers (need wood for buildings!)
+	# Without wood, we can't build farms, houses, or anything else
+	const MIN_WOOD_GATHERERS: int = 3
+	if allocation["wood"] < MIN_WOOD_GATHERERS:
+		return "wood"
+
+	# Emergency thresholds - but only after ensuring minimum wood
+	if food < 50 and allocation["food"] < allocation["wood"]:
 		return "food"
 	if wood < 50:
 		return "wood"
@@ -820,9 +1009,20 @@ func _build_mill() -> void:
 	var scene = load(MILL_SCENE_PATH)
 	ai_mill = scene.instantiate()
 
-	# Build mill near TC for farm clustering
-	var offset = _find_building_spot(Vector2(64, 64))
-	ai_mill.global_position = AI_BASE_POSITION + offset
+	# Prefer building mill near berries if they exist
+	var berries = _find_berries_near_base()
+	var mill_pos: Vector2
+	if berries:
+		# Build mill next to berries
+		mill_pos = _find_valid_camp_position(berries.global_position, Vector2(64, 64))
+		_log_event("Building Mill near berries")
+	else:
+		# No berries - build near TC for farm clustering
+		var offset = _find_building_spot(Vector2(64, 64))
+		mill_pos = AI_BASE_POSITION + offset
+		_log_event("Building Mill near TC")
+
+	ai_mill.global_position = mill_pos
 	ai_mill.team = AI_TEAM
 
 	get_parent().get_node("Buildings").add_child(ai_mill)
@@ -849,17 +1049,24 @@ func _should_build_farm() -> bool:
 	if not GameManager.can_afford("wood", 50, AI_TEAM):
 		return false
 
-	# Build farms when:
-	# 1. Natural food sources are depleted
-	# 2. We have villagers but low food income
 	var food = GameManager.get_resource("food", AI_TEAM)
 	var villager_count = _get_ai_villagers().size()
 
-	# Check if natural food sources are scarce
-	var has_natural_food = _has_natural_food_sources()
+	# EMERGENCY: If food is critically low and we have villagers, build farm NOW
+	if food < 30 and villager_count >= 6:
+		_log_event("EMERGENCY: Low food (%d), forcing farm build" % food)
+		return true
 
-	# Build farm if: no natural food, or we have 10+ villagers and fewer farms than needed
-	if not has_natural_food:
+	# Check if natural food sources are scarce near base
+	var sheep_count = _count_sheep_near_base()
+	var berry_count = _count_berries_near_base()
+
+	# Build farms when sheep/berries are running out
+	if sheep_count <= 1 and berry_count <= 1 and _count_farms() < 3:
+		return true
+
+	# Build farms progressively based on villager count
+	if villager_count >= 8 and _count_farms() < 2:
 		return true
 	if villager_count >= 10 and _count_farms() < 4:
 		return true
@@ -867,6 +1074,36 @@ func _should_build_farm() -> bool:
 		return true
 
 	return false
+
+## Count sheep near our base (alive and gatherable)
+func _count_sheep_near_base() -> int:
+	var count = 0
+	var animals = get_tree().get_nodes_in_group("animals")
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		if not animal is Sheep:
+			continue
+		if animal.team != AI_TEAM and animal.team != Animal.NEUTRAL_TEAM:
+			continue
+		if animal.global_position.distance_to(AI_BASE_POSITION) < 500:
+			count += 1
+	return count
+
+## Count berry bushes near our base (with food remaining)
+func _count_berries_near_base() -> int:
+	var count = 0
+	var resources = get_tree().get_nodes_in_group("resources")
+	for resource in resources:
+		if resource is Farm:
+			continue
+		if resource.get_resource_type() != "food":
+			continue
+		if not resource.has_resources():
+			continue
+		if resource.global_position.distance_to(AI_BASE_POSITION) < 500:
+			count += 1
+	return count
 
 func _has_natural_food_sources() -> bool:
 	# Check for huntable animals
@@ -901,6 +1138,7 @@ func _build_farm() -> void:
 
 	var scene = load(FARM_SCENE_PATH)
 	var farm = scene.instantiate()
+	_log_event("Building Farm (total: %d)" % (_count_farms() + 1))
 
 	# Find position near mill (if exists) or TC
 	var base_pos = AI_BASE_POSITION
@@ -975,6 +1213,121 @@ func _find_nearest_resource(from_pos: Vector2) -> Node:  # Returns ResourceNode 
 			nearest = resource
 
 	return nearest
+
+## Count villagers currently hunting (HUNTING state)
+func _count_current_hunters() -> int:
+	var count = 0
+	var ai_villagers = _get_ai_villagers()
+	for villager in ai_villagers:
+		if villager.current_state == Villager.State.HUNTING:
+			count += 1
+	return count
+
+## Find sheep near the TC (highest priority food source - safe and efficient)
+func _find_sheep_near_tc() -> Animal:
+	if not is_instance_valid(ai_tc):
+		return null
+	var tc_pos = ai_tc.global_position
+	var animals = get_tree().get_nodes_in_group("animals")
+
+	var nearest_sheep: Animal = null
+	var nearest_dist: float = SHEEP_PRIORITY_DISTANCE
+
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		if not animal is Sheep:
+			continue
+		# Only hunt if we own it or it's neutral
+		if animal.team != AI_TEAM and animal.team != Animal.NEUTRAL_TEAM:
+			continue
+		var dist = tc_pos.distance_to(animal.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_sheep = animal
+
+	return nearest_sheep
+
+## Find berry bushes near our base
+func _find_berries_near_base() -> Node:
+	var resources = get_tree().get_nodes_in_group("resources")
+	var nearest: Node = null
+	var nearest_dist: float = 500.0  # Berries within 500 of TC
+
+	for resource in resources:
+		if resource is Farm:
+			continue  # Skip farms, we want natural berries
+		if not resource.has_resources():
+			continue
+		if resource.get_resource_type() != "food":
+			continue
+		var dist = AI_BASE_POSITION.distance_to(resource.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = resource
+
+	return nearest
+
+## Find one of our farms that doesn't already have a villager on it
+## Farms are slow - only 1 villager per farm is efficient
+func _find_ai_farm() -> Farm:
+	var farms = get_tree().get_nodes_in_group("farms")
+	var villagers = _get_ai_villagers()
+
+	for farm in farms:
+		if farm.team != AI_TEAM or farm.is_destroyed or not farm.has_resources():
+			continue
+
+		# Check if any villager is already gathering from this farm
+		var farm_has_gatherer = false
+		for v in villagers:
+			if v.current_state == Villager.State.GATHERING and v.target_resource == farm:
+				farm_has_gatherer = true
+				break
+
+		if not farm_has_gatherer:
+			return farm
+
+	return null  # All farms occupied or none available
+
+## Find huntable animal with stricter limits (not sheep near TC - those are handled separately)
+func _find_huntable_animal_limited(from_pos: Vector2) -> Animal:
+	var animals = get_tree().get_nodes_in_group("animals")
+
+	# Only look for sheep that are NOT near TC (those are higher priority)
+	# and deer within reasonable distance
+	var tc_pos = ai_tc.global_position if is_instance_valid(ai_tc) else AI_BASE_POSITION
+
+	var best_animal: Animal = null
+	var best_dist: float = MAX_HUNT_DISTANCE
+
+	for animal in animals:
+		if animal.is_dead:
+			continue
+		if animal is Wolf:
+			continue  # Never hunt wolves
+
+		if animal is Sheep:
+			# Skip sheep near TC (handled by _find_sheep_near_tc)
+			var dist_to_tc = tc_pos.distance_to(animal.global_position)
+			if dist_to_tc < SHEEP_PRIORITY_DISTANCE:
+				continue
+			# Only hunt if we own it or it's neutral
+			if animal.team != AI_TEAM and animal.team != Animal.NEUTRAL_TEAM:
+				continue
+			var dist = from_pos.distance_to(animal.global_position)
+			if dist < best_dist:
+				best_dist = dist
+				best_animal = animal
+
+		elif animal is Deer:
+			# Deer are lower priority - only hunt if close
+			var dist = from_pos.distance_to(animal.global_position)
+			if dist < best_dist * 0.7:  # Deer need to be closer to be worth it
+				best_dist = dist * 1.4  # Penalize deer distance
+				best_animal = animal
+
+	return best_animal
 
 func _find_huntable_animal(from_pos: Vector2) -> Animal:
 	# Find nearest animal that AI can hunt
@@ -1092,11 +1445,30 @@ func _has_villagers_gathering(resource_type: String) -> bool:
 	return false
 
 func _find_resource_cluster_position(resource_type: String) -> Vector2:
+	# Find the nearest resource of this type to our base
+	# Prefer clusters (multiple resources together) for efficiency
 	var resources = get_tree().get_nodes_in_group("resources")
+	var best_pos: Vector2 = Vector2.ZERO
+	var best_score: float = INF  # Lower is better (distance)
+
+	const MAX_CAMP_DISTANCE: float = 600.0  # Don't build camps too far from base
+
 	for resource in resources:
-		if resource.get_resource_type() == resource_type and resource.has_resources():
-			# Find a spot near this resource
-			return resource.global_position + Vector2(80, 0)
+		if resource.get_resource_type() != resource_type or not resource.has_resources():
+			continue
+
+		var dist_to_base = AI_BASE_POSITION.distance_to(resource.global_position)
+		if dist_to_base > MAX_CAMP_DISTANCE:
+			continue
+
+		# Score based on distance (closer is better)
+		# Could add cluster bonus later, but distance is most important
+		if dist_to_base < best_score:
+			best_score = dist_to_base
+			best_pos = resource.global_position
+
+	if best_pos != Vector2.ZERO:
+		return best_pos + Vector2(80, 0)  # Offset so camp is next to resource
 	return Vector2.ZERO
 
 func _build_lumber_camp(near_pos: Vector2) -> void:
@@ -1114,6 +1486,8 @@ func _build_lumber_camp(near_pos: Vector2) -> void:
 	var pos = _find_valid_camp_position(near_pos, Vector2(64, 64))
 	ai_lumber_camp.global_position = pos
 	ai_lumber_camp.team = AI_TEAM
+	var dist_from_base = AI_BASE_POSITION.distance_to(pos)
+	_log_event("Building Lumber Camp at dist %.0f from base" % dist_from_base)
 
 	get_parent().get_node("Buildings").add_child(ai_lumber_camp)
 
@@ -1136,6 +1510,8 @@ func _build_mining_camp(near_pos: Vector2) -> void:
 	var pos = _find_valid_camp_position(near_pos, Vector2(64, 64))
 	ai_mining_camp.global_position = pos
 	ai_mining_camp.team = AI_TEAM
+	var dist_from_base = AI_BASE_POSITION.distance_to(pos)
+	_log_event("Building Mining Camp at dist %.0f from base" % dist_from_base)
 
 	get_parent().get_node("Buildings").add_child(ai_mining_camp)
 
@@ -1174,6 +1550,7 @@ func _build_house() -> void:
 	var offset = _find_building_spot(Vector2(64, 64))
 	house.global_position = AI_BASE_POSITION + offset
 	house.team = AI_TEAM
+	_log_event("Building House (total: %d)" % (_count_houses() + 1))
 
 	get_parent().get_node("Buildings").add_child(house)
 
@@ -1223,6 +1600,7 @@ func _build_barracks() -> void:
 	var offset = _find_building_spot(Vector2(96, 96))
 	new_barracks.global_position = AI_BASE_POSITION + offset
 	new_barracks.team = AI_TEAM
+	_log_event("Building Barracks (total: %d)" % (_count_barracks() + 1))
 
 	get_parent().get_node("Buildings").add_child(new_barracks)
 	ai_barracks.append(new_barracks)
@@ -1289,6 +1667,7 @@ func _build_archery_range() -> void:
 	var offset = _find_building_spot(Vector2(96, 96))
 	new_range.global_position = AI_BASE_POSITION + offset
 	new_range.team = AI_TEAM
+	_log_event("Building Archery Range (total: %d)" % (_count_archery_ranges() + 1))
 
 	get_parent().get_node("Buildings").add_child(new_range)
 	ai_archery_ranges.append(new_range)
@@ -1354,6 +1733,7 @@ func _build_stable() -> void:
 	var offset = _find_building_spot(Vector2(96, 96))
 	new_stable.global_position = AI_BASE_POSITION + offset
 	new_stable.team = AI_TEAM
+	_log_event("Building Stable (total: %d)" % (_count_stables() + 1))
 
 	get_parent().get_node("Buildings").add_child(new_stable)
 	ai_stables.append(new_stable)
@@ -1766,9 +2146,34 @@ func _get_ai_villagers() -> Array:
 ## Find an idle villager to use as a builder
 func _find_idle_builder() -> Villager:
 	var villagers = _get_ai_villagers()
+
+	# First, try to find an actually idle villager
 	for v in villagers:
 		if v.current_state == Villager.State.IDLE:
 			return v
+
+	# No idle villager - interrupt a hunter if we have more than 1
+	# This prevents the "all villagers hunting, can't build" deadlock
+	var hunters = []
+	for v in villagers:
+		if v.current_state == Villager.State.HUNTING:
+			hunters.append(v)
+
+	if hunters.size() > 1:
+		# Interrupt the first hunter - they'll become idle and can build
+		var hunter = hunters[0]
+		hunter.stop_current_action()
+		_log_event("Interrupted hunter to become builder (had %d hunters)" % hunters.size())
+		return hunter
+
+	# Also consider interrupting a wood gatherer if desperate
+	# (wood gatherers are less critical than food gatherers in early game)
+	for v in villagers:
+		if v.current_state == Villager.State.GATHERING and v.carried_resource_type == "wood":
+			v.stop_current_action()
+			_log_event("Interrupted wood gatherer to become builder")
+			return v
+
 	return null
 
 func _find_building_spot(building_size: Vector2) -> Vector2:

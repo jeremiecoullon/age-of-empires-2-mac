@@ -6,6 +6,9 @@ class_name FogOfWar
 ## - EXPLORED (fog): Previously seen but not currently visible
 ## - VISIBLE (clear): Currently in line of sight
 
+## DEBUG: Set to true to disable fog of war (see entire map)
+const FOG_DISABLED: bool = true  # <-- Set to false for normal gameplay
+
 enum VisibilityState { UNEXPLORED, EXPLORED, VISIBLE }
 
 const TILE_SIZE: int = 32
@@ -63,11 +66,18 @@ func _init_rendering() -> void:
 	fog_sprite.scale = Vector2(TILE_SIZE, TILE_SIZE)  # Scale up to map size
 	add_child(fog_sprite)
 
+	# DEBUG: Hide fog if disabled
+	if FOG_DISABLED:
+		fog_sprite.visible = false
+		print("=== FOG OF WAR DISABLED FOR DEBUGGING ===")
+
 func _initial_reveal() -> void:
 	# Reveal around player's starting units and buildings
 	_update_visibility()
 
 func _process(delta: float) -> void:
+	if FOG_DISABLED:
+		return  # Skip all processing when debugging
 	update_timer += delta
 	if update_timer >= UPDATE_INTERVAL:
 		update_timer = 0.0
