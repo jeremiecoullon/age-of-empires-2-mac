@@ -1,6 +1,11 @@
-# 0AD Petra bot AI system
+# 0AD Petra bot AI system [alternative system]
 
 This document describes how the 0AD Petra bot AI works. The goal is to understand an alternative AI architecture for comparison with the AoE2 rule-based system.
+
+Note: this is an alternative design that we have considered, but we are not building our AI bot implementation based on this.
+
+
+----
 
 ## Overview
 
@@ -465,6 +470,210 @@ defenseRatio: { "ally": 1.4, "neutral": 1.8, "own": 2 }
 
 This means: to defend own base against 10 enemies, assign 20 defenders.
 
+## Map-specific behavior
+
+The AI analyzes the map at game start and adapts strategy accordingly.
+
+### Map analysis
+
+At initialization, `regionAnalysis()` in `startingStrategy.js` scans the map:
+
+```javascript
+// startingStrategy.js, lines 114-205
+Headquarters.prototype.regionAnalysis = function(gameState)
+{
+    const accessibility = gameState.ai.accessibility;
+    // Find main land and water regions from civic center positions
+    for (const cc of ccEnts.values())
+    {
+        const land = accessibility.getAccessValue(cc.position());
+        if (land > 1) { landIndex = land; break; }
+    }
+
+    // Detect naval maps by checking for significant water regions
+    const minWaterSize = Math.floor(0.2 * totalSize);
+    if (accessibility.regionType[i] === "water" && accessibility.regionSize[i] > minWaterSize)
+    {
+        this.navalMap = true;
+        this.navalRegions[i] = true;
+    }
+}
+```
+
+### Map adaptations
+
+The `configFirstBase()` function adjusts strategy based on map features:
+
+| Map Feature | Detection | AI Response |
+|-------------|-----------|-------------|
+| Small island | `startingSize < 25000` cells | `saveSpace=true`, max 1 farm, more fishers, build corral |
+| Medium territory | `25000-60000` cells | `maxFields=2`, balanced approach |
+| Large mainland | `>60000` cells | Unrestricted farms |
+| Low food | `food < 800` | Island→fish heavily; Mainland→build farms |
+| Low wood | `wood < 6000` | `saveResources=true`, delay Town phase to 75% threshold |
+| High wood | `wood > 8500` | Enable early military rushes |
+| Has water | `navalMap=true` | Build docks, fishing ships, calculate landing zones |
+
+```javascript
+// startingStrategy.js, lines 449-514
+if (startingSize < 25000)  // Small island
+{
+    this.saveSpace = true;
+    this.Config.Economy.popForDock = Math.min(this.Config.Economy.popForDock, 16);
+    this.maxFields = 1;
+    this.needCorral = true;
+}
+
+if (startingWood < 6000)
+{
+    this.saveResources = true;
+    this.Config.Economy.popPhase2 = Math.floor(0.75 * this.Config.Economy.popPhase2);
+}
+
+if (startingWood > 8500 && this.canBuildUnits)
+{
+    let allowed = Math.ceil((startingWood - 8500) / 3000);
+    this.attackManager.setRushes(allowed);  // Enable early rushes
+}
+```
+
+## Civilization-specific behavior
+
+The AI detects which civilization it's playing and adapts accordingly.
+
+### Civilization detection
+
+```javascript
+// startingStrategy.js, line 213
+const civref = gameState.playerData.civ;
+const civ = civref in this.Config.buildings ? civref : 'default';
+
+// Or via helper method
+const civ = gameState.getPlayerCiv();
+```
+
+### Civilization-specific buildings
+
+Each of the 13 civilizations has unique building priorities in `config.js`:
+
+```javascript
+// config.js, lines 58-113
+this.buildings = {
+    "default": [],
+    "athen": ["structures/{civ}/gymnasium", "structures/{civ}/prytaneion", "structures/{civ}/theater"],
+    "brit": [],
+    "cart": ["structures/{civ}/embassy_celtic", "structures/{civ}/embassy_iberian", "structures/{civ}/embassy_italic"],
+    "gaul": ["structures/{civ}/assembly"],
+    "han": ["structures/{civ}/academy"],
+    "iber": ["structures/{civ}/monument"],
+    "kush": ["structures/{civ}/camp_blemmye", "structures/{civ}/camp_noba", "structures/{civ}/pyramid_large",
+             "structures/{civ}/pyramid_small", "structures/{civ}/temple_amun"],
+    "mace": ["structures/{civ}/theater"],
+    "maur": ["structures/{civ}/palace", "structures/{civ}/pillar_ashoka"],
+    "pers": ["structures/{civ}/tachara"],
+    "ptol": ["structures/{civ}/library", "structures/{civ}/theater"],
+    "rome": ["structures/{civ}/army_camp", "structures/{civ}/temple_vesta"],
+    "sele": ["structures/{civ}/theater"],
+    "spart": ["structures/{civ}/syssiton", "structures/{civ}/theater"]
+};
+```
+
+### Dynamic template selection
+
+The AI uses `applyCiv()` throughout to get civilization-appropriate templates:
+
+```javascript
+// Used for all building/unit references
+const template = gameState.applyCiv("structures/{civ}/civil_centre");
+const dockTemplate = gameState.applyCiv("structures/{civ}/dock");
+
+// Unit training checks what's available for this civ
+const trainables = ent.trainableEntities(civ);
+```
+
+The AI also factors civilization differences into diplomacy - being slightly more likely to decline alliances from different civilizations.
+
+## Phase-specific behavior
+
+The AI significantly changes strategy based on current game phase (age).
+
+### Phase detection
+
+```javascript
+// headquarters.js, line 96
+this.currentPhase = gameState.currentPhase();
+
+// Phase change detection (lines 2252-2258)
+if (this.currentPhase != gameState.currentPhase())
+{
+    this.currentPhase = gameState.currentPhase();
+    if (this.phasing)
+        this.phasing = 0;  // Reset phasing state
+}
+```
+
+### Phase advancement
+
+The `ResearchManager` checks conditions to advance:
+
+```javascript
+// researchManager.js, lines 15-39
+const petraRequirements =
+    currentPhaseIndex == 1 && gameState.ai.HQ.getAccountedPopulation(gameState) >= this.Config.Economy.popPhase2 ||
+    currentPhaseIndex == 2 && gameState.ai.HQ.getAccountedWorkers(gameState) > this.Config.Economy.workPhase3 ||
+    currentPhaseIndex >= 3 && gameState.ai.HQ.getAccountedWorkers(gameState) > this.Config.Economy.workPhase4;
+```
+
+### Phase-dependent behavior
+
+| Phase | Defense | Economy | Military |
+|-------|---------|---------|----------|
+| 1 (Village) | Sentry towers only | Workers, housing, basic resources | None |
+| 2 (Town) | Stone defense towers | Market, forge, temple, expansion | Barracks, light attacks |
+| 3+ (City) | Fortresses | Full trade, advanced buildings | Champions, siege, huge attacks |
+
+```javascript
+// headquarters.js, lines 1600-1651 - Defense by phase
+// Phase 1 only: Sentry Towers
+if (this.Config.Military.numSentryTowers && this.currentPhase < 2)
+    // Build sentry towers for early defense
+
+// Phase 2+: Stone/Defense Towers
+if (this.currentPhase >= 2 && this.canBuild(gameState, "structures/{civ}/defense_tower"))
+    // Build defense towers
+
+// Phase 3+: Fortresses
+if (this.currentPhase > 2 || gameState.isResearching(gameState.getPhaseName(3)))
+    // Build fortresses
+```
+
+```javascript
+// headquarters.js, lines 2303-2321 - Economy by phase
+if (this.currentPhase > 1 && gameState.ai.playedTurn % 3 == 0)
+{
+    this.buildMarket(gameState, queues);   // Market for trading
+    this.buildForge(gameState, queues);    // Forge for upgrades
+    this.buildTemple(gameState, queues);   // Temple for bonuses
+}
+
+// Expansion only after Phase 2
+if (this.canExpand && this.currentPhase > 1)
+    this.checkBaseExpansion(gameState, queues);
+```
+
+### Phase-specific tech research
+
+```javascript
+// researchManager.js, lines 81-158
+ResearchManager.prototype.researchWantedTechs = function(gameState, techs)
+{
+    const phase1 = gameState.currentPhase() === 1;
+    // Phase 1: focus on resource gathering (food/wood)
+    // Phase 2: military resources (stone/metal), arrow counts
+    // Phase 3+: advanced military techs
+}
+```
+
 ## Event system
 
 The AI responds to game events rather than polling:
@@ -514,8 +723,10 @@ The AI responds to game events rather than polling:
 | File | Lines | Purpose |
 |------|-------|---------|
 | `_petrabot.js` | 172 | Entry point, update loop |
-| `config.js` | 354 | All tunable parameters |
-| `headquarters.js` | 2,459 | Strategic coordination |
+| `config.js` | 354 | All tunable parameters, civ-specific buildings |
+| `headquarters.js` | 2,459 | Strategic coordination, phase-gated logic |
+| `startingStrategy.js` | ~550 | Map analysis, civ detection, first base config |
+| `researchManager.js` | ~200 | Phase advancement, tech priorities |
 | `queueManager.js` | 626 | Resource distribution |
 | `attackManager.js` | 864 | Attack coordination |
 | `attackPlan.js` | 2,286 | Individual attack execution |
@@ -537,7 +748,11 @@ The AI responds to game events rather than polling:
 
 4. **Recovery logic**: Queue pausing when workers are low is a good pattern - we could implement similar logic with goal variables.
 
-5. **Starting analysis**: 0AD analyzes the map at game start to adjust strategy (water map, resource availability). We could do this with initialization rules.
+5. **Map analysis at game start**: Detecting island vs mainland, resource scarcity, and water presence early allows the AI to commit to appropriate strategies. We could do this with initialization rules that set strategic numbers based on `up-get-fact` queries.
+
+6. **Phase-gated behaviors**: Explicit checks like "only build fortresses in Phase 3+" prevent the AI from attempting invalid actions. We can implement this with age-checking conditions on rules.
+
+7. **Civilization awareness**: While AoE2 civs differ less than 0AD's, we could still detect our civ and adjust unit preferences (e.g., prioritize cavalry for Franks, archers for Britons).
 
 ### What to avoid
 
@@ -546,6 +761,8 @@ The AI responds to game events rather than polling:
 2. **Tight coupling**: 0AD managers depend on each other. Independent rules are easier to reason about.
 
 3. **Cheating modifiers**: Difficulty via resource multipliers feels unfair. Strategic number tuning is more elegant.
+
+4. **Only one bot**: 0AD has a single bot (Petra) with parameter variations. Having multiple distinct AI personalities (rusher, boomer, turtler) as separate rule files might be more maintainable than one mega-bot with personality sliders.
 
 ## References
 
