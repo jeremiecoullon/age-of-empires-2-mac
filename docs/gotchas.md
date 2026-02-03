@@ -232,58 +232,8 @@ Track layout/visual issues for future polish.
 
 - **Cursor hidden when switching to Godot editor (macOS)**: When running the game from the Godot editor and switching to the editor window, the system cursor may remain hidden. This happens despite polling `window.has_focus()` and calling `Input.mouse_mode = Input.MOUSE_MODE_VISIBLE` on focus loss. **No known fix** - appears to be a macOS/Godot limitation when running from the editor. The cursor restores correctly when the game closes. Likely works fine in standalone builds.
 
-### Phase 3A - Macro & Build Orders
+### Phase 3 (Original - Replaced)
 
-- **Pending villager assignment tracking**: When tracking resource assignments for newly spawned villagers, handle edge cases carefully. Villager death during spawn can cause assignment queue desync. Check both pending and actually-idle states when reassigning.
+The original Phase 3 (procedural AI) was scrapped due to architectural issues. The learnings from that failed implementation are documented in `docs/ai_player_designs/phase3_failure_summary.md`.
 
-- **Build order step completion verification**: Ensure build order steps that queue villagers actually complete the queue operation before advancing to the next step. Easy to mark a step complete without verifying the action succeeded.
-
-- **Cache group lookups in loops**: When iterating villagers and calling functions that query groups (like `_get_ai_villagers()`), cache the result once outside the loop. Calling `get_tree().get_nodes_in_group()` per iteration creates O(n²) behavior.
-
-- **Build order graceful degradation**: Build order may skip steps (like camp building) if preconditions aren't met (e.g., no resource cluster found nearby). This is acceptable on edge maps - the AI continues with the next step rather than getting stuck.
-
-### Phase 3B - Scouting & Information
-
-- **Scout state machine integration**: When adding states like COMBAT to a state machine, remember to add transitions INTO that state, not just the handler. Easy to define a state but never enter it because no code sets the state to that value.
-
-- **Building type identification**: GDScript's `get_class()` can be unreliable for type checking - use explicit `is` checks or a custom method like `_get_building_type_string()` for type identification.
-
-- **Dictionary clearing vs reassignment**: When resetting a tracking dictionary, clear individual values instead of reassigning the dictionary. Reassignment breaks external references to the original dictionary object.
-
-- **Typed arrays for entity lists**: Use `Array[Node2D]` for entity lists to match existing codebase patterns and improve type safety. Consistency matters more than personal preference.
-
-### Phase 3C - Combat Intelligence
-
-- **Unified scoring constants for priority systems**: When multiple functions need consistent priority scoring (e.g., target selection and focus fire), use shared constants (`TARGET_PRIORITY_VILLAGER`, `TARGET_PRIORITY_RANGED`, etc.) to prevent drift. Without this, AI units may select different targets in attack vs focus fire, causing army splitting.
-
-- **Type-safe state enum checks**: Instead of magic numbers for state enums (`if state == 2`), use type checks with proper enum values: `if unit is Militia and unit.current_state == Militia.State.ATTACKING`. Create a helper like `_is_unit_attacking(unit)` that handles all unit types. Magic numbers are fragile and break if state enums change.
-
-- **Retreat units tracking**: When implementing retreat behavior, maintain a `retreating_units` array to track which units are currently fleeing. Check this array before assigning units to new attacks to avoid re-sending retreating units into battle.
-
-### Phase 3D - Micro & Tactics
-
-- **Specialized units need rule exclusions**: Units assigned to special roles (harass squad, scouting) should be excluded from general micro behaviors (kiting, auto-attack). For example, harass squad units should follow harassment rules rather than individual kiting logic, which could cause them to back away from the harassment target.
-
-- **Cooldown for toggling behaviors**: Systems like Town Bell (mass villager garrison) need cooldowns to prevent rapid toggling. Without a cooldown, threat detection and resolution happening in quick succession causes repeated activate/deactivate cycles that disrupt normal operation.
-
-- **Rally point positioning for reinforcements**: When reinforcing an attack, calculate rally points relative to the actual battle position, not just the home base. Sending reinforcements to a static point far from the action reduces their effectiveness.
-
-- **Unit role tracking with multiple arrays**: When units can be in different "roles" (main_army, harass_squad, kiting_units, retreating_units), clearly document which combinations are valid and check all relevant arrays before reassigning. A unit might be in multiple arrays temporarily (e.g., kiting while in main_army), which is acceptable but should be intentional.
-
-- **Harass targeting economy, not military**: Harassment squads should target enemy villagers and resource areas, not enemy military positions. Using `enemy_army_last_position` for harassment defeats the purpose - target known TC positions offset toward resources instead.
-
-- **Cache group lookups in micro loops**: When checking conditions for many units (e.g., threat detection for each ranged unit), cache the group lookup once rather than per-unit. Calling `get_tree().get_nodes_in_group()` inside a unit iteration loop creates O(n²) behavior that becomes noticeable with larger armies.
-
-### Phase 3E - Economic Intelligence
-
-- **Economy mode provides strategic context**: Tracking whether the AI should BOOM, be BALANCED, or focus on MILITARY makes villager allocation more intelligent. The mode should transition based on game state (villager count, threat level, military strength comparison) rather than fixed timings.
-
-- **Dynamic targets beat static constants**: Static villager allocation targets (FOOD_VILLAGERS = 10, etc.) don't adapt to game conditions. Use dynamic targets that adjust based on economy mode and emergency shortages. Store them in a dictionary (`dynamic_villager_targets`) that can be modified at runtime.
-
-- **Forward building needs safety checks**: Placing military buildings toward the enemy (for faster reinforcement) can get builders killed. Always check `_is_position_safe()` before committing resources to forward construction. Fall back to base position if forward position is unsafe.
-
-- **Expansion requires economy first**: Only build expansion camps after achieving a stable economy (e.g., 25+ villagers). Expanding too early spreads resources thin and makes the AI vulnerable.
-
-- **Ring placement for farms**: Mathematical ring patterns (using sin/cos) create more efficient farm layouts than fixed offset lists. Inner ring for close placement, outer ring for expansion. Check `_is_valid_building_position()` for each position to handle obstacles.
-
-- **Dead unit checks in group queries**: Functions like `_get_ai_villagers()` and `_get_military_count()` must check `is_dead` flag because `queue_free()`'d nodes stay in groups until the end of frame. Counting dead units causes overestimation that affects economy mode decisions.
+**Key takeaway**: Procedural AI with tightly coupled systems led to "whack-a-mole" debugging where fixing one behavior broke others. Phase 3.1 replaces this with a rule-based system where rules are independent.

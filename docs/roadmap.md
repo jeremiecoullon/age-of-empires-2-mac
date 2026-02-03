@@ -392,11 +392,73 @@ This phase re-implements the AI using independent rules that fire when condition
 - `docs/ai_player_designs/aoe2_ai_rule_system.md` - How the real AoE2 AI works
 - `docs/ai_player_designs/aoe2_strategic_numbers.md` - Tunable parameters
 
-**Implementation design:** TBD - see `docs/ai_player_designs/godot_rule_implementation.md` (to be created)
+**Implementation design:** See `docs/ai_player_designs/godot_rule_implementation.md`
 
-**Sub-phases:** TBD
+**Sub-phases (approved 2026-02-03):**
+- **3.1A**: Core infrastructure + MVP behavior (rule engine, basic economy, militia, attack)
+- **3.1B**: Full economy (4 resources, drop-offs, farms, animals, market)
+- **3.1C**: Full military + intelligence (all units, scouting, defense, mixed composition)
 
-**Done when:** AI provides a competitive challenge using maintainable, debuggable rule-based logic.
+---
+
+### Phase 3.1A: Core Infrastructure + MVP Behavior
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| AIGameState | System | Wrapper exposing game state to rules (resources, unit counts, can_train, can_build, etc.) |
+| AIRule base class | System | Interface for conditions() and actions() |
+| Rule engine | System | Evaluates all rules each tick, handles action de-duplication |
+| Strategic numbers | System | Dictionary of tunable parameters with AoE2-style defaults |
+| Train villager rule | Rule | Train villagers up to target count |
+| Build house rule | Rule | Build house when housing headroom < 5 |
+| Gather food rule | Rule | Assign villagers to food |
+| Gather wood rule | Rule | Assign villagers to wood |
+| Build barracks rule | Rule | Build barracks when none exists and can afford |
+| Train militia rule | Rule | Train militia from barracks |
+| Attack rule | Rule | Attack when military >= threshold |
+
+**3.1A Done when:** AI plays at MVP level using rule-based system - trains villagers, builds houses/barracks, gathers resources, trains militia, attacks.
+
+---
+
+### Phase 3.1B: Full Economy
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| 4-resource gathering | Rules | Gather gold and stone based on strategic number percentages |
+| Build lumber camp rule | Rule | Build near trees when drop distance too far |
+| Build mining camp rule | Rule | Build near gold/stone when drop distance too far |
+| Build mill rule | Rule | Build near berries/hunt |
+| Build farm rule | Rule | Build farms when natural food depleted |
+| Sheep herding | Rule | Gather sheep, herd to TC |
+| Hunting | Rule | Hunt deer/boar |
+| Market buy/sell | Rules | Conservative trading when surplus/shortage |
+
+**3.1B Done when:** AI manages full 4-resource economy with drop-off optimization and farms.
+
+---
+
+### Phase 3.1C: Full Military + Intelligence
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Build archery range rule | Rule | Build when barracks exists |
+| Build stable rule | Rule | Build when barracks exists |
+| Train archer rule | Rule | Train archers |
+| Train spearman rule | Rule | Train spearmen (counter to cavalry) |
+| Train scout cavalry rule | Rule | Train scouts for scouting |
+| Train skirmisher rule | Rule | Train skirmishers (counter to archers) |
+| Train cavalry archer rule | Rule | Train cavalry archers |
+| Scouting behavior | Rules | Send scout to explore, track enemy positions |
+| Defense rules | Rules | Respond to threats, defend base when attacked |
+| Mixed army composition | Rules | Build varied army based on enemy composition |
+| Attack timing | Rules | Attack based on army size and game time |
+
+**3.1C Done when:** AI uses all available units/buildings, scouts, defends, and presents a competitive challenge.
+
+---
+
+**Phase 3.1 Done when:** AI provides a competitive challenge using maintainable, debuggable rule-based logic.
 
 ---
 
