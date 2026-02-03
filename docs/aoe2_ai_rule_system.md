@@ -293,7 +293,6 @@ Note: These must sum to 100 or villagers may idle.
 ### Special behaviors
 ```lisp
 (set-strategic-number sn-enable-boar-hunting 1)          ; Hunt boars
-(set-strategic-number sn-intelligent-gathering 1)        ; Smart resource switching
 (set-strategic-number sn-defer-dropsite-update 1)        ; Prevent villager suicide runs
 ```
 

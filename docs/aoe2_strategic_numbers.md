@@ -243,18 +243,15 @@ Control how far villagers will travel to gather resources before building a new 
 |------------------|-------------|-------------|
 | `sn-enable-boar-hunting` | Hunt boars (0=no, 1=yes) | 1 |
 | `sn-minimum-boar-hunt-group-size` | Minimum villagers for boar hunting | 3 |
-| `sn-intelligent-gathering` | Smart resource switching when depleted | 1 |
 | `sn-defer-dropsite-update` | Prevent villager suicide runs to distant resources | 1 |
 | `sn-do-not-scale-for-difficulty-level` | Ignore difficulty bonuses (0=scale, 1=don't) | 0 |
 | `sn-enable-offensive-priority` | Prioritize offensive actions | 1 |
 | `sn-zero-priority-distance` | Distance at which priority becomes zero | 255 |
 | `sn-retask-gather-amount` | Resources gathered before retasking villager | 10 |
-| `sn-max-retask-gather-amount` | Maximum gather before forced retask | 20 |
 
 ```lisp
 (set-strategic-number sn-enable-boar-hunting 1)
 (set-strategic-number sn-minimum-boar-hunt-group-size 3)
-(set-strategic-number sn-intelligent-gathering 1)
 (set-strategic-number sn-defer-dropsite-update 1)
 (set-strategic-number sn-enable-offensive-priority 1)
 (set-strategic-number sn-zero-priority-distance 255)
@@ -345,7 +342,6 @@ Here's a comprehensive initialization rule that sets up most important strategic
   ; === Special behaviors ===
   (set-strategic-number sn-enable-boar-hunting 1)
   (set-strategic-number sn-minimum-boar-hunt-group-size 3)
-  (set-strategic-number sn-intelligent-gathering 1)
   (set-strategic-number sn-defer-dropsite-update 1)
   (set-strategic-number sn-garrison-rams 1)
   (set-strategic-number sn-enable-offensive-priority 1)
