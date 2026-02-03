@@ -1,6 +1,6 @@
 # AoE2 Clone - Roadmap
 
-**Last updated:** 2026-02-01 (Phase 3: Strong AI complete)
+**Last updated:** 2026-02-03 (Phase 3 replaced by Phase 3.1 rule-based AI)
 
 ## Goal
 
@@ -103,7 +103,8 @@ Before starting each phase, follow this process:
 | 2 | Military Foundation | Combat triangle, fog of war, counter-units |
 | 2.5 | Bug Fixes & Core Mechanics | Production queue, villager-based building, pathfinding fixes |
 | 2.6 | UI Overhaul | AoE2-style bottom panel, minimap, context-sensitive cursors |
-| 3 | Strong AI | Competitive AI: build orders, scouting, counter-play, micro |
+| 3 | ~~Strong AI~~ | *(Replaced - see Phase 3.1)* |
+| 3.1 | Rule-Based AI | Competitive AI using AoE2-style rule system |
 | 4 | Age System | Dark → Feudal → Castle progression |
 | 5 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
 | 6 | Monks & Relics | Conversion, healing, relic victory |
@@ -366,93 +367,36 @@ Cursor sprites location: `assets/sprites_extracted/cursors/`
 
 ---
 
-## Phase 3: Strong AI (Complete)
-**Goal:** Transform AI from functional to competitive - a real challenge for players
+## Phase 3: Strong AI (Replaced)
 
-This phase makes the AI play well, not just play. Phase 2C made the AI use available features; this phase makes it use them intelligently.
+The original Phase 3 implementation used procedural/imperative code that became unmaintainable. See `docs/ai_player_designs/phase3_failure_summary.md` for details.
 
-**Difficulty:** Single difficulty level ("Very Difficult") - the AI plays to win.
+Archived checkpoint docs: `docs/phase_checkpoints/archive/phase-3.0a.md` through `phase-3.0e.md`
 
-**Sub-phases (approved 2026-02-01):**
-- **3A**: Macro & Build Orders - build order system, continuous villager production, production scaling, idle villager reassignment — *Complete*
-- **3B**: Scouting & Information - scout patrol patterns, enemy base tracking, army composition tracking, threat assessment — *Complete*
-- **3C**: Combat Intelligence - counter-unit production, army composition goals, attack timing, target prioritization, retreat, focus fire — *Complete*
-- **3D**: Micro & Tactics - ranged kiting, villager flee behavior, TC garrison, split attention, reinforcement waves — *Complete*
-- **3E**: Economic Intelligence - resource balance targets, floating resource detection, farm placement, forward building, expansion — *Complete*
+**Replaced by Phase 3.1 below.**
 
 ---
 
-### Phase 3A: Macro & Build Orders
+## Phase 3.1: Rule-Based AI
+**Goal:** Competitive AI using AoE2-style rule-based system
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Build order system | System | Configurable sequence of actions (e.g., 6 vils on sheep → 4 on wood → ...) |
-| Dark Age build order | AI | Optimized opening: scout sheep, queue villagers, build houses on time |
-| Feudal transition timing | AI | Know when to click up based on vil count and resources |
-| Continuous villager production | AI | Never idle TC (unless intentional) |
-| Production building scaling | AI | Build 2nd/3rd barracks/range when floating resources |
-| Idle villager reassignment | AI | Detect and fix idle villagers immediately |
+This phase re-implements the AI using independent rules that fire when conditions match, inspired by the original AoE2 AI scripting system.
 
-**3A Done when:** AI executes a structured build order, never idles TC, scales production buildings, reassigns idle villagers.
+**Key architecture:**
+- Rules are independent - they don't call each other
+- All matching rules fire each tick
+- Clear conditions and actions per rule
+- Easy to add/modify behaviors without cascading effects
 
----
+**Reference docs:**
+- `docs/ai_player_designs/aoe2_ai_rule_system.md` - How the real AoE2 AI works
+- `docs/ai_player_designs/aoe2_strategic_numbers.md` - Tunable parameters
 
-### Phase 3B: Scouting & Information
+**Implementation design:** TBD - see `docs/ai_player_designs/godot_rule_implementation.md` (to be created)
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Early game scouting | AI | Scout finds sheep, boar, enemy base, gold/stone locations |
-| Scout patrol patterns | AI | Circle own base → expand outward → find enemy |
-| Enemy base tracking | AI | Remember where enemy TC/buildings are |
-| Army composition tracking | AI | Estimate what units enemy is making |
-| Threat assessment | AI | Know when enemy is attacking, with how much |
+**Sub-phases:** TBD
 
-**3B Done when:** AI scouts effectively, tracks enemy base location, estimates enemy army composition.
-
----
-
-### Phase 3C: Combat Intelligence
-
-| Feature | Type | Notes |
-|---------|------|-------|
-| Counter-unit production | AI | See archers → make skirmishers; see cavalry → make spearmen |
-| Army composition goals | AI | Target ratios (e.g., 60% main unit, 40% counter) |
-| Attack timing | AI | Attack when ahead or when enemy is vulnerable |
-| Target prioritization | AI | Kill villagers > siege > military > buildings (contextual) |
-| Retreat behavior | AI | Pull back badly damaged units, don't suicide |
-| Focus fire | AI | Concentrate attacks on single targets |
-
-**3C Done when:** AI counters player army composition, times attacks well, prioritizes targets, retreats damaged units.
-
----
-
-### Phase 3D: Micro & Tactics
-
-| Feature | Type | Notes |
-|---------|------|-------|
-| Ranged unit kiting | AI | Archers back away while attacking melee |
-| Villager flee behavior | AI | Villagers run to TC when attacked |
-| TC garrison under attack | AI | Use Town Bell equivalent when raided |
-| Split attention | AI | Can harass + defend simultaneously |
-| Reinforcement waves | AI | Send new units to join existing army |
-
-**3D Done when:** AI micro-manages units in combat, villagers flee to TC, can multitask harassment and defense.
-
----
-
-### Phase 3E: Economic Intelligence
-
-| Feature | Type | Notes |
-|---------|------|-------|
-| Resource balance targets | AI | Know how many vils on each resource for current goal |
-| Floating resource detection | AI | If gold > 500 and not spending, reallocate or spend |
-| Farm placement optimization | AI | Farms around TC/Mill, not random locations |
-| Forward building | AI | Build military buildings closer to enemy for faster reinforcement |
-| Expansion behavior | AI | Build 2nd TC / expand to new resources when safe |
-
-**3E Done when:** AI balances economy for current goals, doesn't float resources, optimizes farm placement.
-
-**Phase 3 Done when:** Playing against the AI feels like playing against a competent human opponent. The AI should win sometimes.
+**Done when:** AI provides a competitive challenge using maintainable, debuggable rule-based logic.
 
 ---
 

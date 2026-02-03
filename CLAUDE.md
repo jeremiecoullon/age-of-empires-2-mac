@@ -9,6 +9,8 @@
 >    - `docs/gotchas.md` — Known pitfalls to avoid
 >
 > This applies to every new session. Don't start coding until you've read these.
+>
+> **Ignore the archive:** `docs/phase_checkpoints/archive/` contains replaced implementations. Do not read or reference these unless explicitly asked.
 
 ---
 
