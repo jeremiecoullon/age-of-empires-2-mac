@@ -3,6 +3,8 @@ extends Camera2D
 @export var pan_speed: float = 400.0
 @export var edge_margin: int = 20  # pixels from screen edge to trigger scroll
 
+const HUD_BOTTOM_HEIGHT: float = 150.0  # Must match BottomPanel height in hud.tscn
+
 var map_size: Vector2 = Vector2(1920, 1920)
 var viewport_size: Vector2
 
@@ -43,7 +45,8 @@ func _process(delta: float) -> void:
 func _clamp_position() -> void:
 	var half_viewport = viewport_size / 2
 	position.x = clamp(position.x, half_viewport.x, map_size.x - half_viewport.x)
-	position.y = clamp(position.y, half_viewport.y, map_size.y - half_viewport.y)
+	# Account for HUD covering bottom of screen
+	position.y = clamp(position.y, half_viewport.y, map_size.y - half_viewport.y + HUD_BOTTOM_HEIGHT / 2)
 
 
 ## Jump camera to a specific world position (used by minimap click)
