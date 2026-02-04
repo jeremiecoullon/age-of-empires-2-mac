@@ -1072,3 +1072,90 @@ func can_market_sell(resource_type: String) -> bool:
 
 	# Need at least 100 of the resource (standard trade amount)
 	return get_resource(resource_type) >= 100
+
+
+# =============================================================================
+# DEBUG HELPERS - Observability for automated testing
+# =============================================================================
+
+func get_gatherer_distances() -> Dictionary:
+	## Returns average distance of each resource type's gatherers to their nearest drop-off
+	## Format: {"food": 234.5, "wood": 847.2, ...} - INF if no gatherers
+	var result = {"food": INF, "wood": INF, "gold": INF, "stone": INF}
+	var totals = {"food": 0.0, "wood": 0.0, "gold": 0.0, "stone": 0.0}
+	var counts = {"food": 0, "wood": 0, "gold": 0, "stone": 0}
+
+	for villager in scene_tree.get_nodes_in_group("villagers"):
+		if villager.team != AI_TEAM or villager.is_dead:
+			continue
+
+		# Only count villagers actively gathering or returning
+		if villager.current_state != villager.State.GATHERING and \
+		   villager.current_state != villager.State.RETURNING and \
+		   villager.current_state != villager.State.HUNTING:
+			continue
+
+		var resource_type = villager.carried_resource_type
+		if resource_type == "":
+			resource_type = "food"  # Default for hunters
+
+		if resource_type not in totals:
+			continue
+
+		var dist = get_nearest_drop_off_distance(resource_type, villager.global_position)
+		if dist < INF:
+			totals[resource_type] += dist
+			counts[resource_type] += 1
+
+	for resource_type in result:
+		if counts[resource_type] > 0:
+			result[resource_type] = totals[resource_type] / counts[resource_type]
+
+	return result
+
+
+func get_villagers_per_target() -> Dictionary:
+	## Returns how many villagers are assigned to each unique target
+	## Format: {"food_max": 6, "wood_max": 2, ...} - max villagers on same target per resource type
+	## Useful for detecting inefficient clustering (e.g., 6 villagers on 1 sheep)
+	var result = {"food_max": 0, "wood_max": 0, "gold_max": 0, "stone_max": 0}
+
+	# Track targets by resource type: {resource_type: {target_id: count}}
+	var target_counts: Dictionary = {
+		"food": {},
+		"wood": {},
+		"gold": {},
+		"stone": {}
+	}
+
+	for villager in scene_tree.get_nodes_in_group("villagers"):
+		if villager.team != AI_TEAM or villager.is_dead:
+			continue
+
+		var target: Node = null
+		var resource_type: String = ""
+
+		# Check hunting target (sheep, deer, boar)
+		if villager.current_state == villager.State.HUNTING and is_instance_valid(villager.target_animal):
+			target = villager.target_animal
+			resource_type = "food"
+		# Check gathering target
+		elif villager.current_state == villager.State.GATHERING and is_instance_valid(villager.target_resource):
+			target = villager.target_resource
+			resource_type = villager.carried_resource_type if villager.carried_resource_type != "" else "food"
+
+		if target and resource_type in target_counts:
+			var target_id = target.get_instance_id()
+			if target_id not in target_counts[resource_type]:
+				target_counts[resource_type][target_id] = 0
+			target_counts[resource_type][target_id] += 1
+
+	# Find max for each resource type
+	for resource_type in target_counts:
+		var max_count = 0
+		for target_id in target_counts[resource_type]:
+			if target_counts[resource_type][target_id] > max_count:
+				max_count = target_counts[resource_type][target_id]
+		result[resource_type + "_max"] = max_count
+
+	return result

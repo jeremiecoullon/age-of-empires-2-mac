@@ -37,6 +37,7 @@ const DEBUG_PRINT_INTERVAL: float = 10.0  # Print debug state every 10 seconds
 var decision_timer: float = 0.0
 var villager_assign_timer: float = 0.0
 var debug_print_timer: float = 0.0
+var game_time_elapsed: float = 0.0  # Tracks game time (respects Engine.time_scale)
 
 ## Debug: Set to true to print AI state every 10 seconds
 @export var debug_print_enabled: bool = true
@@ -128,6 +129,9 @@ func _spawn_starting_base() -> void:
 func _process(delta: float) -> void:
 	if GameManager.game_ended:
 		return
+
+	# Track game time
+	game_time_elapsed += delta
 
 	# Decision loop
 	decision_timer += delta
@@ -250,7 +254,7 @@ func _get_most_needed_resource(
 # =============================================================================
 
 func _print_debug_state() -> void:
-	var game_time = Time.get_ticks_msec() / 1000.0
+	var game_time = game_time_elapsed
 
 	# Get villager distribution
 	var villagers_by_task = game_state.get_villagers_by_task()
@@ -277,77 +281,87 @@ func _print_debug_state() -> void:
 	var mining_camp_count = game_state.get_building_count("mining_camp")
 	var market_count = game_state.get_building_count("market")
 
-	# Format timers
-	var timer_strs = []
+	# Format timers as dict
+	var timers_remaining: Dictionary = {}
 	for timer_id in timers:
-		var remaining = timers[timer_id] - game_time
-		timer_strs.append("T%d: %.1fs" % [timer_id, remaining])
-	var timers_str = ", ".join(timer_strs) if timer_strs.size() > 0 else "none"
+		timers_remaining[timer_id] = snappedf(timers[timer_id] - game_time, 0.1)
 
-	# Format goals
-	var goal_strs = []
-	for goal_id in goals:
-		goal_strs.append("G%d=%d" % [goal_id, goals[goal_id]])
-	var goals_str = ", ".join(goal_strs) if goal_strs.size() > 0 else "none"
+	# Get gatherer efficiency metrics
+	var gatherer_distances = game_state.get_gatherer_distances()
+	var villagers_per_target = game_state.get_villagers_per_target()
 
-	var separator = "======================================================================"
-	print("")
-	print(separator)
-	print("AI DEBUG STATE @ %.1fs" % game_time)
-	print(separator)
-	print("")
-	print("RESOURCES:")
-	print("  Food: %d | Wood: %d | Gold: %d | Stone: %d" % [
-		game_state.get_resource("food"),
-		game_state.get_resource("wood"),
-		game_state.get_resource("gold"),
-		game_state.get_resource("stone")
-	])
-	print("")
-	print("POPULATION: %d / %d (headroom: %d)" % [
-		game_state.get_population(),
-		game_state.get_population_cap(),
-		game_state.get_housing_headroom()
-	])
-	print("  Villagers: %d total" % game_state.get_civilian_population())
-	print("    - Food: %d, Wood: %d, Gold: %d, Stone: %d" % [food_gatherers, wood_gatherers, gold_gatherers, stone_gatherers])
-	print("    - Idle: %d, Building: %d" % [idle_villagers, builders])
-	print("  Military: %d total" % game_state.get_military_population())
-	print("    - Militia: %d, Spearman: %d, Archer: %d, Scout: %d" % [militia_count, spearman_count, archer_count, scout_count])
-	print("")
-	print("BUILDINGS:")
-	print("  TC: %d | Houses: %d | Barracks: %d" % [tc_count, house_count, barracks_count])
-	print("  Farms: %d | Mill: %d | Lumber Camp: %d | Mining Camp: %d" % [farm_count, mill_count, lumber_camp_count, mining_camp_count])
-	print("  Market: %d" % market_count)
-	print("")
-	print("STRATEGIC NUMBERS:")
-	print("  Food%%: %d | Wood%%: %d | Gold%%: %d | Stone%%: %d" % [
-		strategic_numbers["sn_food_gatherer_percentage"],
-		strategic_numbers["sn_wood_gatherer_percentage"],
-		strategic_numbers["sn_gold_gatherer_percentage"],
-		strategic_numbers["sn_stone_gatherer_percentage"]
-	])
-	print("  Target Villagers: %d | Min Attack Group: %d" % [
-		strategic_numbers["sn_target_villagers"],
-		strategic_numbers["sn_minimum_attack_group_size"]
-	])
-	print("")
-	print("STATE:")
-	print("  Under Attack: %s" % str(game_state.is_under_attack()))
-	print("  Timers: %s" % timers_str)
-	print("  Goals: %s" % goals_str)
-	print("")
-	print("CAN AFFORD:")
-	print("  Train Villager: %s | Train Militia: %s" % [
-		str(game_state.can_train("villager")),
-		str(game_state.can_train("militia"))
-	])
-	print("  Build House: %s | Build Barracks: %s" % [
-		str(game_state.can_build("house")),
-		str(game_state.can_build("barracks"))
-	])
-	print(separator)
-	print("")
+	# Build state dictionary
+	var state: Dictionary = {
+		"t": snappedf(game_time, 0.1),
+		"resources": {
+			"food": game_state.get_resource("food"),
+			"wood": game_state.get_resource("wood"),
+			"gold": game_state.get_resource("gold"),
+			"stone": game_state.get_resource("stone"),
+		},
+		"population": {
+			"current": game_state.get_population(),
+			"cap": game_state.get_population_cap(),
+			"headroom": game_state.get_housing_headroom(),
+		},
+		"villagers": {
+			"total": game_state.get_civilian_population(),
+			"food": food_gatherers,
+			"wood": wood_gatherers,
+			"gold": gold_gatherers,
+			"stone": stone_gatherers,
+			"idle": idle_villagers,
+			"building": builders,
+		},
+		"military": {
+			"total": game_state.get_military_population(),
+			"militia": militia_count,
+			"spearman": spearman_count,
+			"archer": archer_count,
+			"scout": scout_count,
+		},
+		"buildings": {
+			"town_center": tc_count,
+			"house": house_count,
+			"barracks": barracks_count,
+			"farm": farm_count,
+			"mill": mill_count,
+			"lumber_camp": lumber_camp_count,
+			"mining_camp": mining_camp_count,
+			"market": market_count,
+		},
+		"strategic_numbers": {
+			"food_pct": strategic_numbers["sn_food_gatherer_percentage"],
+			"wood_pct": strategic_numbers["sn_wood_gatherer_percentage"],
+			"gold_pct": strategic_numbers["sn_gold_gatherer_percentage"],
+			"stone_pct": strategic_numbers["sn_stone_gatherer_percentage"],
+			"target_villagers": strategic_numbers["sn_target_villagers"],
+			"min_attack_group": strategic_numbers["sn_minimum_attack_group_size"],
+		},
+		"state": {
+			"under_attack": game_state.is_under_attack(),
+			"timers": timers_remaining,
+			"goals": goals.duplicate(),
+		},
+		"can_afford": {
+			"villager": game_state.can_train("villager"),
+			"militia": game_state.can_train("militia"),
+			"house": game_state.can_build("house"),
+			"barracks": game_state.can_build("barracks"),
+		},
+		"efficiency": {
+			"avg_food_drop_dist": snappedf(gatherer_distances["food"], 1) if gatherer_distances["food"] != INF else -1,
+			"avg_wood_drop_dist": snappedf(gatherer_distances["wood"], 1) if gatherer_distances["wood"] != INF else -1,
+			"avg_gold_drop_dist": snappedf(gatherer_distances["gold"], 1) if gatherer_distances["gold"] != INF else -1,
+			"avg_stone_drop_dist": snappedf(gatherer_distances["stone"], 1) if gatherer_distances["stone"] != INF else -1,
+			"max_on_same_food": villagers_per_target["food_max"],
+			"max_on_same_wood": villagers_per_target["wood_max"],
+			"max_on_same_gold": villagers_per_target["gold_max"],
+			"max_on_same_stone": villagers_per_target["stone_max"],
+		},
+	}
+
+	print("AI_STATE|" + JSON.stringify(state))
 
 
 func get_status() -> Dictionary:

@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" uid="uid://cmain000001" path="res://scenes/main.tscn" id="1_main"]
+[ext_resource type="Script" path="res://scripts/testing/ai_solo_test.gd" id="2_test"]
+
+[node name="Main" instance=ExtResource("1_main")]
+
+[node name="AISoloTest" type="Node" parent="."]
+script = ExtResource("2_test")
+time_scale = 10.0
+test_duration = 60.0
