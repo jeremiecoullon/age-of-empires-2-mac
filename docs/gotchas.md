@@ -295,3 +295,5 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Stockpile caps to prevent over-gathering**: When stockpile > STOCKPILE_CAP (400), set allocation to 0% for that resource. This prevents the AI from wasting villager labor gathering resources it doesn't need. Edge case: if ALL resources are capped or depleted, allow gathering the lowest stockpile to prevent all villagers going idle.
 
 - **Villagers handle depletion naturally**: When a villager's target resource depletes mid-gather, they automatically become IDLE (villager.gd:94-106). No special "stranded gatherer" detection needed - the normal assignment loop picks them up.
+
+- **Prefer farms over distant hunting**: When farms exist near base and huntable animals are far (> 300px from base), skip the HuntRule and let the general villager assignment send villagers to farms instead. Farms are renewable and near drop-offs - more efficient than chasing distant deer. Add `has_nearby_farms()` and `get_nearest_huntable_distance()` helpers to support this check.

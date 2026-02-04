@@ -738,13 +738,14 @@ func test_gather_sheep_rule_fires_with_sheep() -> Assertions.AssertResult:
 
 
 func test_hunt_rule_fires_without_sheep() -> Assertions.AssertResult:
-	## HuntRule should fire when huntables available but no sheep
+	## HuntRule should fire when huntables available near AI base and no sheep
 	var gs = _create_ai_game_state()
 
-	# Spawn idle villager
-	var villager = runner.spawner.spawn_villager(Vector2(500, 500), 1)
-	# Spawn deer but no sheep
-	runner.spawner.spawn_deer(Vector2(550, 500))
+	# AI base is at (1700, 1700) - spawn near there for distance check to pass
+	# Spawn idle villager near AI base
+	var villager = runner.spawner.spawn_villager(Vector2(1700, 1700), 1)
+	# Spawn deer close to AI base (within 200px threshold)
+	runner.spawner.spawn_deer(Vector2(1750, 1700))
 	await runner.wait_frames(2)
 
 	# Ensure villager is idle
@@ -755,7 +756,7 @@ func test_hunt_rule_fires_without_sheep() -> Assertions.AssertResult:
 
 	if not should_fire:
 		return Assertions.AssertResult.new(false,
-			"HuntRule should fire when huntables available and no sheep")
+			"HuntRule should fire when huntables available near AI base and no sheep")
 
 	return Assertions.AssertResult.new(true)
 

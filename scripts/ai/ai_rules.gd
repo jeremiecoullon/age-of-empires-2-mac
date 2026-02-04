@@ -292,15 +292,28 @@ class GatherSheepRule extends AIRule:
 
 
 class HuntRule extends AIRule:
+	const MAX_HUNT_DISTANCE = 200.0  # Don't hunt animals further than this - prefer other food sources
+
 	func _init():
 		rule_name = "hunt"
 
 	func conditions(gs: AIGameState) -> bool:
 		# Assign villager to hunt if animals available and sheep are being handled
 		# Hunting is efficient food but deer run away and boar fight back
-		return gs.get_huntable_count() > 0 \
-			and gs.get_idle_villager_count() > 0 \
-			and gs.get_sheep_count() == 0  # Prioritize sheep first
+		if gs.get_huntable_count() == 0:
+			return false
+		if gs.get_idle_villager_count() == 0:
+			return false
+		if gs.get_sheep_count() > 0:
+			return false  # Prioritize sheep first
+
+		# Don't hunt if animals are too far - let general assignment find better food
+		# (berries, farms, or closer natural food)
+		var hunt_dist = gs.get_nearest_huntable_distance()
+		if hunt_dist > MAX_HUNT_DISTANCE:
+			return false
+
+		return true
 
 	func actions(gs: AIGameState) -> void:
 		var animal = gs.get_nearest_huntable()

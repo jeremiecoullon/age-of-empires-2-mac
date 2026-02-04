@@ -885,16 +885,21 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 	# Get current gatherer counts to avoid clustering
 	var gatherer_counts = _get_current_gatherer_counts()
 	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
+	var base_pos = _get_ai_base_position()
 
 	# Distance thresholds for smart assignment
 	const MAX_EFFICIENT_DISTANCE = 400.0  # Don't walk further than this for an "available" resource
 	const PREFER_FULL_WITHIN = 200.0  # Prefer a nearby "full" resource over a distant "available" one
+	const PREFER_FARMS_DISTANCE = 300.0  # If non-farm food is further than this from base, prefer farms
 
 	# Find nearest resource of type that isn't at capacity
 	var nearest_available: Node = null
 	var nearest_available_dist = INF
 	var nearest_any: Node = null  # Fallback if all resources are full
 	var nearest_any_dist = INF
+	# For food: track nearest farm separately
+	var nearest_farm: Node = null
+	var nearest_farm_dist = INF
 
 	var group_name = resource_type + "_resources"
 	var resources_found = 0
@@ -912,7 +917,12 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 
 			# Farms are renewable - exempt from max_gatherers limit
 			var is_farm = resource.is_in_group("farms")
-			if not is_farm:
+			if is_farm:
+				# Track nearest farm for food preference logic
+				if dist < nearest_farm_dist:
+					nearest_farm_dist = dist
+					nearest_farm = resource
+			else:
 				# Check if this resource has capacity
 				var target_id = resource.get_instance_id()
 				var current_gatherers = gatherer_counts.get(target_id, 0)
@@ -925,22 +935,35 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 				nearest_available_dist = dist
 				nearest_available = resource
 
-	# Smart distance-based selection:
-	# If the nearest "available" resource is far but there's a "full" resource nearby,
-	# prefer the nearby one (sharing is better than walking 1000px)
+	# Smart distance-based selection
 	var chosen_resource: Node = null
 	var chosen_dist: float = INF
 	var used_distance_override = false
+	var used_farm_preference = false
 
 	if nearest_available:
-		if nearest_available_dist > MAX_EFFICIENT_DISTANCE and nearest_any_dist < PREFER_FULL_WITHIN:
-			# Available resource is far, but there's something close - use the close one
-			chosen_resource = nearest_any
-			chosen_dist = nearest_any_dist
-			used_distance_override = true
-		else:
-			chosen_resource = nearest_available
-			chosen_dist = nearest_available_dist
+		# For food: prefer farms over distant berries/carcasses
+		# Check distance from BASE (not villager) to decide if non-farm food is "distant"
+		if resource_type == "food" and nearest_farm:
+			var is_non_farm = not nearest_available.is_in_group("farms")
+			if is_non_farm:
+				var non_farm_dist_from_base = base_pos.distance_to(nearest_available.global_position)
+				if non_farm_dist_from_base > PREFER_FARMS_DISTANCE:
+					# Non-farm food is far from base - prefer farm instead
+					chosen_resource = nearest_farm
+					chosen_dist = nearest_farm_dist
+					used_farm_preference = true
+
+		# Standard distance-based selection if farm preference didn't apply
+		if not chosen_resource:
+			if nearest_available_dist > MAX_EFFICIENT_DISTANCE and nearest_any_dist < PREFER_FULL_WITHIN:
+				# Available resource is far, but there's something close - use the close one
+				chosen_resource = nearest_any
+				chosen_dist = nearest_any_dist
+				used_distance_override = true
+			else:
+				chosen_resource = nearest_available
+				chosen_dist = nearest_available_dist
 	else:
 		# All resources at capacity - use nearest anyway
 		chosen_resource = nearest_any
@@ -959,7 +982,8 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 			"skipped_full": skipped_full,
 			"dist": int(chosen_dist),
 			"fallback": nearest_available == null,
-			"dist_override": used_distance_override
+			"dist_override": used_distance_override,
+			"farm_pref": used_farm_preference
 		})
 	else:
 		_log_action("assign_villager_failed", {"resource": resource_type, "found": 0})
@@ -1095,6 +1119,46 @@ func get_nearest_sheep() -> Node:
 		if any_count >= max_gatherers * 2:
 			return null  # Too crowded, don't pile more
 	return nearest_any
+
+
+func has_nearby_farms() -> bool:
+	## Returns true if AI has functional farms near the base (within drop-off range of TC/mill)
+	## Used to decide whether to hunt or farm
+	var base_pos = _get_ai_base_position()
+	const MAX_FARM_DISTANCE = 300.0  # Farms should be near base
+
+	for farm in scene_tree.get_nodes_in_group("farms"):
+		if farm.team != AI_TEAM:
+			continue
+		if not farm.is_functional():
+			continue
+		if not farm.has_resources():
+			continue
+		var dist = base_pos.distance_to(farm.global_position)
+		if dist < MAX_FARM_DISTANCE:
+			return true
+	return false
+
+
+func get_nearest_huntable_distance() -> float:
+	## Returns distance to nearest huntable animal from AI base
+	## Returns INF if no huntables exist
+	var base_pos = _get_ai_base_position()
+	var nearest_dist = INF
+
+	for animal in scene_tree.get_nodes_in_group("deer"):
+		if not animal.is_dead:
+			var dist = base_pos.distance_to(animal.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+
+	for animal in scene_tree.get_nodes_in_group("boar"):
+		if not animal.is_dead:
+			var dist = base_pos.distance_to(animal.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+
+	return nearest_dist
 
 
 func get_nearest_huntable() -> Node:
