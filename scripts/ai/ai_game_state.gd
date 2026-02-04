@@ -63,6 +63,10 @@ var scene_tree: SceneTree = null
 var _pending_trains: Dictionary = {}  # unit_type -> count (max 1 per tick)
 var _pending_builds: Dictionary = {}  # building_type -> placement_info
 var _attack_requested: bool = false
+var _pending_market_buys: Array[String] = []  # resource types to buy
+var _pending_market_sells: Array[String] = []  # resource types to sell
+var _pending_villager_assignments: Array = []  # [villager, target, assignment_type] tuples
+var _assigned_villagers_this_tick: Dictionary = {}  # Track villagers already assigned to prevent double-assignment
 
 # =============================================================================
 # INITIALIZATION
@@ -347,6 +351,36 @@ func attack_now() -> void:
 	_attack_requested = true
 
 
+func market_buy(resource_type: String) -> void:
+	## Queue a market buy action (will execute at end of tick)
+	if resource_type not in _pending_market_buys:
+		_pending_market_buys.append(resource_type)
+
+
+func market_sell(resource_type: String) -> void:
+	## Queue a market sell action (will execute at end of tick)
+	if resource_type not in _pending_market_sells:
+		_pending_market_sells.append(resource_type)
+
+
+func assign_villager_to_sheep(villager: Node, sheep: Node) -> void:
+	## Queue villager assignment to herd sheep
+	# Prevent double-assignment of same villager
+	if villager in _assigned_villagers_this_tick:
+		return
+	_assigned_villagers_this_tick[villager] = true
+	_pending_villager_assignments.append([villager, sheep, "sheep"])
+
+
+func assign_villager_to_hunt(villager: Node, animal: Node) -> void:
+	## Queue villager assignment to hunt animal
+	# Prevent double-assignment of same villager
+	if villager in _assigned_villagers_this_tick:
+		return
+	_assigned_villagers_this_tick[villager] = true
+	_pending_villager_assignments.append([villager, animal, "hunt"])
+
+
 # =============================================================================
 # ACTION EXECUTION
 # =============================================================================
@@ -365,6 +399,19 @@ func execute_actions() -> void:
 	if _attack_requested:
 		_do_attack()
 
+	# Execute market trades
+	for resource_type in _pending_market_buys:
+		_do_market_buy(resource_type)
+	for resource_type in _pending_market_sells:
+		_do_market_sell(resource_type)
+
+	# Execute villager assignments
+	for assignment in _pending_villager_assignments:
+		var villager = assignment[0]
+		var target = assignment[1]
+		var assignment_type = assignment[2]
+		_do_villager_assignment(villager, target, assignment_type)
+
 	_clear_pending()
 
 
@@ -372,6 +419,10 @@ func _clear_pending() -> void:
 	_pending_trains.clear()
 	_pending_builds.clear()
 	_attack_requested = false
+	_pending_market_buys.clear()
+	_pending_market_sells.clear()
+	_pending_villager_assignments.clear()
+	_assigned_villagers_this_tick.clear()
 
 
 # =============================================================================
@@ -461,6 +512,34 @@ func _get_any_player_building() -> Node:
 	return null
 
 
+func _do_market_buy(resource_type: String) -> void:
+	if not can_market_buy(resource_type):
+		return
+	# Use GameManager directly
+	GameManager.market_buy(resource_type, AI_TEAM)
+
+
+func _do_market_sell(resource_type: String) -> void:
+	if not can_market_sell(resource_type):
+		return
+	GameManager.market_sell(resource_type, AI_TEAM)
+
+
+func _do_villager_assignment(villager: Node, target: Node, assignment_type: String) -> void:
+	if not is_instance_valid(villager) or villager.is_dead:
+		return
+	if not is_instance_valid(target):
+		return
+
+	match assignment_type:
+		"sheep":
+			# Herd sheep - use command_hunt (sheep are animals, not resources)
+			villager.command_hunt(target)
+		"hunt":
+			# Hunt animal - use command_hunt
+			villager.command_hunt(target)
+
+
 # =============================================================================
 # HELPER METHODS
 # =============================================================================
@@ -516,7 +595,9 @@ func _find_build_position(building_type: String, near_resource: Variant = null) 
 
 	# If building near a resource, find a good spot near that resource
 	if near_resource is String:
-		var resource_pos = _find_nearest_resource_position(near_resource)
+		# For mills, exclude farms to find natural food sources (berries)
+		var exclude_farms = (building_type == "mill")
+		var resource_pos = _find_nearest_resource_position(near_resource, exclude_farms)
 		if resource_pos != Vector2.ZERO:
 			base_pos = resource_pos
 
@@ -539,13 +620,16 @@ func _find_build_position(building_type: String, near_resource: Variant = null) 
 	return Vector2.ZERO
 
 
-func _find_nearest_resource_position(resource_type: String) -> Vector2:
+func _find_nearest_resource_position(resource_type: String, exclude_farms: bool = false) -> Vector2:
 	var base_pos = _get_ai_base_position()
 	var nearest_pos = Vector2.ZERO
 	var nearest_dist = INF
 
 	var group_name = resource_type + "_resources"
 	for resource in scene_tree.get_nodes_in_group(group_name):
+		# Skip farms when looking for natural food sources (e.g., for mill placement)
+		if exclude_farms and resource.is_in_group("farms"):
+			continue
 		if resource.has_resources():
 			var dist = base_pos.distance_to(resource.global_position)
 			if dist < nearest_dist:
@@ -675,3 +759,316 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 
 	if nearest_resource:
 		villager.command_gather(nearest_resource)
+
+
+# =============================================================================
+# CONDITION HELPERS - Natural Food (Phase 3.1B)
+# =============================================================================
+
+func get_natural_food_count() -> int:
+	## Returns count of natural food sources: berries, sheep, deer, boar (NOT farms)
+	var count = 0
+
+	# Berry bushes
+	for resource in scene_tree.get_nodes_in_group("food_resources"):
+		# Skip farms - they're in food_resources but not "natural"
+		if resource.is_in_group("farms"):
+			continue
+		if resource.has_resources():
+			count += 1
+
+	# Sheep (herdable animals)
+	count += get_sheep_count()
+
+	# Huntable animals (deer, boar)
+	count += get_huntable_count()
+
+	return count
+
+
+func get_sheep_count() -> int:
+	## Returns count of sheep AI can gather (neutral or AI-owned, alive)
+	var count = 0
+	for animal in scene_tree.get_nodes_in_group("sheep"):
+		if animal.is_dead:
+			continue
+		# Sheep are team -1 (neutral) until claimed, or owned by AI
+		if animal.team == -1 or animal.team == AI_TEAM:
+			count += 1
+	return count
+
+
+func get_huntable_count() -> int:
+	## Returns count of huntable animals (deer, boar - alive)
+	var count = 0
+
+	# Deer
+	for animal in scene_tree.get_nodes_in_group("deer"):
+		if not animal.is_dead:
+			count += 1
+
+	# Boar
+	for animal in scene_tree.get_nodes_in_group("boar"):
+		if not animal.is_dead:
+			count += 1
+
+	return count
+
+
+func get_nearest_sheep() -> Node:
+	## Returns nearest sheep to AI base that AI can claim
+	var base_pos = _get_ai_base_position()
+	var nearest: Node = null
+	var nearest_dist = INF
+
+	for animal in scene_tree.get_nodes_in_group("sheep"):
+		if animal.is_dead:
+			continue
+		if animal.team != -1 and animal.team != AI_TEAM:
+			continue
+		var dist = base_pos.distance_to(animal.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = animal
+
+	return nearest
+
+
+func get_nearest_huntable() -> Node:
+	## Returns nearest huntable animal (deer/boar) to AI base
+	var base_pos = _get_ai_base_position()
+	var nearest: Node = null
+	var nearest_dist = INF
+
+	for animal in scene_tree.get_nodes_in_group("deer"):
+		if animal.is_dead:
+			continue
+		var dist = base_pos.distance_to(animal.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = animal
+
+	for animal in scene_tree.get_nodes_in_group("boar"):
+		if animal.is_dead:
+			continue
+		var dist = base_pos.distance_to(animal.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = animal
+
+	return nearest
+
+
+# =============================================================================
+# CONDITION HELPERS - Drop-off Buildings (Phase 3.1B)
+# =============================================================================
+
+func has_drop_off_for(resource_type: String) -> bool:
+	## Returns true if AI has any functional drop-off building for this resource
+	for building in scene_tree.get_nodes_in_group("buildings"):
+		if building.team != AI_TEAM:
+			continue
+		if building.is_destroyed or not building.is_functional():
+			continue
+		if building.is_drop_off_for(resource_type):
+			return true
+	return false
+
+
+func get_nearest_drop_off_distance(resource_type: String, from_pos: Vector2) -> float:
+	## Returns distance from position to nearest AI drop-off for resource type
+	## Returns INF if no drop-off exists
+	var nearest_dist = INF
+
+	for building in scene_tree.get_nodes_in_group("buildings"):
+		if building.team != AI_TEAM:
+			continue
+		if building.is_destroyed or not building.is_functional():
+			continue
+		if building.is_drop_off_for(resource_type):
+			var dist = from_pos.distance_to(building.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+
+	return nearest_dist
+
+
+func get_average_wood_drop_distance() -> float:
+	## Returns average distance from wood resources to nearest AI lumber drop-off
+	## Used to decide if a new lumber camp is needed
+	var total_dist = 0.0
+	var count = 0
+
+	for resource in scene_tree.get_nodes_in_group("wood_resources"):
+		if not resource.has_resources():
+			continue
+		var dist = get_nearest_drop_off_distance("wood", resource.global_position)
+		if dist < INF:
+			total_dist += dist
+			count += 1
+
+	if count == 0:
+		return INF
+	return total_dist / count
+
+
+func get_average_gold_drop_distance() -> float:
+	## Returns average distance from gold to nearest AI mining drop-off
+	var total_dist = 0.0
+	var count = 0
+
+	for resource in scene_tree.get_nodes_in_group("gold_resources"):
+		if not resource.has_resources():
+			continue
+		var dist = get_nearest_drop_off_distance("gold", resource.global_position)
+		if dist < INF:
+			total_dist += dist
+			count += 1
+
+	if count == 0:
+		return INF
+	return total_dist / count
+
+
+func get_average_stone_drop_distance() -> float:
+	## Returns average distance from stone to nearest AI mining drop-off
+	var total_dist = 0.0
+	var count = 0
+
+	for resource in scene_tree.get_nodes_in_group("stone_resources"):
+		if not resource.has_resources():
+			continue
+		var dist = get_nearest_drop_off_distance("stone", resource.global_position)
+		if dist < INF:
+			total_dist += dist
+			count += 1
+
+	if count == 0:
+		return INF
+	return total_dist / count
+
+
+func needs_lumber_camp() -> bool:
+	## Returns true if AI should build a lumber camp (wood too far from drop-offs)
+	const MAX_EFFICIENT_DISTANCE: float = 200.0  # pixels
+
+	# Check if any wood resources exist
+	var has_wood = false
+	for resource in scene_tree.get_nodes_in_group("wood_resources"):
+		if resource.has_resources():
+			has_wood = true
+			break
+
+	if not has_wood:
+		return false
+
+	# Check if we have any wood drop-off
+	if not has_drop_off_for("wood"):
+		return true  # TC can accept wood but dedicated camp is better
+
+	# Check if wood is too far from drop-offs
+	return get_average_wood_drop_distance() > MAX_EFFICIENT_DISTANCE
+
+
+func needs_mining_camp_for_gold() -> bool:
+	## Returns true if AI should build a mining camp near gold
+	const MAX_EFFICIENT_DISTANCE: float = 200.0
+
+	# Only care if we're supposed to gather gold
+	if get_sn("sn_gold_gatherer_percentage") <= 0:
+		return false
+
+	# Check if any gold exists
+	var has_gold = false
+	for resource in scene_tree.get_nodes_in_group("gold_resources"):
+		if resource.has_resources():
+			has_gold = true
+			break
+
+	if not has_gold:
+		return false
+
+	# Check distance
+	return get_average_gold_drop_distance() > MAX_EFFICIENT_DISTANCE
+
+
+func needs_mining_camp_for_stone() -> bool:
+	## Returns true if AI should build a mining camp near stone
+	const MAX_EFFICIENT_DISTANCE: float = 200.0
+
+	# Only care if we're supposed to gather stone
+	if get_sn("sn_stone_gatherer_percentage") <= 0:
+		return false
+
+	# Check if any stone exists
+	var has_stone = false
+	for resource in scene_tree.get_nodes_in_group("stone_resources"):
+		if resource.has_resources():
+			has_stone = true
+			break
+
+	if not has_stone:
+		return false
+
+	# Check distance
+	return get_average_stone_drop_distance() > MAX_EFFICIENT_DISTANCE
+
+
+func needs_mill() -> bool:
+	## Returns true if AI should build a mill (food sources far from TC)
+	const MAX_EFFICIENT_DISTANCE: float = 200.0
+
+	# Check if natural food exists (berries primarily - mill is food drop-off)
+	var nearest_food_dist = INF
+
+	for resource in scene_tree.get_nodes_in_group("food_resources"):
+		if resource.is_in_group("farms"):
+			continue  # Skip farms
+		if not resource.has_resources():
+			continue
+		var dist = get_nearest_drop_off_distance("food", resource.global_position)
+		if dist < nearest_food_dist:
+			nearest_food_dist = dist
+
+	if nearest_food_dist == INF:
+		return false  # No natural food
+
+	return nearest_food_dist > MAX_EFFICIENT_DISTANCE
+
+
+# =============================================================================
+# CONDITION HELPERS - Market (Phase 3.1B)
+# =============================================================================
+
+func get_market_buy_price(resource_type: String) -> int:
+	return GameManager.get_market_buy_price(resource_type)
+
+
+func get_market_sell_price(resource_type: String) -> int:
+	return GameManager.get_market_sell_price(resource_type)
+
+
+func can_market_buy(resource_type: String) -> bool:
+	## Returns true if AI can afford to buy this resource at market
+	if resource_type == "gold":
+		return false  # Can't buy gold
+
+	# Need a market
+	if get_building_count("market") == 0:
+		return false
+
+	var gold_cost = get_market_buy_price(resource_type)
+	return get_resource("gold") >= gold_cost
+
+
+func can_market_sell(resource_type: String) -> bool:
+	## Returns true if AI has this resource to sell
+	if resource_type == "gold":
+		return false  # Can't sell gold for gold
+
+	# Need a market
+	if get_building_count("market") == 0:
+		return false
+
+	# Need at least 100 of the resource (standard trade amount)
+	return get_resource(resource_type) >= 100

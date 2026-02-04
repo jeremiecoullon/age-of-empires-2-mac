@@ -24,6 +24,7 @@ const TestArmorScript = preload("res://tests/scenarios/test_armor.gd")
 const TestFogOfWarScript = preload("res://tests/scenarios/test_fog_of_war.gd")
 const TestConstructionScript = preload("res://tests/scenarios/test_construction.gd")
 const TestCursorScript = preload("res://tests/scenarios/test_cursor.gd")
+const TestAIEconomyScript = preload("res://tests/scenarios/test_ai_economy.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -122,6 +123,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING CURSOR TESTS ===\n")
 	var cursor_tests = TestCursorScript.new(test_runner)
 	await test_runner.run_all_tests(cursor_tests.get_all_tests())
+
+	# AI Economy tests (Phase 3.1B)
+	print("\n=== RUNNING AI ECONOMY TESTS ===\n")
+	var ai_economy_tests = TestAIEconomyScript.new(test_runner)
+	await test_runner.run_all_tests(ai_economy_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)

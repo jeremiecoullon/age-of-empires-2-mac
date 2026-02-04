@@ -255,3 +255,17 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Use group checks over type checks**: `resource.is_in_group("farms")` is more robust than `resource is Farm`. The latter requires the Farm class to be loaded and can fail if load order changes.
 
 - **Spawning AI starting base**: The AIController spawns the AI's starting Town Center, House, and Villagers on `_ready()`. This keeps the main scene clean and allows AI initialization logic to be self-contained.
+
+### Phase 3.1B - Full Economy Rules
+
+- **_queued flags must reset**: Building rules that use `_queued` flags to prevent duplicate construction attempts (e.g., `_lumber_camp_queued`) must reset the flag when the building is completed. Otherwise, if the building is destroyed, the AI will never rebuild it. Pattern: check if `get_building_count() > 0` at start of conditions() and reset flag.
+
+- **Villager assignment de-duplication**: Multiple rules (GatherSheepRule, HuntRule) can fire in the same tick and try to assign the same idle villager. Track assigned villagers in a dictionary (`_assigned_villagers_this_tick`) and skip if already assigned. Clear the dictionary in `_clear_pending()`.
+
+- **Mills should be near natural food, not farms**: When using `build_near_resource("mill", "food")`, the `_find_nearest_resource_position()` will find farms if they exist. Add `exclude_farms` parameter to find berries instead - mills are meant for natural food sources.
+
+- **Natural food count excludes farms**: When checking if the AI needs to build farms, count "natural" food sources (berries, sheep, deer, boar) separately from farms. Use `is_in_group("farms")` to filter them out.
+
+- **Economy phase transitions**: Use GOAL constants to track economy phases (early, mid, late game). Transition based on villager count and building presence. Consider whether transitions should be reversible if conditions change (e.g., barracks destroyed).
+
+- **Conservative market trading**: AI market rules should use high thresholds to prevent poor trades. Sell when surplus > 400, buy when desperate (< 50) and have gold > 150. This matches the gotchas from Phase 1E about AI market usage.
