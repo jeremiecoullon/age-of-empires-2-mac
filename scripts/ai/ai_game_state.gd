@@ -67,6 +67,7 @@ var _pending_market_buys: Array[String] = []  # resource types to buy
 var _pending_market_sells: Array[String] = []  # resource types to sell
 var _pending_villager_assignments: Array = []  # [villager, target, assignment_type] tuples
 var _assigned_villagers_this_tick: Dictionary = {}  # Track villagers already assigned to prevent double-assignment
+var _assigned_targets_this_tick: Dictionary = {}  # Track {target_instance_id: count} for pending assignments
 
 # =============================================================================
 # INITIALIZATION
@@ -400,6 +401,11 @@ func assign_villager_to_sheep(villager: Node, sheep: Node) -> void:
 		return
 	_assigned_villagers_this_tick[villager] = true
 	_pending_villager_assignments.append([villager, sheep, "sheep"])
+	# Track target for gatherer count checks within same tick
+	var target_id = sheep.get_instance_id()
+	if target_id not in _assigned_targets_this_tick:
+		_assigned_targets_this_tick[target_id] = 0
+	_assigned_targets_this_tick[target_id] += 1
 
 
 func assign_villager_to_hunt(villager: Node, animal: Node) -> void:
@@ -409,6 +415,11 @@ func assign_villager_to_hunt(villager: Node, animal: Node) -> void:
 		return
 	_assigned_villagers_this_tick[villager] = true
 	_pending_villager_assignments.append([villager, animal, "hunt"])
+	# Track target for gatherer count checks within same tick
+	var target_id = animal.get_instance_id()
+	if target_id not in _assigned_targets_this_tick:
+		_assigned_targets_this_tick[target_id] = 0
+	_assigned_targets_this_tick[target_id] += 1
 
 
 # =============================================================================
@@ -453,6 +464,7 @@ func _clear_pending() -> void:
 	_pending_market_sells.clear()
 	_pending_villager_assignments.clear()
 	_assigned_villagers_this_tick.clear()
+	_assigned_targets_this_tick.clear()
 
 
 # =============================================================================
@@ -662,6 +674,10 @@ func _find_build_position(building_type: String, near_resource: Variant = null) 
 		var resource_pos = _find_nearest_resource_position(near_resource, exclude_farms)
 		if resource_pos != Vector2.ZERO:
 			base_pos = resource_pos
+		else:
+			# No valid resource found - don't fall back to TC position
+			# A mill/lumber_camp/mining_camp near TC is useless since TC already accepts drops
+			return Vector2.ZERO
 
 	# Try positions in expanding circles around base
 	var max_radius = get_sn("sn_maximum_town_size") * TILE_SIZE
@@ -784,6 +800,8 @@ func _assign_builder(building: Node) -> void:
 func _get_current_gatherer_counts() -> Dictionary:
 	## Returns {target_instance_id: count} for all resources currently being gathered/hunted.
 	## Used to avoid clustering multiple villagers on the same resource.
+	## Also counts RETURNING villagers - they will return to the same resource after drop-off.
+	## Also counts pending assignments from this tick (not yet executed).
 	var counts: Dictionary = {}
 
 	for villager in scene_tree.get_nodes_in_group("villagers"):
@@ -792,18 +810,27 @@ func _get_current_gatherer_counts() -> Dictionary:
 
 		var target: Node = null
 
-		# Check hunting target (sheep, deer, boar)
-		if villager.current_state == villager.State.HUNTING and is_instance_valid(villager.target_animal):
-			target = villager.target_animal
-		# Check gathering target (trees, berries, farms, gold, stone)
-		elif villager.current_state == villager.State.GATHERING and is_instance_valid(villager.target_resource):
-			target = villager.target_resource
+		# Count villagers in HUNTING, GATHERING, or RETURNING states
+		# RETURNING villagers will go back to their target after dropping off resources
+		if villager.current_state in [villager.State.HUNTING, villager.State.GATHERING, villager.State.RETURNING]:
+			# Check hunting target (sheep, deer, boar) - for HUNTING or RETURNING from hunting
+			if is_instance_valid(villager.target_animal):
+				target = villager.target_animal
+			# Check gathering/returning target (trees, berries, farms, gold, stone)
+			elif is_instance_valid(villager.target_resource):
+				target = villager.target_resource
 
 		if target:
 			var target_id = target.get_instance_id()
 			if target_id not in counts:
 				counts[target_id] = 0
 			counts[target_id] += 1
+
+	# Also count pending assignments from this tick (villagers queued but not yet executing)
+	for target_id in _assigned_targets_this_tick:
+		if target_id not in counts:
+			counts[target_id] = 0
+		counts[target_id] += _assigned_targets_this_tick[target_id]
 
 	return counts
 
@@ -844,6 +871,10 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 	var gatherer_counts = _get_current_gatherer_counts()
 	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
 
+	# Distance thresholds for smart assignment
+	const MAX_EFFICIENT_DISTANCE = 400.0  # Don't walk further than this for an "available" resource
+	const PREFER_FULL_WITHIN = 200.0  # Prefer a nearby "full" resource over a distant "available" one
+
 	# Find nearest resource of type that isn't at capacity
 	var nearest_available: Node = null
 	var nearest_available_dist = INF
@@ -864,30 +895,56 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 				nearest_any_dist = dist
 				nearest_any = resource
 
-			# Check if this resource has capacity
-			var target_id = resource.get_instance_id()
-			var current_gatherers = gatherer_counts.get(target_id, 0)
-			if current_gatherers >= max_gatherers:
-				skipped_full += 1
-				continue
+			# Farms are renewable - exempt from max_gatherers limit
+			var is_farm = resource.is_in_group("farms")
+			if not is_farm:
+				# Check if this resource has capacity
+				var target_id = resource.get_instance_id()
+				var current_gatherers = gatherer_counts.get(target_id, 0)
+				if current_gatherers >= max_gatherers:
+					skipped_full += 1
+					continue
 
 			# Track nearest with available capacity
 			if dist < nearest_available_dist:
 				nearest_available_dist = dist
 				nearest_available = resource
 
-	# Prefer resource with capacity, fall back to nearest if all full
-	var chosen_resource = nearest_available if nearest_available else nearest_any
-	var chosen_dist = nearest_available_dist if nearest_available else nearest_any_dist
+	# Smart distance-based selection:
+	# If the nearest "available" resource is far but there's a "full" resource nearby,
+	# prefer the nearby one (sharing is better than walking 1000px)
+	var chosen_resource: Node = null
+	var chosen_dist: float = INF
+	var used_distance_override = false
+
+	if nearest_available:
+		if nearest_available_dist > MAX_EFFICIENT_DISTANCE and nearest_any_dist < PREFER_FULL_WITHIN:
+			# Available resource is far, but there's something close - use the close one
+			chosen_resource = nearest_any
+			chosen_dist = nearest_any_dist
+			used_distance_override = true
+		else:
+			chosen_resource = nearest_available
+			chosen_dist = nearest_available_dist
+	else:
+		# All resources at capacity - use nearest anyway
+		chosen_resource = nearest_any
+		chosen_dist = nearest_any_dist
 
 	if chosen_resource:
 		villager.command_gather(chosen_resource)
+		# Track target for gatherer count checks within same tick
+		var target_id = chosen_resource.get_instance_id()
+		if target_id not in _assigned_targets_this_tick:
+			_assigned_targets_this_tick[target_id] = 0
+		_assigned_targets_this_tick[target_id] += 1
 		_log_action("assign_villager", {
 			"resource": resource_type,
 			"found": resources_found,
 			"skipped_full": skipped_full,
 			"dist": int(chosen_dist),
-			"fallback": nearest_available == null
+			"fallback": nearest_available == null,
+			"dist_override": used_distance_override
 		})
 	else:
 		_log_action("assign_villager_failed", {"resource": resource_type, "found": 0})
@@ -949,9 +1006,16 @@ func get_huntable_count() -> int:
 
 func get_nearest_sheep() -> Node:
 	## Returns nearest sheep to AI base that AI can claim, preferring sheep with fewer gatherers
+	## Uses smart distance thresholds to avoid long walks for "available" resources
+	## Returns null if all sheep are too far (better to farm than walk across map)
 	var base_pos = _get_ai_base_position()
 	var gatherer_counts = _get_current_gatherer_counts()
 	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
+
+	# Distance thresholds for smart assignment
+	const MAX_EFFICIENT_DISTANCE = 400.0
+	const PREFER_FULL_WITHIN = 200.0
+	const MAX_SHEEP_DISTANCE = 500.0  # Don't herd sheep further than this - inefficient
 
 	var nearest_available: Node = null
 	var nearest_available_dist = INF
@@ -982,15 +1046,40 @@ func get_nearest_sheep() -> Node:
 			nearest_available_dist = dist
 			nearest_available = animal
 
-	# Prefer animal with capacity, fall back to nearest if all full
-	return nearest_available if nearest_available else nearest_any
+	# Smart selection: if available sheep is far but there's one close, prefer close one
+	if nearest_available:
+		# Don't herd if too far - better to farm or gather berries
+		if nearest_available_dist > MAX_SHEEP_DISTANCE:
+			return null
+		if nearest_available_dist > MAX_EFFICIENT_DISTANCE and nearest_any_dist < PREFER_FULL_WITHIN:
+			return nearest_any
+		return nearest_available
+
+	# Graceful degradation: if all sheep are at capacity, use nearest
+	# But apply a hard cap to prevent excessive piling (2x normal limit)
+	if nearest_any:
+		# Don't herd if too far
+		if nearest_any_dist > MAX_SHEEP_DISTANCE:
+			return null
+		var any_id = nearest_any.get_instance_id()
+		var any_count = gatherer_counts.get(any_id, 0)
+		if any_count >= max_gatherers * 2:
+			return null  # Too crowded, don't pile more
+	return nearest_any
 
 
 func get_nearest_huntable() -> Node:
 	## Returns nearest huntable animal (deer/boar) to AI base, preferring animals with fewer gatherers
+	## Uses smart distance thresholds to avoid long walks for "available" resources
+	## Returns null if all huntables are too far (better to farm than walk across map)
 	var base_pos = _get_ai_base_position()
 	var gatherer_counts = _get_current_gatherer_counts()
 	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
+
+	# Distance thresholds for smart assignment
+	const MAX_EFFICIENT_DISTANCE = 400.0
+	const PREFER_FULL_WITHIN = 200.0
+	const MAX_HUNT_DISTANCE = 500.0  # Don't hunt animals further than this - inefficient
 
 	var nearest_available: Node = null
 	var nearest_available_dist = INF
@@ -1043,8 +1132,26 @@ func get_nearest_huntable() -> Node:
 			nearest_available_dist = dist
 			nearest_available = animal
 
-	# Prefer animal with capacity, fall back to nearest if all full
-	return nearest_available if nearest_available else nearest_any
+	# Smart selection: if available animal is far but there's one close, prefer close one
+	if nearest_available:
+		# Don't hunt if too far - better to farm or gather berries
+		if nearest_available_dist > MAX_HUNT_DISTANCE:
+			return null
+		if nearest_available_dist > MAX_EFFICIENT_DISTANCE and nearest_any_dist < PREFER_FULL_WITHIN:
+			return nearest_any
+		return nearest_available
+
+	# Graceful degradation: if all animals are at capacity, use nearest
+	# But apply a hard cap to prevent excessive piling (2x normal limit)
+	if nearest_any:
+		# Don't hunt if too far
+		if nearest_any_dist > MAX_HUNT_DISTANCE:
+			return null
+		var any_id = nearest_any.get_instance_id()
+		var any_count = gatherer_counts.get(any_id, 0)
+		if any_count >= max_gatherers * 2:
+			return null  # Too crowded, don't pile more
+	return nearest_any
 
 
 # =============================================================================
@@ -1306,6 +1413,7 @@ func get_villagers_per_target() -> Dictionary:
 	## Returns how many villagers are assigned to each unique target
 	## Format: {"food_max": 6, "wood_max": 2, ...} - max villagers on same target per resource type
 	## Useful for detecting inefficient clustering (e.g., 6 villagers on 1 sheep)
+	## Also counts RETURNING villagers - they will return to their target after drop-off.
 	var result = {"food_max": 0, "wood_max": 0, "gold_max": 0, "stone_max": 0}
 
 	# Track targets by resource type: {resource_type: {target_id: count}}
@@ -1320,15 +1428,19 @@ func get_villagers_per_target() -> Dictionary:
 		if villager.team != AI_TEAM or villager.is_dead:
 			continue
 
+		# Only count villagers actively working on resources
+		if villager.current_state not in [villager.State.HUNTING, villager.State.GATHERING, villager.State.RETURNING]:
+			continue
+
 		var target: Node = null
 		var resource_type: String = ""
 
-		# Check hunting target (sheep, deer, boar)
-		if villager.current_state == villager.State.HUNTING and is_instance_valid(villager.target_animal):
+		# Check hunting target (sheep, deer, boar) - for HUNTING or RETURNING from hunting
+		if is_instance_valid(villager.target_animal):
 			target = villager.target_animal
 			resource_type = "food"
 		# Check gathering target
-		elif villager.current_state == villager.State.GATHERING and is_instance_valid(villager.target_resource):
+		elif is_instance_valid(villager.target_resource):
 			target = villager.target_resource
 			resource_type = villager.carried_resource_type if villager.carried_resource_type != "" else "food"
 

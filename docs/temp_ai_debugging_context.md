@@ -1,7 +1,9 @@
 # AI debugging context (temporary)
 
 **Date:** 2026-02-04
-**Status:** In progress - Bugs 1-2 fixed, Bug 3 remains
+**Status:** Bugs 1-4 FIXED. Design gaps remain.
+
+**See also:** `docs/temp_economy_fixes_plan.md` - Plan for fixing economy logic gaps (stockpile cap, depletion awareness)
 
 ---
 
@@ -78,33 +80,86 @@ All 282 unit tests pass.
 
 ---
 
-## Bug 3: Insane drop-off distances (OPEN - partially mitigated)
+## Bug 3: Insane drop-off distances - FIXED
 
 **Symptom:** `avg_food_drop_dist: 1500+` pixels at late game
 
 **Expected:** Should be <200 pixels (with drop-off buildings nearby)
 
-**Root cause:** Combination of:
-1. ~~Lumber camp/mill never built~~ (fixed by Bug 1 fix)
-2. Villagers assigned to distant resources without considering distance
-3. When nearby resources deplete, no reassignment happens
+### Root causes (all fixed)
 
-**Note:** With Bug 1 fixed, lumber camps now complete so wood drop distances should improve. Food drop distances are still high due to Bug 2 (clustering on distant resources) and lack of efficient resource selection.
+1. **RETURNING villagers not counted** - Villagers walking back to drop-off weren't counted toward gatherer limits, causing over-assignment
+2. **Distance not weighted against capacity** - An empty resource 1000px away beat a "full" resource 50px away
+3. **Farms treated same as depletable resources** - Farms are renewable but had the same 2-gatherer limit as sheep
+
+### Fixes Applied
+
+1. `_get_current_gatherer_counts()` - Now counts villagers in RETURNING state (they will return to the same resource)
+2. `assign_villager_to_resource()`, `get_nearest_sheep()`, `get_nearest_huntable()` - Added distance threshold: if nearest available > 400px but "full" resource < 200px, prefer the close one
+3. `assign_villager_to_resource()` - Farms exempt from max_gatherers limit (renewable resource)
+4. `get_villagers_per_target()` - Updated to also count RETURNING villagers for consistent metrics
+5. `_assigned_targets_this_tick` - Track pending assignments within same tick to prevent multiple villagers being assigned to the same target before state updates
+6. `get_nearest_sheep()`, `get_nearest_huntable()` - Added hard cap (2x max_gatherers) for graceful degradation to prevent excessive piling
+
+### Verification
+
+**Before fix (late game t=220-290):**
+- `max_on_same_food: 8-10`
+- `avg_food_drop_dist: 1500-1800`
+
+**After fix (late game t=220-290):**
+- `max_on_same_food: 1-5`
+- `avg_food_drop_dist: 122-351`
+
+**Note:** Mid-game (t=70-180) still shows elevated food_dist (700-1500px) when natural food depletes and scatters. This is a design gap (no depletion awareness), not Bug 3. Once farms are built (t=200+), distances drop dramatically.
+
+All 282 unit tests pass.
+
+---
+
+## Bug 4: Mill placed next to Town Center - FIXED
+
+**Symptom:** AI builds mill right next to the TC instead of near distant food sources.
+
+**Expected:** Mill should be placed near berries/food that are far from TC, since TC already accepts food drop-offs.
+
+### Root cause (found and fixed)
+
+In `ai_game_state.gd:_find_build_position()`, when `build_near_resource("mill", "food")` is called:
+
+1. `_find_nearest_resource_position("food", exclude_farms=true)` looks for natural food
+2. If no natural food found (or all depleted), returns `Vector2.ZERO`
+3. Code fell back to `base_pos` (TC position)
+4. Mill got placed near TC - useless since TC already accepts food
+
+### Fix Applied
+
+In `_find_build_position()`, when `near_resource` is specified but no resource found, return `Vector2.ZERO` (placement fails) instead of falling back to TC:
+
+```gdscript
+if near_resource is String:
+    var exclude_farms = (building_type == "mill")
+    var resource_pos = _find_nearest_resource_position(near_resource, exclude_farms)
+    if resource_pos != Vector2.ZERO:
+        base_pos = resource_pos
+    else:
+        # No valid resource found - don't fall back to TC position
+        return Vector2.ZERO
+```
+
+This fix applies to all drop-off buildings: mills, lumber camps, and mining camps. The rule will retry on future ticks when resources become available.
 
 ---
 
 ## Economy logic gaps (design issues, not bugs)
 
-### No stockpile cap
-AI keeps 40% on wood even with 500+ stockpiled. The percentage system is rigid.
+**Full plan:** See `docs/temp_economy_fixes_plan.md`
 
-### No depletion awareness
-When wood runs out, wood gatherers don't get reassigned. They stay assigned to "wood" but have nothing to gather.
+Summary of gaps:
+- **Stockpile cap** - AI keeps 40% on wood even with 500+ stockpiled
+- **Depletion awareness** - When wood runs out, gatherers don't get reassigned
 
-### No needs-based allocation
-AI doesn't think "I need barracks (100 wood), so prioritize wood until I have that." It just follows fixed percentages regardless of goals.
-
-**Note:** These are design gaps, not bugs. Current system works for early game but breaks down as resources deplete or stockpiles grow.
+These are design gaps, not bugs. Current system works for early game but breaks down as resources deplete or stockpiles grow.
 
 ---
 
@@ -114,7 +169,8 @@ AI doesn't think "I need barracks (100 wood), so prioritize wood until I have th
 - Houses built and completed
 - **Lumber camps built and completed** (Bug 1 fix)
 - **Barracks built and completed** (Bug 1 fix)
-- **Villager distribution across resources** (Bug 2 fix) - max 2 per target, graceful degradation when depleted
+- **Villager distribution across resources** (Bug 2 + Bug 3 fixes) - works throughout game
+- **Efficient drop-off distances** (Bug 3 fix) - late game distances now reasonable
 - Villager production
 - Rule evaluation system
 - Observability/logging
@@ -123,10 +179,12 @@ AI doesn't think "I need barracks (100 wood), so prioritize wood until I have th
 
 ## Priority order
 
-1. ~~Fix barracks/lumber_camp not completing~~ DONE
-2. ~~Fix villager clustering~~ DONE
-3. **Add resource depletion handling** - Reassign villagers when resource type runs out
-4. **Add stockpile caps** - Don't over-gather when stockpile is high
+1. ~~Fix barracks/lumber_camp not completing~~ DONE (Bug 1)
+2. ~~Fix villager clustering~~ DONE (Bug 2)
+3. ~~Fix insane drop-off distances~~ DONE (Bug 3)
+4. ~~Fix mill placement near TC~~ DONE (Bug 4)
+5. Add resource depletion handling - Reassign villagers when resource type runs out (design gap)
+6. Add stockpile caps - Don't over-gather when stockpile is high (design gap)
 
 ---
 
