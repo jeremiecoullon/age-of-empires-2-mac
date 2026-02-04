@@ -262,6 +262,8 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 
 - **Villager assignment de-duplication**: Multiple rules (GatherSheepRule, HuntRule) can fire in the same tick and try to assign the same idle villager. Track assigned villagers in a dictionary (`_assigned_villagers_this_tick`) and skip if already assigned. Clear the dictionary in `_clear_pending()`.
 
+- **Build vs gather race condition**: Build rules and gather rules can capture the same idle villager in one tick. The action execution order (builds first, then villager assignments) means a villager assigned to construction can be immediately reassigned by a gather rule like GatherSheepRule. The `command_hunt()` call cancels the build by clearing `target_construction`. **Fix:** In `_do_villager_assignment()`, check `if villager.current_state == villager.State.BUILDING: return` before reassigning. This prevents gather rules from stealing builders mid-tick.
+
 - **Mills should be near natural food, not farms**: When using `build_near_resource("mill", "food")`, the `_find_nearest_resource_position()` will find farms if they exist. Add `exclude_farms` parameter to find berries instead - mills are meant for natural food sources.
 
 - **Natural food count excludes farms**: When checking if the AI needs to build farms, count "natural" food sources (berries, sheep, deer, boar) separately from farms. Use `is_in_group("farms")` to filter them out.
@@ -269,3 +271,5 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Economy phase transitions**: Use GOAL constants to track economy phases (early, mid, late game). Transition based on villager count and building presence. Consider whether transitions should be reversible if conditions change (e.g., barracks destroyed).
 
 - **Conservative market trading**: AI market rules should use high thresholds to prevent poor trades. Sell when surplus > 400, buy when desperate (< 50) and have gold > 150. This matches the gotchas from Phase 1E about AI market usage.
+
+- **Prevent villager clustering on resources**: When assigning villagers to gather, don't just pick the nearest resource - check how many villagers are already targeting it. Use `_get_current_gatherer_counts()` to get a `{target_instance_id: count}` dictionary, then skip resources at capacity. The `sn_max_gatherers_per_resource` strategic number controls the limit (default 2). Apply this pattern to all resource assignment functions: `assign_villager_to_resource()`, `get_nearest_sheep()`, `get_nearest_huntable()`. Use graceful degradation: if all resources are full, still assign to the nearest one rather than leaving the villager idle.

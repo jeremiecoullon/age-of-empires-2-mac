@@ -64,6 +64,9 @@ var strategic_numbers: Dictionary = {
 
 	# Attack settings
 	"sn_minimum_attack_group_size": 5,
+
+	# Gathering efficiency - max villagers per resource node before preferring other nodes
+	"sn_max_gatherers_per_resource": 2,
 }
 
 # Goals - state variables for rules

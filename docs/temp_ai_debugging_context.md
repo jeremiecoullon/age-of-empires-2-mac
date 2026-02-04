@@ -1,7 +1,7 @@
 # AI debugging context (temporary)
 
 **Date:** 2026-02-04
-**Status:** In progress - Bug 1 fixed, Bugs 2-3 remain
+**Status:** In progress - Bugs 1-2 fixed, Bug 3 remains
 
 ---
 
@@ -42,18 +42,39 @@ All 282 unit tests pass.
 
 ---
 
-## Bug 2: Villager clustering (OPEN)
+## Bug 2: Villager clustering - FIXED
 
 **Symptom:** `max_on_same_food: 11` - 11 villagers on ONE farm/sheep
 
 **Expected:** Max 1-2 villagers per resource node
 
-**Root cause:** No limit on villagers per target in assignment logic. `assign_villager_to_resource()` finds the nearest resource but doesn't check how many villagers are already on it.
+**Root cause:** No limit on villagers per target in assignment logic. `assign_villager_to_resource()` finds the nearest resource but doesn't check how many villagers are already on it. Same issue affected `get_nearest_sheep()` and `get_nearest_huntable()`.
 
-**Fix approach:** Add villager count tracking per resource target and skip targets that already have max gatherers.
+### Fix Applied
 
-**Key files:**
-- `scripts/ai/ai_game_state.gd` - `assign_villager_to_resource()` (line ~810)
+1. Added `sn_max_gatherers_per_resource: 2` strategic number in `ai_controller.gd`
+
+2. Added `_get_current_gatherer_counts()` helper in `ai_game_state.gd` that returns `{target_instance_id: count}` for all resources being gathered/hunted
+
+3. Modified three functions to check gatherer counts and prefer targets with capacity:
+   - `assign_villager_to_resource()` - for static resources (trees, gold, stone, farms, berries)
+   - `get_nearest_sheep()` - for sheep assignment
+   - `get_nearest_huntable()` - for deer/boar assignment
+
+4. Graceful degradation: if all resources of a type are at capacity, still assign to the nearest one (better than leaving villager idle)
+
+### Verification
+
+Before fix:
+- `max_on_same_food: 5` by t=70
+- `max_on_same_food: 7-8` by t=100-120
+
+After fix:
+- `max_on_same_food: 2` consistently from t=10 to t=120
+- Only reaches 3-6 later as food sources deplete (expected graceful degradation)
+- `max_on_same_wood: 1-2` throughout
+
+All 282 unit tests pass.
 
 ---
 
@@ -93,6 +114,7 @@ AI doesn't think "I need barracks (100 wood), so prioritize wood until I have th
 - Houses built and completed
 - **Lumber camps built and completed** (Bug 1 fix)
 - **Barracks built and completed** (Bug 1 fix)
+- **Villager distribution across resources** (Bug 2 fix) - max 2 per target, graceful degradation when depleted
 - Villager production
 - Rule evaluation system
 - Observability/logging
@@ -102,7 +124,7 @@ AI doesn't think "I need barracks (100 wood), so prioritize wood until I have th
 ## Priority order
 
 1. ~~Fix barracks/lumber_camp not completing~~ DONE
-2. **Fix villager clustering** - Limit villagers per resource target
+2. ~~Fix villager clustering~~ DONE
 3. **Add resource depletion handling** - Reassign villagers when resource type runs out
 4. **Add stockpile caps** - Don't over-gather when stockpile is high
 

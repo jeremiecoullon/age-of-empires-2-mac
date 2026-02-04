@@ -781,6 +781,33 @@ func _assign_builder(building: Node) -> void:
 # VILLAGER ASSIGNMENT
 # =============================================================================
 
+func _get_current_gatherer_counts() -> Dictionary:
+	## Returns {target_instance_id: count} for all resources currently being gathered/hunted.
+	## Used to avoid clustering multiple villagers on the same resource.
+	var counts: Dictionary = {}
+
+	for villager in scene_tree.get_nodes_in_group("villagers"):
+		if villager.team != AI_TEAM or villager.is_dead:
+			continue
+
+		var target: Node = null
+
+		# Check hunting target (sheep, deer, boar)
+		if villager.current_state == villager.State.HUNTING and is_instance_valid(villager.target_animal):
+			target = villager.target_animal
+		# Check gathering target (trees, berries, farms, gold, stone)
+		elif villager.current_state == villager.State.GATHERING and is_instance_valid(villager.target_resource):
+			target = villager.target_resource
+
+		if target:
+			var target_id = target.get_instance_id()
+			if target_id not in counts:
+				counts[target_id] = 0
+			counts[target_id] += 1
+
+	return counts
+
+
 func get_villagers_by_task() -> Dictionary:
 	var result = {
 		"idle": [],
@@ -813,23 +840,55 @@ func get_villagers_by_task() -> Dictionary:
 
 
 func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
-	# Find nearest resource of type
-	var nearest_resource: Node = null
-	var nearest_dist = INF
+	# Get current gatherer counts to avoid clustering
+	var gatherer_counts = _get_current_gatherer_counts()
+	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
+
+	# Find nearest resource of type that isn't at capacity
+	var nearest_available: Node = null
+	var nearest_available_dist = INF
+	var nearest_any: Node = null  # Fallback if all resources are full
+	var nearest_any_dist = INF
 
 	var group_name = resource_type + "_resources"
 	var resources_found = 0
+	var skipped_full = 0
+
 	for resource in scene_tree.get_nodes_in_group(group_name):
 		if resource.has_resources():
 			resources_found += 1
 			var dist = villager.global_position.distance_to(resource.global_position)
-			if dist < nearest_dist:
-				nearest_dist = dist
-				nearest_resource = resource
 
-	if nearest_resource:
-		villager.command_gather(nearest_resource)
-		_log_action("assign_villager", {"resource": resource_type, "found": resources_found, "dist": int(nearest_dist)})
+			# Track absolute nearest (fallback)
+			if dist < nearest_any_dist:
+				nearest_any_dist = dist
+				nearest_any = resource
+
+			# Check if this resource has capacity
+			var target_id = resource.get_instance_id()
+			var current_gatherers = gatherer_counts.get(target_id, 0)
+			if current_gatherers >= max_gatherers:
+				skipped_full += 1
+				continue
+
+			# Track nearest with available capacity
+			if dist < nearest_available_dist:
+				nearest_available_dist = dist
+				nearest_available = resource
+
+	# Prefer resource with capacity, fall back to nearest if all full
+	var chosen_resource = nearest_available if nearest_available else nearest_any
+	var chosen_dist = nearest_available_dist if nearest_available else nearest_any_dist
+
+	if chosen_resource:
+		villager.command_gather(chosen_resource)
+		_log_action("assign_villager", {
+			"resource": resource_type,
+			"found": resources_found,
+			"skipped_full": skipped_full,
+			"dist": int(chosen_dist),
+			"fallback": nearest_available == null
+		})
 	else:
 		_log_action("assign_villager_failed", {"resource": resource_type, "found": 0})
 
@@ -889,47 +948,103 @@ func get_huntable_count() -> int:
 
 
 func get_nearest_sheep() -> Node:
-	## Returns nearest sheep to AI base that AI can claim
+	## Returns nearest sheep to AI base that AI can claim, preferring sheep with fewer gatherers
 	var base_pos = _get_ai_base_position()
-	var nearest: Node = null
-	var nearest_dist = INF
+	var gatherer_counts = _get_current_gatherer_counts()
+	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
+
+	var nearest_available: Node = null
+	var nearest_available_dist = INF
+	var nearest_any: Node = null  # Fallback if all sheep are full
+	var nearest_any_dist = INF
 
 	for animal in scene_tree.get_nodes_in_group("sheep"):
 		if animal.is_dead:
 			continue
 		if animal.team != -1 and animal.team != AI_TEAM:
 			continue
-		var dist = base_pos.distance_to(animal.global_position)
-		if dist < nearest_dist:
-			nearest_dist = dist
-			nearest = animal
 
-	return nearest
+		var dist = base_pos.distance_to(animal.global_position)
+
+		# Track absolute nearest (fallback)
+		if dist < nearest_any_dist:
+			nearest_any_dist = dist
+			nearest_any = animal
+
+		# Check if this animal has capacity
+		var target_id = animal.get_instance_id()
+		var current_gatherers = gatherer_counts.get(target_id, 0)
+		if current_gatherers >= max_gatherers:
+			continue
+
+		# Track nearest with available capacity
+		if dist < nearest_available_dist:
+			nearest_available_dist = dist
+			nearest_available = animal
+
+	# Prefer animal with capacity, fall back to nearest if all full
+	return nearest_available if nearest_available else nearest_any
 
 
 func get_nearest_huntable() -> Node:
-	## Returns nearest huntable animal (deer/boar) to AI base
+	## Returns nearest huntable animal (deer/boar) to AI base, preferring animals with fewer gatherers
 	var base_pos = _get_ai_base_position()
-	var nearest: Node = null
-	var nearest_dist = INF
+	var gatherer_counts = _get_current_gatherer_counts()
+	var max_gatherers = controller.strategic_numbers.get("sn_max_gatherers_per_resource", 2)
 
+	var nearest_available: Node = null
+	var nearest_available_dist = INF
+	var nearest_any: Node = null  # Fallback if all animals are full
+	var nearest_any_dist = INF
+
+	# Check deer
 	for animal in scene_tree.get_nodes_in_group("deer"):
 		if animal.is_dead:
 			continue
-		var dist = base_pos.distance_to(animal.global_position)
-		if dist < nearest_dist:
-			nearest_dist = dist
-			nearest = animal
 
+		var dist = base_pos.distance_to(animal.global_position)
+
+		# Track absolute nearest (fallback)
+		if dist < nearest_any_dist:
+			nearest_any_dist = dist
+			nearest_any = animal
+
+		# Check if this animal has capacity
+		var target_id = animal.get_instance_id()
+		var current_gatherers = gatherer_counts.get(target_id, 0)
+		if current_gatherers >= max_gatherers:
+			continue
+
+		# Track nearest with available capacity
+		if dist < nearest_available_dist:
+			nearest_available_dist = dist
+			nearest_available = animal
+
+	# Check boar
 	for animal in scene_tree.get_nodes_in_group("boar"):
 		if animal.is_dead:
 			continue
-		var dist = base_pos.distance_to(animal.global_position)
-		if dist < nearest_dist:
-			nearest_dist = dist
-			nearest = animal
 
-	return nearest
+		var dist = base_pos.distance_to(animal.global_position)
+
+		# Track absolute nearest (fallback)
+		if dist < nearest_any_dist:
+			nearest_any_dist = dist
+			nearest_any = animal
+
+		# Check if this animal has capacity
+		var target_id = animal.get_instance_id()
+		var current_gatherers = gatherer_counts.get(target_id, 0)
+		if current_gatherers >= max_gatherers:
+			continue
+
+		# Track nearest with available capacity
+		if dist < nearest_available_dist:
+			nearest_available_dist = dist
+			nearest_available = animal
+
+	# Prefer animal with capacity, fall back to nearest if all full
+	return nearest_available if nearest_available else nearest_any
 
 
 # =============================================================================
