@@ -157,13 +157,123 @@ func _evaluate_rules() -> void:
 	# Refresh game state cache
 	game_state.refresh()
 
+	# Track which rules fired for logging
+	var fired_rules: Array[String] = []
+	var skipped_rules: Dictionary = {}  # rule_name -> reason
+
 	# Evaluate all rules
 	for rule in rules:
-		if rule.enabled and rule.conditions(game_state):
+		if not rule.enabled:
+			continue
+
+		if rule.conditions(game_state):
 			rule.actions(game_state)
+			fired_rules.append(rule.rule_name)
+		else:
+			# Get reason why rule didn't fire (for key rules)
+			var reason = _get_rule_skip_reason(rule.rule_name, rule)
+			skipped_rules[rule.rule_name] = reason
 
 	# Execute queued actions
 	game_state.execute_actions()
+
+	# Log rule evaluation results
+	if debug_print_enabled:
+		_log_rule_tick(fired_rules, skipped_rules)
+
+
+func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
+	## Returns a brief reason why a rule's conditions returned false.
+	## For common rules, provides specific diagnostics.
+	## Pass the rule object to check internal state (like _queued flags).
+	match rule_name:
+		"build_house":
+			var headroom = game_state.get_housing_headroom()
+			if headroom >= 5:
+				return "headroom_%d" % headroom
+			var can_build_reason = game_state.get_can_build_reason("house")
+			if can_build_reason != "ok":
+				return can_build_reason
+		"train_villager":
+			var target = game_state.get_sn("sn_target_villagers")
+			var current = game_state.get_civilian_population()
+			if current >= target:
+				return "at_target_%d/%d" % [current, target]
+			return game_state.get_can_train_reason("villager")
+		"build_barracks":
+			if game_state.get_building_count("barracks") > 0:
+				return "already_have_barracks"
+			# Check if queued (rule has internal state)
+			if rule and rule.get("_barracks_queued"):
+				return "already_queued"
+			var pop = game_state.get_civilian_population()
+			if pop < 5:
+				return "need_5_villagers_have_%d" % pop
+			return game_state.get_can_build_reason("barracks")
+		"build_mill":
+			if game_state.get_building_count("mill") > 0:
+				return "already_have_mill"
+			# Check if queued (rule has internal state)
+			if rule and rule.get("_mill_queued"):
+				return "already_queued"
+			if not game_state.needs_mill():
+				return "not_needed"
+			return game_state.get_can_build_reason("mill")
+		"build_lumber_camp":
+			if game_state.get_building_count("lumber_camp") > 0:
+				return "already_have_lumber_camp"
+			# Check if queued (rule has internal state)
+			if rule and rule.get("_lumber_camp_queued"):
+				return "already_queued"
+			if not game_state.needs_lumber_camp():
+				return "not_needed"
+			return game_state.get_can_build_reason("lumber_camp")
+		"train_militia":
+			if game_state.get_building_count("barracks") < 1:
+				return "no_barracks"
+			return game_state.get_can_train_reason("militia")
+		"attack":
+			var min_military = game_state.get_sn("sn_minimum_attack_group_size")
+			var current_military = game_state.get_military_population()
+			if current_military < min_military:
+				return "need_%d_military_have_%d" % [min_military, current_military]
+			if not game_state.is_timer_triggered(1):
+				return "timer_not_ready"
+			if game_state.is_under_attack():
+				return "under_attack"
+
+	return "conditions_false"
+
+
+func _log_rule_tick(fired: Array[String], skipped: Dictionary) -> void:
+	# Only log when something fires (reduces noise)
+	# The skipped rules still get logged to explain why other rules didn't fire
+	if fired.is_empty():
+		return
+
+	var log_data = {
+		"t": snappedf(game_time_elapsed, 0.1),
+		"fired": fired,
+		"skipped": skipped
+	}
+	print("RULE_TICK|" + JSON.stringify(log_data))
+
+
+func _get_rule_blockers() -> Dictionary:
+	## Returns why key rules can't fire right now.
+	## Used in periodic AI_STATE output for debugging.
+	var blockers = {}
+
+	# Check key economy/military rules
+	for rule in rules:
+		if not rule.enabled:
+			continue
+		# Only report blockers for important rules that aren't firing
+		if rule.rule_name in ["build_barracks", "build_mill", "build_lumber_camp", "train_militia", "attack"]:
+			if not rule.conditions(game_state):
+				blockers[rule.rule_name] = _get_rule_skip_reason(rule.rule_name, rule)
+
+	return blockers
 
 
 func _assign_villagers() -> void:
@@ -173,6 +283,10 @@ func _assign_villagers() -> void:
 
 	if idle_villagers.is_empty():
 		return
+
+	# Log idle villager assignment attempt
+	if debug_print_enabled:
+		print("AI_ASSIGN|{\"t\":%.1f,\"idle_count\":%d,\"assigning\":true}" % [game_time_elapsed, idle_villagers.size()])
 
 	# Get target percentages
 	var food_pct = strategic_numbers["sn_food_gatherer_percentage"]
@@ -349,6 +463,7 @@ func _print_debug_state() -> void:
 			"house": game_state.can_build("house"),
 			"barracks": game_state.can_build("barracks"),
 		},
+		"rule_blockers": _get_rule_blockers(),
 		"efficiency": {
 			"avg_food_drop_dist": snappedf(gatherer_distances["food"], 1) if gatherer_distances["food"] != INF else -1,
 			"avg_wood_drop_dist": snappedf(gatherer_distances["wood"], 1) if gatherer_distances["wood"] != INF else -1,

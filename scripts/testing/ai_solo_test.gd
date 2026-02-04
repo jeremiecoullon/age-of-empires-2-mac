@@ -5,7 +5,7 @@ class_name AISoloTest
 ## Runs the game at accelerated speed and quits after a set duration.
 
 @export var time_scale: float = 10.0
-@export var test_duration: float = 60.0  # Game seconds
+@export var test_duration: float = 300.0  # Game seconds (5 minutes)
 
 var game_time_elapsed: float = 0.0
 var test_started: bool = false

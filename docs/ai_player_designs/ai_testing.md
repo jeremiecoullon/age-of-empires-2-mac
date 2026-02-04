@@ -20,13 +20,18 @@ This runs the AI for 60 game-seconds at 10x speed (~6 real seconds).
 
 ```
 AI_TEST_START|{"duration":60.0,"time_scale":10.0}
+RULE_TICK|{"t":1.4,"fired":["train_villager","build_lumber_camp"],"skipped":{"build_barracks":"need_5_villagers_have_3",...}}
+AI_ACTION|{"t":1.4,"action":"build","building":"lumber_camp","pos":[1808,1776]}
 AI_STATE|{"t":10.0,"villagers":{"total":5},"resources":{"food":0,"wood":0},...}
-AI_STATE|{"t":20.0,"villagers":{"total":7},"resources":{"food":10,"wood":10},...}
 ...
 AI_TEST_END|{"game_time":60.1,"status":"complete"}
 ```
 
-Each `AI_STATE` line is valid JSON containing the full AI state at that moment.
+**Log types:**
+- `AI_STATE` - Full state snapshot every 10 game-seconds
+- `RULE_TICK` - Which rules fired and why others were skipped (logged when any rule fires)
+- `AI_ACTION` - When actions execute (train, build, attack, market trades)
+- `AI_TEST_START/END` - Test boundaries
 
 ## Files involved
 
@@ -36,7 +41,40 @@ Each `AI_STATE` line is valid JSON containing the full AI state at that moment.
 | `scripts/testing/ai_solo_test.gd` | Test controller - sets time_scale, quits after duration |
 | `scripts/ai/ai_controller.gd` | AI logic + JSON logging (see `_print_debug_state()`) |
 
-## JSON output format
+## Log output formats
+
+### RULE_TICK
+
+Logged whenever at least one rule fires. Shows decision-making in real time:
+
+```json
+{
+  "t": 7.9,
+  "fired": ["gather_sheep", "build_barracks"],
+  "skipped": {
+    "train_villager": "insufficient_food",
+    "build_house": "headroom_5",
+    "build_lumber_camp": "already_queued",
+    "train_militia": "no_barracks",
+    "attack": "need_5_military_have_0"
+  }
+}
+```
+
+Skip reasons are specific and actionable, not just "conditions_false".
+
+### AI_ACTION
+
+Logged when AI actually executes actions:
+
+```json
+{"t": 1.4, "action": "train", "unit": "villager"}
+{"t": 7.9, "action": "build", "building": "barracks", "pos": [1616, 1808]}
+{"t": 90.0, "action": "attack", "units": 5, "target": "TownCenter"}
+{"t": 45.0, "action": "build_failed", "building": "house", "reason": "no_valid_position"}
+```
+
+### AI_STATE
 
 The `AI_STATE` JSON contains:
 
@@ -98,6 +136,12 @@ The `AI_STATE` JSON contains:
     "militia": false,
     "house": true,
     "barracks": false
+  },
+  "rule_blockers": {
+    "build_barracks": "already_queued",
+    "build_mill": "not_needed",
+    "train_militia": "no_barracks",
+    "attack": "need_5_military_have_0"
   },
   "efficiency": {
     "avg_food_drop_dist": 150.0,   // Average distance villagers walk to drop off food

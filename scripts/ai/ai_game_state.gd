@@ -213,54 +213,84 @@ func get_idle_villager_count() -> int:
 # =============================================================================
 
 func can_train(unit_type: String) -> bool:
+	return get_can_train_reason(unit_type) == "ok"
+
+
+func get_can_train_reason(unit_type: String) -> String:
+	## Returns "ok" if can train, otherwise returns the reason why not.
+	## Used for debugging rule evaluation.
+	const MAX_AI_QUEUE: int = 3
+
 	# Check population space
 	if not GameManager.can_add_population(AI_TEAM):
-		return false
-
-	# Check building exists, can train, and queue isn't too full
-	# Limit AI queue to 3 to prevent over-committing resources
-	const MAX_AI_QUEUE: int = 3
+		return "no_pop_space"
 
 	match unit_type:
 		"villager":
 			var tc = _get_ai_town_center()
-			if tc and tc.is_functional():
-				if tc.get_queue_size() >= MAX_AI_QUEUE:
-					return false
-				return GameManager.can_afford("food", tc.VILLAGER_COST, AI_TEAM)
+			if not tc:
+				return "no_town_center"
+			if not tc.is_functional():
+				return "tc_not_functional"
+			if tc.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", tc.VILLAGER_COST, AI_TEAM):
+				return "insufficient_food"
+			return "ok"
 		"militia":
 			var barracks = _get_ai_building("barracks")
-			if barracks and barracks.is_functional():
-				if barracks.get_queue_size() >= MAX_AI_QUEUE:
-					return false
-				return GameManager.can_afford("food", barracks.MILITIA_FOOD_COST, AI_TEAM) \
-					and GameManager.can_afford("wood", barracks.MILITIA_WOOD_COST, AI_TEAM)
+			if not barracks:
+				return "no_barracks"
+			if not barracks.is_functional():
+				return "barracks_not_functional"
+			if barracks.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", barracks.MILITIA_FOOD_COST, AI_TEAM):
+				return "insufficient_food"
+			if not GameManager.can_afford("wood", barracks.MILITIA_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			return "ok"
 		"spearman":
 			var barracks = _get_ai_building("barracks")
-			if barracks and barracks.is_functional():
-				if barracks.get_queue_size() >= MAX_AI_QUEUE:
-					return false
-				return GameManager.can_afford("food", barracks.SPEARMAN_FOOD_COST, AI_TEAM) \
-					and GameManager.can_afford("wood", barracks.SPEARMAN_WOOD_COST, AI_TEAM)
+			if not barracks:
+				return "no_barracks"
+			if not barracks.is_functional():
+				return "barracks_not_functional"
+			if barracks.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", barracks.SPEARMAN_FOOD_COST, AI_TEAM):
+				return "insufficient_food"
+			if not GameManager.can_afford("wood", barracks.SPEARMAN_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			return "ok"
 
-	return false
+	return "unknown_unit_type"
 
 
 func can_build(building_type: String) -> bool:
+	return get_can_build_reason(building_type) == "ok"
+
+
+func get_can_build_reason(building_type: String) -> String:
+	## Returns "ok" if can build, otherwise returns the reason why not.
+	## Used for debugging rule evaluation.
 	if building_type not in BUILDING_COSTS:
-		return false
+		return "unknown_building_type"
 
 	# Check resources
-	if not can_afford(BUILDING_COSTS[building_type]):
-		return false
+	var costs = BUILDING_COSTS[building_type]
+	for resource_type in costs:
+		if get_resource(resource_type) < costs[resource_type]:
+			return "insufficient_" + resource_type
 
 	# Check if we have a villager to build
 	if get_idle_villager_count() == 0:
-		# Also check villagers that could be reassigned (gathering)
 		if get_civilian_population() == 0:
-			return false
+			return "no_villagers"
+		# We have villagers but none idle - can still reassign one
+		# This is ok, so fall through
 
-	return true
+	return "ok"
 
 
 # =============================================================================
@@ -429,35 +459,52 @@ func _clear_pending() -> void:
 # ACTION IMPLEMENTATION
 # =============================================================================
 
+func _log_action(action_type: String, data: Dictionary) -> void:
+	## Log an AI action for debugging/observability
+	var log_data = {"t": snappedf(controller.game_time_elapsed, 0.1), "action": action_type}
+	log_data.merge(data)
+	print("AI_ACTION|" + JSON.stringify(log_data))
+
+
 func _do_train(unit_type: String) -> void:
+	var success = false
 	match unit_type:
 		"villager":
 			var tc = _get_ai_town_center()
 			if tc and tc.is_functional():
 				tc.train_villager()
+				success = true
 		"militia":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
 				barracks.train_militia()
+				success = true
 		"spearman":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
 				barracks.train_spearman()
+				success = true
+
+	if success:
+		_log_action("train", {"unit": unit_type})
 
 
 func _do_build(building_type: String, near_resource: Variant = null) -> void:
 	# Find a position to build
 	var pos = _find_build_position(building_type, near_resource)
 	if pos == Vector2.ZERO:
+		_log_action("build_failed", {"building": building_type, "reason": "no_valid_position"})
 		return  # No valid position found
 
 	# Check cost
 	if not can_afford(BUILDING_COSTS[building_type]):
+		_log_action("build_failed", {"building": building_type, "reason": "cannot_afford"})
 		return
 
 	# Get preloaded scene
 	var scene = _get_building_scene(building_type)
 	if not scene:
+		_log_action("build_failed", {"building": building_type, "reason": "no_scene"})
 		return
 
 	# Spend resources
@@ -480,6 +527,8 @@ func _do_build(building_type: String, near_resource: Variant = null) -> void:
 	# Assign a villager to build it
 	_assign_builder(building)
 
+	_log_action("build", {"building": building_type, "pos": [int(pos.x), int(pos.y)]})
+
 
 func _get_buildings_container() -> Node:
 	# Try to find the Buildings container in the scene
@@ -496,13 +545,18 @@ func _do_attack() -> void:
 	if not target:
 		target = _get_any_player_building()
 	if not target:
+		_log_action("attack_failed", {"reason": "no_target"})
 		return
 
 	# Send all military to attack
+	var units_sent = 0
 	for unit in scene_tree.get_nodes_in_group("military"):
 		if unit.team == AI_TEAM and not unit.is_dead:
 			if unit.has_method("command_attack"):
 				unit.command_attack(target)
+				units_sent += 1
+
+	_log_action("attack", {"units": units_sent, "target": target.name})
 
 
 func _get_any_player_building() -> Node:
@@ -515,20 +569,28 @@ func _get_any_player_building() -> Node:
 func _do_market_buy(resource_type: String) -> void:
 	if not can_market_buy(resource_type):
 		return
-	# Use GameManager directly
+	var price = get_market_buy_price(resource_type)
 	GameManager.market_buy(resource_type, AI_TEAM)
+	_log_action("market_buy", {"resource": resource_type, "gold_spent": price})
 
 
 func _do_market_sell(resource_type: String) -> void:
 	if not can_market_sell(resource_type):
 		return
+	var price = get_market_sell_price(resource_type)
 	GameManager.market_sell(resource_type, AI_TEAM)
+	_log_action("market_sell", {"resource": resource_type, "gold_gained": price})
 
 
 func _do_villager_assignment(villager: Node, target: Node, assignment_type: String) -> void:
 	if not is_instance_valid(villager) or villager.is_dead:
 		return
 	if not is_instance_valid(target):
+		return
+
+	# Don't reassign villagers that were assigned to build this tick
+	# This prevents race conditions where gather_sheep overwrites a builder assignment
+	if villager.current_state == villager.State.BUILDING:
 		return
 
 	match assignment_type:
@@ -690,11 +752,13 @@ func _get_building_scene(building_type: String) -> PackedScene:
 func _assign_builder(building: Node) -> void:
 	# Find an idle villager to build
 	var builder: Node = null
+	var builder_source = ""
 
 	for villager in scene_tree.get_nodes_in_group("villagers"):
 		if villager.team == AI_TEAM and not villager.is_dead:
 			if villager.current_state == villager.State.IDLE:
 				builder = villager
+				builder_source = "idle"
 				break
 
 	# If no idle villager, reassign a gatherer
@@ -703,10 +767,14 @@ func _assign_builder(building: Node) -> void:
 			if villager.team == AI_TEAM and not villager.is_dead:
 				if villager.current_state == villager.State.GATHERING:
 					builder = villager
+					builder_source = "gatherer"
 					break
 
 	if builder:
 		builder.command_build(building)
+		_log_action("assign_builder", {"building": building.name, "source": builder_source})
+	else:
+		_log_action("assign_builder_failed", {"building": building.name, "reason": "no_available_villager"})
 
 
 # =============================================================================
@@ -750,8 +818,10 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 	var nearest_dist = INF
 
 	var group_name = resource_type + "_resources"
+	var resources_found = 0
 	for resource in scene_tree.get_nodes_in_group(group_name):
 		if resource.has_resources():
+			resources_found += 1
 			var dist = villager.global_position.distance_to(resource.global_position)
 			if dist < nearest_dist:
 				nearest_dist = dist
@@ -759,6 +829,9 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 
 	if nearest_resource:
 		villager.command_gather(nearest_resource)
+		_log_action("assign_villager", {"resource": resource_type, "found": resources_found, "dist": int(nearest_dist)})
+	else:
+		_log_action("assign_villager_failed", {"resource": resource_type, "found": 0})
 
 
 # =============================================================================
