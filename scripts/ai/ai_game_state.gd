@@ -966,6 +966,20 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 
 
 # =============================================================================
+# CONDITION HELPERS - Resource Availability
+# =============================================================================
+
+func has_gatherable_resources(resource_type: String) -> bool:
+	## Returns true if any gatherable resources of this type exist on the map.
+	## Used for depletion awareness - don't try to assign villagers to depleted resource types.
+	var group_name = resource_type + "_resources"
+	for resource in scene_tree.get_nodes_in_group(group_name):
+		if resource.has_resources():
+			return true
+	return false
+
+
+# =============================================================================
 # CONDITION HELPERS - Natural Food (Phase 3.1B)
 # =============================================================================
 

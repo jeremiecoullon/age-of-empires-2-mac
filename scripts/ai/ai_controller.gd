@@ -34,6 +34,9 @@ const DECISION_INTERVAL: float = 0.5  # Evaluate rules every 0.5 seconds
 const VILLAGER_ASSIGN_INTERVAL: float = 2.0  # Assign villagers every 2 seconds
 const DEBUG_PRINT_INTERVAL: float = 10.0  # Print debug state every 10 seconds
 
+# Economy caps
+const STOCKPILE_CAP: int = 400  # Stop gathering a resource when stockpile exceeds this
+
 var decision_timer: float = 0.0
 var villager_assign_timer: float = 0.0
 var debug_print_timer: float = 0.0
@@ -332,11 +335,56 @@ func _get_most_needed_resource(
 	total: int,
 	food_pct: int, wood_pct: int, gold_pct: int, stone_pct: int
 ) -> String:
+	# Check resource availability (depletion awareness)
+	var food_available = game_state.has_gatherable_resources("food")
+	var wood_available = game_state.has_gatherable_resources("wood")
+	var gold_available = game_state.has_gatherable_resources("gold")
+	var stone_available = game_state.has_gatherable_resources("stone")
+
+	# Check stockpile caps - don't over-gather when stockpile is high
+	var food_capped = game_state.get_resource("food") > STOCKPILE_CAP
+	var wood_capped = game_state.get_resource("wood") > STOCKPILE_CAP
+	var gold_capped = game_state.get_resource("gold") > STOCKPILE_CAP
+	var stone_capped = game_state.get_resource("stone") > STOCKPILE_CAP
+
+	# Apply effective percentages (0 if depleted or capped)
+	var eff_food_pct = food_pct if (food_available and not food_capped) else 0
+	var eff_wood_pct = wood_pct if (wood_available and not wood_capped) else 0
+	var eff_gold_pct = gold_pct if (gold_available and not gold_capped) else 0
+	var eff_stone_pct = stone_pct if (stone_available and not stone_capped) else 0
+
+	# Edge case: if ALL resources are capped or depleted, allow gathering the lowest stockpile
+	# (prevents all villagers going idle). Returns "" if all resources are truly depleted.
+	var total_eff_pct = eff_food_pct + eff_wood_pct + eff_gold_pct + eff_stone_pct
+	if total_eff_pct == 0:
+		var lowest_stockpile = INF
+		var lowest_resource = ""
+		if food_available and game_state.get_resource("food") < lowest_stockpile:
+			lowest_stockpile = game_state.get_resource("food")
+			lowest_resource = "food"
+		if wood_available and game_state.get_resource("wood") < lowest_stockpile:
+			lowest_stockpile = game_state.get_resource("wood")
+			lowest_resource = "wood"
+		if gold_available and game_state.get_resource("gold") < lowest_stockpile:
+			lowest_stockpile = game_state.get_resource("gold")
+			lowest_resource = "gold"
+		if stone_available and game_state.get_resource("stone") < lowest_stockpile:
+			lowest_stockpile = game_state.get_resource("stone")
+			lowest_resource = "stone"
+		return lowest_resource
+
+	# Normalize effective percentages so they sum to 100%
+	# This ensures villagers are fully distributed among available resources
+	var norm_food = (eff_food_pct / float(total_eff_pct)) * 100.0
+	var norm_wood = (eff_wood_pct / float(total_eff_pct)) * 100.0
+	var norm_gold = (eff_gold_pct / float(total_eff_pct)) * 100.0
+	var norm_stone = (eff_stone_pct / float(total_eff_pct)) * 100.0
+
 	# Calculate how far each resource is from target percentage
-	var food_target = (food_pct / 100.0) * total
-	var wood_target = (wood_pct / 100.0) * total
-	var gold_target = (gold_pct / 100.0) * total
-	var stone_target = (stone_pct / 100.0) * total
+	var food_target = (norm_food / 100.0) * total
+	var wood_target = (norm_wood / 100.0) * total
+	var gold_target = (norm_gold / 100.0) * total
+	var stone_target = (norm_stone / 100.0) * total
 
 	var food_deficit = food_target - food_count
 	var wood_deficit = wood_target - wood_count
@@ -347,19 +395,19 @@ func _get_most_needed_resource(
 	var max_deficit = -INF
 	var target_resource = "food"  # Default
 
-	if food_pct > 0 and food_deficit > max_deficit:
+	if eff_food_pct > 0 and food_deficit > max_deficit:
 		max_deficit = food_deficit
 		target_resource = "food"
 
-	if wood_pct > 0 and wood_deficit > max_deficit:
+	if eff_wood_pct > 0 and wood_deficit > max_deficit:
 		max_deficit = wood_deficit
 		target_resource = "wood"
 
-	if gold_pct > 0 and gold_deficit > max_deficit:
+	if eff_gold_pct > 0 and gold_deficit > max_deficit:
 		max_deficit = gold_deficit
 		target_resource = "gold"
 
-	if stone_pct > 0 and stone_deficit > max_deficit:
+	if eff_stone_pct > 0 and stone_deficit > max_deficit:
 		max_deficit = stone_deficit
 		target_resource = "stone"
 
@@ -415,6 +463,20 @@ func _print_debug_state() -> void:
 			"wood": game_state.get_resource("wood"),
 			"gold": game_state.get_resource("gold"),
 			"stone": game_state.get_resource("stone"),
+		},
+		"economy": {
+			"depleted": {
+				"food": not game_state.has_gatherable_resources("food"),
+				"wood": not game_state.has_gatherable_resources("wood"),
+				"gold": not game_state.has_gatherable_resources("gold"),
+				"stone": not game_state.has_gatherable_resources("stone"),
+			},
+			"capped": {
+				"food": game_state.get_resource("food") > STOCKPILE_CAP,
+				"wood": game_state.get_resource("wood") > STOCKPILE_CAP,
+				"gold": game_state.get_resource("gold") > STOCKPILE_CAP,
+				"stone": game_state.get_resource("stone") > STOCKPILE_CAP,
+			}
 		},
 		"population": {
 			"current": game_state.get_population(),

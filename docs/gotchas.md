@@ -287,3 +287,11 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Drop-off buildings need resources FAR from existing drop-offs**: When placing mills, lumber camps, or mining camps, `_find_nearest_resource_position()` must skip resources that are already close to an existing drop-off (< 200px). Otherwise the AI builds a lumber camp near trees that are already next to the TC - useless. The `for_dropoff_building` parameter enables this filtering. If no qualifying resources exist (all resources already have nearby drop-offs), return `Vector2.ZERO` to fail placement. The rule will retry on future ticks.
 
 - **Max hunt/herd distance**: Don't send villagers to hunt deer/boar or herd sheep beyond a maximum distance (e.g., 500px). Walking across the map to hunt distant animals is inefficient - better to farm or gather nearby resources. If `get_nearest_huntable()` or `get_nearest_sheep()` only finds targets beyond this distance, return null so the villager gets assigned to something else.
+
+### AI Economy Fixes
+
+- **Depletion awareness in villager assignment**: Use `has_gatherable_resources(resource_type)` to check if any gatherable resources exist before assigning villagers. If a resource type is depleted, set its effective allocation percentage to 0 in `_get_most_needed_resource()`. This prevents the AI from trying to assign villagers to non-existent resources.
+
+- **Stockpile caps to prevent over-gathering**: When stockpile > STOCKPILE_CAP (400), set allocation to 0% for that resource. This prevents the AI from wasting villager labor gathering resources it doesn't need. Edge case: if ALL resources are capped or depleted, allow gathering the lowest stockpile to prevent all villagers going idle.
+
+- **Villagers handle depletion naturally**: When a villager's target resource depletes mid-gather, they automatically become IDLE (villager.gd:94-106). No special "stranded gatherer" detection needed - the normal assignment loop picks them up.

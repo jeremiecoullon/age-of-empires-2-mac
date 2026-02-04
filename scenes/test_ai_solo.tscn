@@ -8,4 +8,4 @@
 [node name="AISoloTest" type="Node" parent="."]
 script = ExtResource("2_test")
 time_scale = 10.0
-test_duration = 300.0
+test_duration = 360.0
