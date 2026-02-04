@@ -671,12 +671,14 @@ func _find_build_position(building_type: String, near_resource: Variant = null) 
 	if near_resource is String:
 		# For mills, exclude farms to find natural food sources (berries)
 		var exclude_farms = (building_type == "mill")
-		var resource_pos = _find_nearest_resource_position(near_resource, exclude_farms)
+		# For drop-off buildings, only consider resources that are far from existing drop-offs
+		var is_dropoff_building = building_type in ["mill", "lumber_camp", "mining_camp"]
+		var resource_pos = _find_nearest_resource_position(near_resource, exclude_farms, is_dropoff_building)
 		if resource_pos != Vector2.ZERO:
 			base_pos = resource_pos
 		else:
-			# No valid resource found - don't fall back to TC position
-			# A mill/lumber_camp/mining_camp near TC is useless since TC already accepts drops
+			# No valid resource found (or all resources already have nearby drop-offs)
+			# Don't build - a drop-off building near TC is useless since TC already accepts drops
 			return Vector2.ZERO
 
 	# Try positions in expanding circles around base
@@ -698,7 +700,12 @@ func _find_build_position(building_type: String, near_resource: Variant = null) 
 	return Vector2.ZERO
 
 
-func _find_nearest_resource_position(resource_type: String, exclude_farms: bool = false) -> Vector2:
+func _find_nearest_resource_position(resource_type: String, exclude_farms: bool = false, for_dropoff_building: bool = false) -> Vector2:
+	## Find nearest resource of type. If for_dropoff_building is true, only consider
+	## resources that are far from existing drop-offs (since those are the ones that
+	## actually need a new drop-off building nearby).
+	const MIN_DROPOFF_DISTANCE: float = 200.0  # Resources closer than this don't need a new drop-off
+
 	var base_pos = _get_ai_base_position()
 	var nearest_pos = Vector2.ZERO
 	var nearest_dist = INF
@@ -708,11 +715,19 @@ func _find_nearest_resource_position(resource_type: String, exclude_farms: bool 
 		# Skip farms when looking for natural food sources (e.g., for mill placement)
 		if exclude_farms and resource.is_in_group("farms"):
 			continue
-		if resource.has_resources():
-			var dist = base_pos.distance_to(resource.global_position)
-			if dist < nearest_dist:
-				nearest_dist = dist
-				nearest_pos = resource.global_position
+		if not resource.has_resources():
+			continue
+
+		# For drop-off buildings, skip resources that are already close to a drop-off
+		if for_dropoff_building:
+			var dropoff_dist = get_nearest_drop_off_distance(resource_type, resource.global_position)
+			if dropoff_dist < MIN_DROPOFF_DISTANCE:
+				continue  # This resource already has a nearby drop-off, skip it
+
+		var dist = base_pos.distance_to(resource.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_pos = resource.global_position
 
 	return nearest_pos
 

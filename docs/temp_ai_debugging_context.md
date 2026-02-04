@@ -117,37 +117,41 @@ All 282 unit tests pass.
 
 ---
 
-## Bug 4: Mill placed next to Town Center - FIXED
+## Bug 4: Drop-off buildings placed next to Town Center - FIXED
 
-**Symptom:** AI builds mill right next to the TC instead of near distant food sources.
+**Symptom:** AI builds mills/lumber camps/mining camps right next to the TC instead of near distant resources.
 
-**Expected:** Mill should be placed near berries/food that are far from TC, since TC already accepts food drop-offs.
+**Expected:** Drop-off buildings should be placed near resources that are FAR from existing drop-offs.
 
 ### Root cause (found and fixed)
 
-In `ai_game_state.gd:_find_build_position()`, when `build_near_resource("mill", "food")` is called:
+Two-part issue:
 
-1. `_find_nearest_resource_position("food", exclude_farms=true)` looks for natural food
-2. If no natural food found (or all depleted), returns `Vector2.ZERO`
-3. Code fell back to `base_pos` (TC position)
-4. Mill got placed near TC - useless since TC already accepts food
+1. `needs_lumber_camp()` uses AVERAGE distance. If 3 trees are near TC (50px) and 10 trees are far (1000px), average = 781px > 200px threshold, so it triggers.
+
+2. `_find_nearest_resource_position("wood")` finds the NEAREST resource to TC - the trees at 50px.
+
+3. Lumber camp gets built near those trees, right next to TC - useless.
 
 ### Fix Applied
 
-In `_find_build_position()`, when `near_resource` is specified but no resource found, return `Vector2.ZERO` (placement fails) instead of falling back to TC:
+Modified `_find_nearest_resource_position()` to accept a `for_dropoff_building` parameter. When true, it skips resources that are already within 200px of an existing drop-off:
 
 ```gdscript
-if near_resource is String:
-    var exclude_farms = (building_type == "mill")
-    var resource_pos = _find_nearest_resource_position(near_resource, exclude_farms)
-    if resource_pos != Vector2.ZERO:
-        base_pos = resource_pos
-    else:
-        # No valid resource found - don't fall back to TC position
-        return Vector2.ZERO
+func _find_nearest_resource_position(resource_type: String, exclude_farms: bool = false, for_dropoff_building: bool = false) -> Vector2:
+    const MIN_DROPOFF_DISTANCE: float = 200.0
+    ...
+    for resource in ...:
+        # For drop-off buildings, skip resources that are already close to a drop-off
+        if for_dropoff_building:
+            var dropoff_dist = get_nearest_drop_off_distance(resource_type, resource.global_position)
+            if dropoff_dist < MIN_DROPOFF_DISTANCE:
+                continue  # This resource already has a nearby drop-off, skip it
 ```
 
-This fix applies to all drop-off buildings: mills, lumber camps, and mining camps. The rule will retry on future ticks when resources become available.
+In `_find_build_position()`, pass `for_dropoff_building=true` for mills, lumber camps, and mining camps.
+
+This ensures drop-off buildings are only built near resources that actually need them.
 
 ---
 
