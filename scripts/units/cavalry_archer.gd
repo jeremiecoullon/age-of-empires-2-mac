@@ -25,6 +25,7 @@ func _ready() -> void:
 	add_to_group("military")
 	add_to_group("cavalry")  # Takes bonus from spearmen
 	add_to_group("archers")  # Counts as archer-type for skirmisher bonus
+	add_to_group("cavalry_archers")  # For AI to count cavalry archers specifically
 	max_hp = 50
 	current_hp = max_hp
 	move_speed = 140.0  # Fast - cavalry speed

@@ -248,6 +248,70 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if game_state.get_building_count("barracks") < 1:
 				return "no_barracks"
 			return game_state.get_can_train_reason("militia")
+		"train_spearman":
+			if game_state.get_building_count("barracks") < 1:
+				return "no_barracks"
+			if game_state.get_enemy_cavalry_count() == 0:
+				return "no_enemy_cavalry"
+			return game_state.get_can_train_reason("spearman")
+		"train_archer":
+			if game_state.get_building_count("archery_range") < 1:
+				return "no_archery_range"
+			var ranged = game_state.get_unit_count("ranged")
+			var infantry = game_state.get_unit_count("infantry")
+			if ranged >= infantry + 2:
+				return "enough_ranged_%d_vs_%d_infantry" % [ranged, infantry]
+			return game_state.get_can_train_reason("archer")
+		"train_skirmisher":
+			if game_state.get_building_count("archery_range") < 1:
+				return "no_archery_range"
+			if game_state.get_enemy_archer_count() == 0:
+				return "no_enemy_archers"
+			return game_state.get_can_train_reason("skirmisher")
+		"train_scout_cavalry":
+			if game_state.get_building_count("stable") < 1:
+				return "no_stable"
+			var scouts = game_state.get_unit_count("scout_cavalry")
+			if scouts >= 3:
+				return "have_%d_scouts" % scouts
+			return game_state.get_can_train_reason("scout_cavalry")
+		"train_cavalry_archer":
+			if game_state.get_building_count("stable") < 1:
+				return "no_stable"
+			if game_state.get_resource("gold") <= 150:
+				return "not_enough_gold"
+			if game_state.get_military_population() < 3:
+				return "need_3_military_first"
+			return game_state.get_can_train_reason("cavalry_archer")
+		"build_archery_range":
+			if game_state.get_building_count("archery_range") > 0:
+				return "already_have_archery_range"
+			if game_state.get_building_count("barracks") < 1:
+				return "need_barracks_first"
+			var pop = game_state.get_civilian_population()
+			if pop < 8:
+				return "need_8_villagers_have_%d" % pop
+			return game_state.get_can_build_reason("archery_range")
+		"build_stable":
+			if game_state.get_building_count("stable") > 0:
+				return "already_have_stable"
+			if game_state.get_building_count("barracks") < 1:
+				return "need_barracks_first"
+			var pop = game_state.get_civilian_population()
+			if pop < 10:
+				return "need_10_villagers_have_%d" % pop
+			return game_state.get_can_build_reason("stable")
+		"defend_base":
+			if not game_state.is_under_attack():
+				return "not_under_attack"
+			if game_state.get_military_population() == 0:
+				return "no_military"
+		"scouting":
+			var scout_count = game_state.get_unit_count("scout_cavalry")
+			if scout_count == 0:
+				return "no_scouts"
+			if game_state.get_idle_scout() == null:
+				return "scouts_busy_%d" % scout_count
 		"attack":
 			var min_military = game_state.get_sn("sn_minimum_attack_group_size")
 			var current_military = game_state.get_military_population()
@@ -281,11 +345,17 @@ func _get_rule_blockers() -> Dictionary:
 	var blockers = {}
 
 	# Check key economy/military rules
+	var key_rules = [
+		"build_barracks", "build_archery_range", "build_stable",
+		"build_mill", "build_lumber_camp",
+		"train_militia", "train_archer", "train_scout_cavalry",
+		"defend_base", "attack"
+	]
 	for rule in rules:
 		if not rule.enabled:
 			continue
 		# Only report blockers for important rules that aren't firing
-		if rule.rule_name in ["build_barracks", "build_mill", "build_lumber_camp", "train_militia", "attack"]:
+		if rule.rule_name in key_rules:
 			if not rule.conditions(game_state):
 				blockers[rule.rule_name] = _get_rule_skip_reason(rule.rule_name, rule)
 
@@ -444,12 +514,16 @@ func _print_debug_state() -> void:
 	var militia_count = game_state.get_unit_count("militia")
 	var spearman_count = game_state.get_unit_count("spearman")
 	var archer_count = game_state.get_unit_count("archer")
+	var skirmisher_count = game_state.get_unit_count("skirmisher")
 	var scout_count = game_state.get_unit_count("scout_cavalry")
+	var cav_archer_count = game_state.get_unit_count("cavalry_archer")
 
 	# Get building counts
 	var tc_count = game_state.get_building_count("town_center")
 	var house_count = game_state.get_building_count("house")
 	var barracks_count = game_state.get_building_count("barracks")
+	var archery_range_count = game_state.get_building_count("archery_range")
+	var stable_count = game_state.get_building_count("stable")
 	var farm_count = game_state.get_building_count("farm")
 	var mill_count = game_state.get_building_count("mill")
 	var lumber_camp_count = game_state.get_building_count("lumber_camp")
@@ -507,12 +581,16 @@ func _print_debug_state() -> void:
 			"militia": militia_count,
 			"spearman": spearman_count,
 			"archer": archer_count,
+			"skirmisher": skirmisher_count,
 			"scout": scout_count,
+			"cav_archer": cav_archer_count,
 		},
 		"buildings": {
 			"town_center": tc_count,
 			"house": house_count,
 			"barracks": barracks_count,
+			"archery_range": archery_range_count,
+			"stable": stable_count,
 			"farm": farm_count,
 			"mill": mill_count,
 			"lumber_camp": lumber_camp_count,

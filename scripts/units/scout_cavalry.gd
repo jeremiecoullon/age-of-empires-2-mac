@@ -24,6 +24,7 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("cavalry")
+	add_to_group("scout_cavalry")  # For AI to count scouts specifically
 	max_hp = 45
 	current_hp = max_hp
 	move_speed = 150.0  # Medium speed cavalry (AoE2 spec: M)

@@ -8,16 +8,24 @@ This doc covers how to test and debug the AI player, including the automation in
 
 ### Running headless tests
 
+**Always use a timeout** to prevent tests from hanging forever:
+
 ```bash
 # Default: 600 game-seconds at 10x speed (~60 real seconds)
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn
+# Use 120s timeout (2x expected duration for safety margin)
+timeout 120 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn
 
 # Custom duration (e.g., 120 game-seconds for a quick 2-minute test)
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=120
+timeout 60 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=120
 
 # Custom time scale
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --timescale=5
+timeout 180 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --timescale=5
 ```
+
+**Timeout calculation:** `timeout_seconds = (duration / timescale) * 2`
+- Default (600s at 10x): `(600 / 10) * 2 = 120 seconds`
+- Quick test (120s at 10x): `(120 / 10) * 2 = 24 seconds` (use 60s minimum)
+- Slow test (600s at 5x): `(600 / 5) * 2 = 240 seconds`
 
 **Command-line arguments** (passed after `--`):
 - `--duration=<seconds>` - Test duration in game seconds (default: 600)

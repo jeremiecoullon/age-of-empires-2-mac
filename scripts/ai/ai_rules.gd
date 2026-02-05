@@ -442,6 +442,54 @@ class BuildBarracksRule extends AIRule:
 		_barracks_queued = true
 
 
+class BuildArcheryRangeRule extends AIRule:
+	var _archery_range_queued: bool = false
+
+	func _init():
+		rule_name = "build_archery_range"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Reset flag if building now exists
+		if gs.get_building_count("archery_range") > 0:
+			_archery_range_queued = false
+			return false
+
+		# Build archery range when we have barracks and 8+ villagers
+		# This gives us ranged options in addition to infantry
+		return not _archery_range_queued \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.get_civilian_population() >= 8 \
+			and gs.can_build("archery_range")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("archery_range")
+		_archery_range_queued = true
+
+
+class BuildStableRule extends AIRule:
+	var _stable_queued: bool = false
+
+	func _init():
+		rule_name = "build_stable"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Reset flag if building now exists
+		if gs.get_building_count("stable") > 0:
+			_stable_queued = false
+			return false
+
+		# Build stable when we have barracks and 10+ villagers
+		# Cavalry is more expensive, so wait for stronger economy
+		return not _stable_queued \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.get_civilian_population() >= 10 \
+			and gs.can_build("stable")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("stable")
+		_stable_queued = true
+
+
 # =============================================================================
 # MILITARY TRAINING
 # =============================================================================
@@ -457,6 +505,160 @@ class TrainMilitiaRule extends AIRule:
 
 	func actions(gs: AIGameState) -> void:
 		gs.train("militia")
+
+
+class TrainSpearmanRule extends AIRule:
+	func _init():
+		rule_name = "train_spearman"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Train spearmen as anti-cavalry - triggered by army composition logic
+		# For now, train if we have barracks and enemy has cavalry
+		if gs.get_building_count("barracks") < 1:
+			return false
+		if not gs.can_train("spearman"):
+			return false
+		# Only train spearmen if enemy has cavalry (counter unit)
+		return gs.get_enemy_cavalry_count() > 0
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("spearman")
+
+
+class TrainArcherRule extends AIRule:
+	func _init():
+		rule_name = "train_archer"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Train archers - good general ranged unit
+		if gs.get_building_count("archery_range") < 1:
+			return false
+		if not gs.can_train("archer"):
+			return false
+		# Train archers if we don't have many ranged units
+		# Ensure at least 3 archers can be trained, or up to infantry+2 for balanced army
+		var ranged_count = gs.get_unit_count("ranged")
+		var infantry_count = gs.get_unit_count("infantry")
+		return ranged_count < max(3, infantry_count + 2)
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("archer")
+
+
+class TrainSkirmisherRule extends AIRule:
+	func _init():
+		rule_name = "train_skirmisher"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Train skirmishers as anti-archer
+		if gs.get_building_count("archery_range") < 1:
+			return false
+		if not gs.can_train("skirmisher"):
+			return false
+		# Only train skirmishers if enemy has archers (counter unit)
+		return gs.get_enemy_archer_count() > 0
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("skirmisher")
+
+
+class TrainScoutCavalryRule extends AIRule:
+	func _init():
+		rule_name = "train_scout_cavalry"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Train at least one scout for scouting, then more for raiding
+		if gs.get_building_count("stable") < 1:
+			return false
+		if not gs.can_train("scout_cavalry"):
+			return false
+		# Always want at least 1 scout for scouting
+		var scout_count = gs.get_unit_count("scout_cavalry")
+		if scout_count < 1:
+			return true
+		# Train more scouts if we have good food income and not too many
+		return scout_count < 3 and gs.get_resource("food") > 150
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("scout_cavalry")
+
+
+class TrainCavalryArcherRule extends AIRule:
+	func _init():
+		rule_name = "train_cavalry_archer"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Train cavalry archers - mobile ranged, expensive
+		# Note: Despite being archers, cavalry archers train from stables (per AoE2 spec)
+		if gs.get_building_count("stable") < 1:
+			return false
+		if not gs.can_train("cavalry_archer"):
+			return false
+		# Only train cavalry archers when we have good gold income
+		# and already have some other military
+		return gs.get_resource("gold") > 150 \
+			and gs.get_military_population() >= 3
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("cavalry_archer")
+
+
+# =============================================================================
+# DEFENSE (Phase 3.1C)
+# =============================================================================
+
+class DefendBaseRule extends AIRule:
+	## When under attack, pull military back to defend the base
+	## This takes priority over attacking
+
+	func _init():
+		rule_name = "defend_base"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Defend if under attack and we have military
+		return gs.is_under_attack() \
+			and gs.get_military_population() > 0
+
+	func actions(gs: AIGameState) -> void:
+		# Find the nearest threat and attack it
+		var threat = gs.get_nearest_threat()
+		if threat:
+			gs.defend_against(threat)
+
+
+# =============================================================================
+# SCOUTING (Phase 3.1C)
+# =============================================================================
+
+class ScoutingRule extends AIRule:
+	## Sends idle scouts to explore the map
+	## Priority: 1) Player base area, 2) Map corners/edges
+	var _scout_targets: Array[Vector2] = []
+	var _current_target_index: int = 0
+
+	func _init():
+		rule_name = "scouting"
+		# Define scout targets - player base is first priority
+		# Map is 1920x1920, AI base is at (1700, 1700), Player base is near (480, 480)
+		_scout_targets = [
+			Vector2(500, 500),    # Player base area
+			Vector2(200, 200),    # Top-left corner
+			Vector2(1700, 200),   # Top-right corner
+			Vector2(200, 1700),   # Bottom-left corner
+			Vector2(960, 960),    # Center of map
+			Vector2(960, 200),    # Top center
+			Vector2(200, 960),    # Left center
+		]
+
+	func conditions(gs: AIGameState) -> bool:
+		# Scout if we have an idle scout
+		return gs.get_idle_scout() != null
+
+	func actions(gs: AIGameState) -> void:
+		# Get next target and cycle through
+		var target = _scout_targets[_current_target_index]
+		gs.scout_to(target)
+		_current_target_index = (_current_target_index + 1) % _scout_targets.size()
 
 
 # =============================================================================
@@ -505,8 +707,21 @@ static func create_all_rules() -> Array:
 		# Market trading (Phase 3.1B)
 		MarketSellRule.new(),
 		MarketBuyRule.new(),
-		# Military buildings
+		# Military buildings (Phase 3.1C)
 		BuildBarracksRule.new(),
+		BuildArcheryRangeRule.new(),
+		BuildStableRule.new(),
+		# Military training (Phase 3.1C)
 		TrainMilitiaRule.new(),
+		TrainSpearmanRule.new(),
+		TrainArcherRule.new(),
+		TrainSkirmisherRule.new(),
+		TrainScoutCavalryRule.new(),
+		TrainCavalryArcherRule.new(),
+		# Defense (Phase 3.1C)
+		DefendBaseRule.new(),
+		# Scouting (Phase 3.1C)
+		ScoutingRule.new(),
+		# Attack
 		AttackRule.new(),
 	]

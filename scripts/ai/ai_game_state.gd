@@ -160,6 +160,28 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "skirmishers"
 		"cavalry_archer":
 			group_name = "cavalry_archers"
+		"infantry":
+			# Count all infantry: militia + spearmen
+			var count = 0
+			for unit in scene_tree.get_nodes_in_group("infantry"):
+				if unit.team == AI_TEAM and not unit.is_dead:
+					count += 1
+			return count
+		"ranged":
+			# Count all ranged: archers + skirmishers + cavalry archers
+			var count = 0
+			for group in ["archers", "skirmishers", "cavalry_archers"]:
+				for unit in scene_tree.get_nodes_in_group(group):
+					if unit.team == AI_TEAM and not unit.is_dead:
+						count += 1
+			return count
+		"cavalry":
+			# Count all cavalry: scout_cavalry + cavalry_archers
+			var count = 0
+			for unit in scene_tree.get_nodes_in_group("cavalry"):
+				if unit.team == AI_TEAM and not unit.is_dead:
+					count += 1
+			return count
 
 	var count = 0
 	for unit in scene_tree.get_nodes_in_group(group_name):
@@ -206,6 +228,66 @@ func get_idle_villager_count() -> int:
 		if villager.team == AI_TEAM and not villager.is_dead:
 			if villager.current_state == villager.State.IDLE:
 				count += 1
+	return count
+
+
+# =============================================================================
+# CONDITION HELPERS - Enemy Unit Counts (for counter-unit decisions)
+# =============================================================================
+
+func get_enemy_unit_count(unit_type: String) -> int:
+	## Returns count of enemy (player) units of specified type
+	var group_name = unit_type
+	match unit_type:
+		"villager":
+			group_name = "villagers"
+		"militia":
+			group_name = "militia"
+		"spearman":
+			group_name = "spearmen"
+		"archer":
+			group_name = "archers"
+		"scout_cavalry", "scout":
+			group_name = "scout_cavalry"
+		"skirmisher":
+			group_name = "skirmishers"
+		"cavalry_archer":
+			group_name = "cavalry_archers"
+
+	var count = 0
+	for unit in scene_tree.get_nodes_in_group(group_name):
+		if unit.team != AI_TEAM and unit.team >= 0 and not unit.is_dead:
+			count += 1
+	return count
+
+
+func get_enemy_cavalry_count() -> int:
+	## Returns count of enemy cavalry units (scout cavalry + cavalry archers)
+	## Used to decide whether to train spearmen (anti-cavalry)
+	var count = 0
+	for unit in scene_tree.get_nodes_in_group("cavalry"):
+		if unit.team != AI_TEAM and unit.team >= 0 and not unit.is_dead:
+			count += 1
+	return count
+
+
+func get_enemy_archer_count() -> int:
+	## Returns count of enemy ranged units in the archers group.
+	## Includes: archers, skirmishers, cavalry archers.
+	## Used to decide whether to train skirmishers (anti-archer).
+	var count = 0
+	for unit in scene_tree.get_nodes_in_group("archers"):
+		if unit.team != AI_TEAM and unit.team >= 0 and not unit.is_dead:
+			count += 1
+	return count
+
+
+func get_enemy_infantry_count() -> int:
+	## Returns count of enemy infantry units (militia + spearmen)
+	var count = 0
+	for unit in scene_tree.get_nodes_in_group("infantry"):
+		if unit.team != AI_TEAM and unit.team >= 0 and not unit.is_dead:
+			count += 1
 	return count
 
 
@@ -264,6 +346,56 @@ func get_can_train_reason(unit_type: String) -> String:
 			if not GameManager.can_afford("wood", barracks.SPEARMAN_WOOD_COST, AI_TEAM):
 				return "insufficient_wood"
 			return "ok"
+		"archer":
+			var archery_range = _get_ai_building("archery_range")
+			if not archery_range:
+				return "no_archery_range"
+			if not archery_range.is_functional():
+				return "archery_range_not_functional"
+			if archery_range.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", archery_range.ARCHER_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", archery_range.ARCHER_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+		"skirmisher":
+			var archery_range = _get_ai_building("archery_range")
+			if not archery_range:
+				return "no_archery_range"
+			if not archery_range.is_functional():
+				return "archery_range_not_functional"
+			if archery_range.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", archery_range.SKIRMISHER_FOOD_COST, AI_TEAM):
+				return "insufficient_food"
+			if not GameManager.can_afford("wood", archery_range.SKIRMISHER_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			return "ok"
+		"scout_cavalry":
+			var stable = _get_ai_building("stable")
+			if not stable:
+				return "no_stable"
+			if not stable.is_functional():
+				return "stable_not_functional"
+			if stable.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", stable.SCOUT_CAVALRY_FOOD_COST, AI_TEAM):
+				return "insufficient_food"
+			return "ok"
+		"cavalry_archer":
+			var stable = _get_ai_building("stable")
+			if not stable:
+				return "no_stable"
+			if not stable.is_functional():
+				return "stable_not_functional"
+			if stable.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", stable.CAVALRY_ARCHER_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", stable.CAVALRY_ARCHER_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
 
 	return "unknown_unit_type"
 
@@ -308,6 +440,46 @@ func is_under_attack() -> bool:
 					if unit.global_position.distance_to(building.global_position) < THREAT_DISTANCE:
 						return true
 	return false
+
+
+func get_nearest_threat() -> Node:
+	## Returns the nearest enemy military unit threatening an AI building
+	## Returns null if no threats
+	const THREAT_DISTANCE: float = 300.0
+	var nearest_threat: Node = null
+	var nearest_dist: float = INF
+
+	var base_pos = _get_ai_base_position()
+
+	for unit in scene_tree.get_nodes_in_group("military"):
+		if unit.team != AI_TEAM and unit.team >= 0 and not unit.is_dead:
+			# Check if this unit is near any AI building
+			for building in scene_tree.get_nodes_in_group("buildings"):
+				if building.team == AI_TEAM and not building.is_destroyed:
+					if unit.global_position.distance_to(building.global_position) < THREAT_DISTANCE:
+						# This unit is a threat - check if it's the nearest
+						var dist = base_pos.distance_to(unit.global_position)
+						if dist < nearest_dist:
+							nearest_dist = dist
+							nearest_threat = unit
+						break  # Already confirmed as threat, check next unit
+
+	return nearest_threat
+
+
+func defend_against(threat: Node) -> void:
+	## Commands all AI military units to attack the threatening unit
+	if not is_instance_valid(threat) or threat.is_dead:
+		return
+
+	var units_sent = 0
+	for unit in scene_tree.get_nodes_in_group("military"):
+		if unit.team == AI_TEAM and not unit.is_dead:
+			if unit.has_method("command_attack"):
+				unit.command_attack(threat)
+				units_sent += 1
+
+	_log_action("defend", {"units": units_sent, "target": threat.name})
 
 
 func get_game_time() -> float:
@@ -382,6 +554,28 @@ func build_near_resource(building_type: String, resource_type: String) -> void:
 
 func attack_now() -> void:
 	_attack_requested = true
+
+
+func scout_to(target_position: Vector2) -> void:
+	## Send an idle scout cavalry to the target position
+	for unit in scene_tree.get_nodes_in_group("scout_cavalry"):
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+		# Find an idle scout
+		if unit.current_state == unit.State.IDLE:
+			unit.move_to(target_position)
+			_log_action("scout", {"target": [int(target_position.x), int(target_position.y)]})
+			return
+
+
+func get_idle_scout() -> Node:
+	## Returns an idle scout cavalry unit, or null if none available
+	for unit in scene_tree.get_nodes_in_group("scout_cavalry"):
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+		if unit.current_state == unit.State.IDLE:
+			return unit
+	return null
 
 
 func market_buy(resource_type: String) -> void:
@@ -502,6 +696,26 @@ func _do_train(unit_type: String) -> void:
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
 				barracks.train_spearman()
+				success = true
+		"archer":
+			var archery_range = _get_ai_building("archery_range")
+			if archery_range and archery_range.is_functional():
+				archery_range.train_archer()
+				success = true
+		"skirmisher":
+			var archery_range = _get_ai_building("archery_range")
+			if archery_range and archery_range.is_functional():
+				archery_range.train_skirmisher()
+				success = true
+		"scout_cavalry":
+			var stable = _get_ai_building("stable")
+			if stable and stable.is_functional():
+				stable.train_scout_cavalry()
+				success = true
+		"cavalry_archer":
+			var stable = _get_ai_building("stable")
+			if stable and stable.is_functional():
+				stable.train_cavalry_archer()
 				success = true
 
 	if success:

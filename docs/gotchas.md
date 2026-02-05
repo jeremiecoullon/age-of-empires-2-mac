@@ -297,3 +297,25 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Villagers handle depletion naturally**: When a villager's target resource depletes mid-gather, they automatically become IDLE (villager.gd:94-106). No special "stranded gatherer" detection needed - the normal assignment loop picks them up.
 
 - **Prefer farms over distant hunting**: When farms exist near base and huntable animals are far (> 300px from base), skip the HuntRule and let the general villager assignment send villagers to farms instead. Farms are renewable and near drop-offs - more efficient than chasing distant deer. Add `has_nearby_farms()` and `get_nearest_huntable_distance()` helpers to support this check.
+
+### Phase 3.1C - Full Military + Intelligence
+
+- **Counter-unit logic requires enemy detection helpers**: Rules like TrainSpearmanRule need to know enemy army composition. Add `get_enemy_cavalry_count()`, `get_enemy_archer_count()`, etc. to AIGameState. Exclude dead units and AI's own units from these counts.
+
+- **Scout cavalry trains from stable (not archery range)**: Despite being a ranged unit, cavalry archers train from the stable per AoE2 spec. Document this clearly in the rule code to avoid confusion.
+
+- **Unit groups for category counting**: To count units by category (infantry, ranged, cavalry), use groups. Add units to appropriate groups: "infantry", "cavalry", "archer" (ranged group), etc. This enables flexible queries like `get_unit_count("infantry")` without hardcoding unit type lists.
+
+- **Scout cavalry must be in scout_cavalry group**: The AI's `get_unit_count("scout_cavalry")` relies on the unit being in the "scout_cavalry" group. If the group membership is missing from the unit's script, counting will always return 0.
+
+- **Scouting skip reason should be specific**: Distinguish between "no_scouts" (don't have any) vs "scouts_busy_N" (have N scouts but all are moving). Helps debug why scouting isn't happening.
+
+- **TrainArcherRule floor prevents deadlock**: The condition `ranged_count < max(3, infantry_count + 2)` ensures at least 3 archers can be trained even if the AI has no infantry. Without the `max(3, ...)`, archers would never be trained if the AI built archery range before barracks.
+
+- **Defense rule checks is_under_attack()**: The `is_under_attack()` method detects enemy military within 300px of any AI building. The defense rule then uses `get_nearest_threat()` to find the closest threat and `defend_against()` to send military units.
+
+- **Units must be in specific groups for AI counting**: When adding new units, add them to their own group (e.g., "skirmishers", "cavalry_archers") in addition to category groups (e.g., "archers", "cavalry"). The AI's `get_unit_count()` relies on exact group names. Missing group = counting returns 0.
+
+- **Avoid double-counting when iterating multiple groups**: If a unit belongs to multiple groups (e.g., cavalry_archer in both "archers" and "cavalry"), don't iterate both groups and count. Either iterate only one group (if they're superset/subset) or track seen instance IDs.
+
+- **AI test timeout is mandatory**: Always use `timeout` when running AI headless tests. Formula: `timeout_seconds = (duration / timescale) * 2`. Without timeout, tests can hang indefinitely if the AI gets stuck. Example: `timeout 120 godot --headless ... scenes/test_ai_solo.tscn`

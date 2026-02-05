@@ -25,6 +25,7 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("archers")  # Counts as archer-type for targeting
+	add_to_group("skirmishers")  # For AI to count skirmishers specifically
 	max_hp = 30
 	current_hp = max_hp
 	move_speed = 96.0
