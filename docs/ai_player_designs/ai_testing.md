@@ -209,8 +209,8 @@ When building new game features, the AI player needs to be updated to use those 
 |-------|--------|------|-------|
 | A | Complete | 2026-02-05 | summary.json + logs.txt working |
 | B | Complete | 2026-02-05 | ai-observer agent created |
-| C | Not started | | Only if needed |
-| D | Not started | | After A/B/C prove useful |
+| C | Not started | | ai-updater agent, only if needed |
+| D | Complete | 2026-02-05 | CLAUDE.md and roadmap.md updated |
 
 ---
 

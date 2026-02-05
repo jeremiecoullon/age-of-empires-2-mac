@@ -57,7 +57,7 @@ Before starting each phase, follow this process:
    - If refactor needed → Do it first. Commit separately. Then build features.
    - If not → Proceed with the phase.
 
-**Important:** You (the agent) determine what refactoring is needed based on the actual codebase at that moment. Nothing is pre-defined. Use your judgment. Keep refactors minimal and targeted - only fix what will actually cause problems.
+**Important:** You (the agent) determine what refactoring is needed based on the actual codebase at that moment. Nothing is pre-defined. Use your judgment. YAGNI - only fix what will actually cause problems.
 
 **Common areas to watch** (not exhaustive):
 - Resource/economy systems
@@ -84,6 +84,12 @@ Before starting each phase, follow this process:
 
 - **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
 - **Run the test agent** to write automated tests for the phase. The test agent receives the checkpoint doc and relevant source files, writes tests, and returns a brief summary of what was tested. Add this summary to the checkpoint doc's "Test Coverage" section.
+- **Run the ai-observer agent** if the phase affects AI behavior. This includes phases that:
+  - Modify `scripts/ai/` files
+  - Add new buildings, units, or technologies
+  - Add mechanics the AI needs to use (resources, combat systems, etc.)
+
+  The ai-observer runs a headless game test and analyzes whether the AI plays competently. See `docs/ai_player_designs/ai_testing.md` for details. Add test results to the checkpoint doc's "AI Behavior Tests" section.
 - **Update `docs/gotchas.md`** — This is REQUIRED, not optional. Add a new section header for the phase (e.g., "### Phase 3E - Economic Intelligence") and document:
   - Patterns that worked or didn't work
   - Non-obvious implementation details future agents need to know
