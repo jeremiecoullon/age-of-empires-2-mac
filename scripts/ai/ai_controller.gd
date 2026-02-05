@@ -45,6 +45,16 @@ var game_time_elapsed: float = 0.0  # Tracks game time (respects Engine.time_sca
 ## Debug: Set to true to print AI state every 10 seconds
 @export var debug_print_enabled: bool = true
 
+
+func _log(message: String) -> void:
+	## Central logging method. Prints to stdout and calls log callback if set.
+	print(message)
+	# Check for log callback (set by test controller)
+	if has_meta("log_callback"):
+		var callback = get_meta("log_callback")
+		if callback is Callable:
+			callback.call(message)
+
 # Game state wrapper
 var game_state: AIGameState = null
 
@@ -262,7 +272,7 @@ func _log_rule_tick(fired: Array[String], skipped: Dictionary) -> void:
 		"fired": fired,
 		"skipped": skipped
 	}
-	print("RULE_TICK|" + JSON.stringify(log_data))
+	_log("RULE_TICK|" + JSON.stringify(log_data))
 
 
 func _get_rule_blockers() -> Dictionary:
@@ -292,7 +302,7 @@ func _assign_villagers() -> void:
 
 	# Log idle villager assignment attempt
 	if debug_print_enabled:
-		print("AI_ASSIGN|{\"t\":%.1f,\"idle_count\":%d,\"assigning\":true}" % [game_time_elapsed, idle_villagers.size()])
+		_log("AI_ASSIGN|{\"t\":%.1f,\"idle_count\":%d,\"assigning\":true}" % [game_time_elapsed, idle_villagers.size()])
 
 	# Get target percentages
 	var food_pct = strategic_numbers["sn_food_gatherer_percentage"]
@@ -541,7 +551,7 @@ func _print_debug_state() -> void:
 		},
 	}
 
-	print("AI_STATE|" + JSON.stringify(state))
+	_log("AI_STATE|" + JSON.stringify(state))
 
 
 func get_status() -> Dictionary:

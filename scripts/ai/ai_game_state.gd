@@ -311,7 +311,9 @@ func is_under_attack() -> bool:
 
 
 func get_game_time() -> float:
-	return Time.get_ticks_msec() / 1000.0
+	# Use controller's game_time_elapsed which respects Engine.time_scale
+	# This ensures timers work correctly at any time scale (e.g., 10x in tests)
+	return controller.game_time_elapsed
 
 
 # =============================================================================
@@ -475,7 +477,12 @@ func _log_action(action_type: String, data: Dictionary) -> void:
 	## Log an AI action for debugging/observability
 	var log_data = {"t": snappedf(controller.game_time_elapsed, 0.1), "action": action_type}
 	log_data.merge(data)
-	print("AI_ACTION|" + JSON.stringify(log_data))
+	var message = "AI_ACTION|" + JSON.stringify(log_data)
+	# Use controller's logging method if available
+	if controller and controller.has_method("_log"):
+		controller._log(message)
+	else:
+		print(message)
 
 
 func _do_train(unit_type: String) -> void:
