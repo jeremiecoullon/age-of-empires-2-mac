@@ -430,7 +430,7 @@ When a phase includes features that affect AI behavior, the workflow becomes:
 |------|------|-------|
 | 1 | Build new game feature | Human / Phase agent |
 | 2 | Run spec-check (if units/buildings/techs) | spec-check agent |
-| 3 | Update AI to use new feature | **ai-updater agent** (Phase C) or manual |
+| 3 | Update AI to use new feature (include skip reasons, milestones) | **ai-updater agent** (Phase C) or manual |
 | 4 | Code review all changes | code-reviewer agent |
 | 5 | Run AI behavior test | **ai-observer agent** (Phase B) or manual |
 | 6 | Write unit tests | test-writer agent |

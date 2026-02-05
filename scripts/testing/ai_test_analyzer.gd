@@ -17,6 +17,9 @@ var milestones: Dictionary = {
 	"first_lumber_camp": null,
 	"first_mill": null,
 	"first_mining_camp": null,
+	"first_archery_range": null,
+	"first_stable": null,
+	"first_market": null,
 	"reached_5_villagers": null,
 	"reached_10_villagers": null,
 	"reached_15_villagers": null,
@@ -93,7 +96,7 @@ func record_attack() -> void:
 
 func _check_milestones(game_time: float, state) -> void:
 	# Building milestones
-	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp"]
+	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market"]
 	for building_type in building_types:
 		var milestone_key = "first_" + building_type
 		if milestones[milestone_key] == null:

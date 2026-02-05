@@ -135,6 +135,11 @@ This is different from unit tests: unit tests verify code correctness (determini
 - After adding game features the AI should use (new buildings, units, techs)
 - When debugging AI behavior issues
 
+**When adding new AI rules:** Include observability so tests can track the new behavior:
+- Add skip reasons to `ai_controller.gd` (explains why rules don't fire)
+- Add milestones to `ai_test_analyzer.gd` for new buildings/units
+- Update `AI_STATE` logging if new counts are needed
+
 **Optional focus areas:** You can ask the agent to focus on specific aspects (e.g., "focus on economy", "check military production", "analyze first 3 minutes").
 
 See `docs/ai_player_designs/ai_testing.md` for full documentation of the test infrastructure.
