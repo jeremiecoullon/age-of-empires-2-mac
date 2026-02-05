@@ -942,14 +942,15 @@ func assign_villager_to_resource(villager: Node, resource_type: String) -> void:
 	var used_farm_preference = false
 
 	if nearest_available:
-		# For food: prefer farms over distant berries/carcasses
-		# Check distance from BASE (not villager) to decide if non-farm food is "distant"
+		# For food: ALWAYS prefer farms over non-farm food if farms exist
+		# Farms are renewable, near base, and have drop-offs - much better than distant berries
 		if resource_type == "food" and nearest_farm:
-			var is_non_farm = not nearest_available.is_in_group("farms")
-			if is_non_farm:
-				var non_farm_dist_from_base = base_pos.distance_to(nearest_available.global_position)
-				if non_farm_dist_from_base > PREFER_FARMS_DISTANCE:
-					# Non-farm food is far from base - prefer farm instead
+			var chosen_is_farm = nearest_available.is_in_group("farms")
+			if not chosen_is_farm:
+				# The nearest available food is NOT a farm - check if we should use farm instead
+				var farm_dist_from_base = base_pos.distance_to(nearest_farm.global_position)
+				# If farm is reasonably close to base, prefer it over any non-farm food
+				if farm_dist_from_base < PREFER_FARMS_DISTANCE:
 					chosen_resource = nearest_farm
 					chosen_dist = nearest_farm_dist
 					used_farm_preference = true
