@@ -144,85 +144,7 @@ When analyzing AI output, check:
 
 ---
 
-## Automation plan
-
-This section describes the phased plan for automating AI testing. Each phase validates value before building the next.
-
-### Overview
-
-When building new game features, the AI player needs to be updated to use those features. This automation infrastructure:
-
-1. Produces structured test output (summary.json) instead of parsing stdout
-2. Enables agents to run tests and analyze failures
-3. (Optionally) automates AI rule updates for new features
-
-### Phase A: Summary infrastructure
-
-**Build:** `summary.json` output from test runner with milestones, anomalies, and pass/fail checks.
-
-**What you get:**
-- Structured test output instead of parsing stdout
-- Milestone timings for regression detection
-- Anomaly detection (idle villagers, high drop distance)
-- Pass/fail verdict with specific failure reasons
-
-**Validation gate:** Run manually. Is the summary useful for debugging? Does it catch real issues? If yes, proceed to Phase B.
-
-**No agents yet.** Human reads summary.json directly.
-
-### Phase B: ai-observer agent
-
-**Build:** Agent that runs the test, reads summary.json, and on failure digs into logs.txt to analyze.
-
-**What you get:**
-- Automated test execution + analysis
-- Detailed failure reports with suggested investigation areas
-- Less manual log-reading
-
-**Validation gate:** Run ai-observer on 2-3 game phases. Does it save time vs reading the summary yourself? Does its analysis help? If yes, consider Phase C.
-
-**AI rule changes still manual.**
-
-### Phase C: ai-updater agent
-
-**Build:** Agent that modifies AI rules when new game features are added.
-
-**What you get:**
-- Automated AI rule creation for new features
-- Reduces context load on the main phase agent (which already handles feature code, spec-check, code review, tests, checkpoint docs)
-- Consistent rule patterns (the ai-updater specializes in AI rules)
-
-**Why this matters:** Looking at the roadmap, every future phase adds features the AI needs to use (age advancement, new units, new buildings, new mechanics). AI rule updates aren't optional - they're required for every phase. Having a specialized agent keeps the main phase agent focused on game features while the ai-updater handles AI integration.
-
-**When to add:** After Phases A+B provide confidence that issues will be caught. The ai-observer agent is the safety net - if the ai-updater makes a mistake, the ai-observer's checks and analysis will surface it.
-
-**Risk mitigation:** The risk isn't "will we need this" (we will), it's "can we catch mistakes". That's why A and B come first.
-
-### Phase D: Documentation cleanup
-
-**Build:** Update project documentation to reference the new AI testing infrastructure.
-
-**What to update:**
-- `README.md` - Add AI testing to development section if relevant
-- `CLAUDE.md` - Add instructions for when/how to run AI behavior tests
-- `docs/roadmap.md` - Reference AI testing in phase workflow if it becomes part of standard process
-
-**Why:** Future agents need to know this infrastructure exists and when to use it.
-
----
-
-## Implementation status
-
-| Phase | Status | Date | Notes |
-|-------|--------|------|-------|
-| A | Complete | 2026-02-05 | summary.json + logs.txt working |
-| B | Complete | 2026-02-05 | ai-observer agent created |
-| C | Not started | | ai-updater agent, only if needed |
-| D | Complete | 2026-02-05 | CLAUDE.md and roadmap.md updated |
-
----
-
-## Implementation details
+## Output format
 
 ### Test output structure
 
@@ -388,11 +310,9 @@ Changes made:
 
 ---
 
-## Agent definitions
+## ai-observer agent
 
-### ai-observer agent
-
-**Location:** `.claude/agents/ai-observer.md` (to be created in Phase B)
+**Location:** `.claude/agents/ai-observer.md`
 
 **Scope:** Read-only analysis (does not modify code)
 
@@ -403,44 +323,6 @@ Changes made:
 4. If `overall_pass` is false: read `logs.txt`, analyze logs around failure times, report with suggested investigation areas
 
 **Output:** Markdown report with pass/fail status, milestone timings, anomalies, and analysis.
-
-### ai-updater agent
-
-**Location:** `.claude/agents/ai-updater.md` (to be created in Phase C)
-
-**Scope:**
-- `scripts/ai/ai_rules.gd` - Add new rules, modify existing if needed
-- `scripts/ai/ai_game_state.gd` - Add helper methods
-- `scripts/ai/ai_controller.gd` - Modify if needed
-
-**What it does:**
-- Adds new rules for new features
-- Modifies existing rules if the new feature requires it
-- Adds observability for the new behavior
-
-**Conservative modification principle:** When modifying existing rules, prefer minimal changes. Don't refactor rules that work unless the new feature requires it.
-
----
-
-## Where this fits in the phase workflow
-
-When a phase includes features that affect AI behavior, the workflow becomes:
-
-| Step | What | Agent |
-|------|------|-------|
-| 1 | Build new game feature | Human / Phase agent |
-| 2 | Run spec-check (if units/buildings/techs) | spec-check agent |
-| 3 | Update AI to use new feature (include skip reasons, milestones) | **ai-updater agent** (Phase C) or manual |
-| 4 | Code review all changes | code-reviewer agent |
-| 5 | Run AI behavior test | **ai-observer agent** (Phase B) or manual |
-| 6 | Write unit tests | test-writer agent |
-| 7 | Write checkpoint doc | Human / Phase agent |
-
-**Important distinction:**
-- **ai-observer agent** - Runs the game headless and analyzes AI behavior (game-level outcomes, stochastic, slow)
-- **test-writer agent** - Writes GDScript unit tests in `tests/` (code correctness, deterministic, fast)
-
-Both are needed. Unit tests verify code works correctly. AI behavior tests verify the AI plays the game competently.
 
 ---
 
@@ -473,98 +355,19 @@ If the test fails and is fixed, document what was wrong and how it was fixed.
 
 ---
 
-## Implementation notes
+## Gotchas
 
-*(This section will be updated as phases are completed)*
+**Timer bug pattern:** Any time-based logic that uses wall clock (`Time.get_ticks_msec()`) instead of game time (`controller.game_time_elapsed`) will behave differently at accelerated speeds. This caused AI attack timers to not trigger at 10x speed.
 
-### Phase A notes
+**AI variance:** AI behavior has randomness (resource placement, decision timing). Don't fail on single anomalies — look for patterns across the test run. Focus on clear failures (milestones missed, checks failed).
 
-**Completed 2026-02-05**
+**Known efficiency issues:** The current AI has known issues that are tracked as anomalies but don't fail tests:
+- Drop distances can exceed 800px (villagers walk far)
+- Gatherer clustering can reach 4-5 on same resource
 
-Files created/modified:
-- `scripts/testing/ai_test_analyzer.gd` (new) - Tracks milestones, detects anomalies, generates summary
-- `scripts/testing/ai_solo_test.gd` (modified) - Integrates analyzer, writes output files
-- `scripts/ai/ai_controller.gd` (modified) - Added `_log()` method with callback support
-- `scripts/ai/ai_game_state.gd` (modified) - Fixed `get_game_time()` to use game time not wall clock
+**Short test checks:** The `villagers_at_180s` check will fail for tests with `--duration < 180`. This is expected, not a bug.
 
-Output location: `logs/testing_logs/ai_test_<timestamp>/` (gitignored)
-
-**Key design decisions:**
-- **Polling for milestones** instead of signals - simpler implementation, analyzer checks building/unit counts each tick
-- **Log callback pattern** - test controller sets a meta callback on ai_controller, all logs flow through `_log()` method
-- **Anomaly debouncing** - same anomaly type won't be logged again within 30-60s to avoid spam
-- **Single source of truth for time** - test uses `ai_controller.game_time_elapsed`, not separate tracking
-- **Throttled anomaly checks** - expensive `get_nodes_in_group()` calls throttled to 0.5s intervals
-
-**Bugs found and fixed during Phase A:**
-1. **Timer bug** - `get_game_time()` was using `Time.get_ticks_msec()` (real wall-clock time) instead of game time. This caused AI attack timers to not trigger at 10x speed (120s timer = 120 real seconds, but test only runs 60 real seconds). Fixed by using `controller.game_time_elapsed`.
-
-**Threshold adjustments:**
-- Drop distance checks removed from pass/fail (kept as informational anomalies)
-- Gatherer clustering check removed from pass/fail (kept as informational)
-- Added `military_by_450s` check for 10-minute tests
-- Current thresholds in `ai_test_analyzer.gd`:
-  - `FOOD_DROP_DISTANCE_THRESHOLD = 700.0` (anomaly only)
-  - `WOOD_DROP_DISTANCE_THRESHOLD = 900.0` (anomaly only)
-  - `IDLE_THRESHOLD_SECONDS = 30.0`
-  - `STUCK_THRESHOLD_SECONDS = 60.0`
-
-**Validation results:**
-- Summary correctly detected real issues (timer bug, high drop distances, stuck villagers)
-- Milestones tracked accurately (first_house, first_barracks, first_military, first_attack)
-- Test passes when AI behavior is reasonable (all core checks green)
-
-### Phase B notes
-
-**Completed 2026-02-05**
-
-Files created/modified:
-- `.claude/agents/ai-observer.md` (new) - Agent definition for running and analyzing AI tests
-- `CLAUDE.md` (modified) - Added "AI Behavior Testing" section
-- `scripts/testing/ai_solo_test.gd` (modified) - Added command-line argument parsing for `--duration` and `--timescale`, PID in output directory for parallel runs
-
-**Model:** Haiku (cost-effective for this read-analyze-report task)
-
-**Agent capabilities:**
-- Runs headless test via bash with configurable duration (`--duration=<seconds>`) and time scale (`--timescale=<multiplier>`)
-- Parses `AI_TEST_END` from stdout to find output directory
-- Reads `summary.json` first (low context approach)
-- On failure, reads `logs.txt` and analyzes around failure timestamps
-- Accepts optional focus parameters (e.g., "focus on economy", "check military production", "quick test")
-- Writes `report.md` to the output directory
-- Returns full report to orchestrator
-
-**Gotchas for ai-observer agent:**
-
-1. **AI variance** - AI behavior has randomness (resource placement, decision timing). The agent should:
-   - Not fail on single anomalies that could be variance
-   - Look for patterns across the test run
-   - Focus on clear failures (milestones missed, checks failed)
-
-2. **Known issues vs bugs** - The current AI has known efficiency issues:
-   - Drop distances can exceed 800px (villagers walk far)
-   - Gatherer clustering can reach 4-5 on same resource
-   - These are tracked as anomalies but shouldn't be treated as test failures
-
-3. **Log analysis strategy** - When `overall_pass` is false:
-   - Check `failure_reasons` first
-   - Look at `milestones_missed`
-   - Search logs.txt around the relevant timestamps
-   - Look for `RULE_TICK` entries showing why rules didn't fire
-
-4. **Test duration** - Default is 600 game seconds (10 minutes). Military production typically starts around 370-420s. Tests shorter than 450s may not see military.
-
-5. **Short test checks** - The `villagers_at_180s` check will fail for tests with `--duration < 180`. This is expected behavior, not a bug. When running short tests (e.g., `--duration=120`), expect this check to fail.
-
-6. **Timer bug pattern** - The timer bug found in Phase A (real time vs game time) is a pattern to watch for. Any time-based logic that uses wall clock instead of game time will behave differently at accelerated speeds.
-
-### Phase C notes
-
-*(To be filled in during implementation)*
-
-### Phase D notes
-
-*(To be filled in during implementation)*
+**Military timing:** Military production typically starts around 370-420s. Tests shorter than 450s may not see military.
 
 ---
 
@@ -572,5 +375,3 @@ Files created/modified:
 
 - `ai_behavior_checklist.md` - Behavior expectations (source for automated checks)
 - `godot_rule_implementation.md` - AI rule system design
-- `docs/phase_checkpoints/phase-3.1a.md` - Rule engine patterns
-- `docs/phase_checkpoints/phase-3.1b.md` - Economy rules patterns
