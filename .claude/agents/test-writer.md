@@ -13,7 +13,21 @@ Given a checkpoint doc (or description of work) and source files, write focused 
 
 ## Test Framework
 
-This project uses a simple GDScript test framework in `tests/`. Tests are run by opening `tests/test_scene.tscn` in Godot and running the scene.
+This project uses a simple GDScript test framework in `tests/`.
+
+### Running Tests
+
+**Always run tests in two steps:**
+
+```bash
+# Step 1: Validate project imports correctly (catches .tscn/.tres syntax errors)
+/Applications/Godot.app/Contents/MacOS/Godot --headless --import --path .
+
+# Step 2: Run the test suite
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
+```
+
+Both steps are required. Exit code 0 = all passed, 1 = failures.
 
 ### Test File Structure
 
