@@ -9,10 +9,19 @@ This doc covers how to test and debug the AI player, including the automation in
 ### Running headless tests
 
 ```bash
+# Default: 600 game-seconds at 10x speed (~60 real seconds)
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn
+
+# Custom duration (e.g., 120 game-seconds for a quick 2-minute test)
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=120
+
+# Custom time scale
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --timescale=5
 ```
 
-This runs the AI for 600 game-seconds at 10x speed (~60 real seconds).
+**Command-line arguments** (passed after `--`):
+- `--duration=<seconds>` - Test duration in game seconds (default: 600)
+- `--timescale=<multiplier>` - Game speed multiplier (default: 10.0)
 
 **Output:** `logs/testing_logs/ai_test_<timestamp>/` containing:
 - `summary.json` - Structured pass/fail, milestones, anomalies
@@ -199,7 +208,7 @@ When building new game features, the AI player needs to be updated to use those 
 | Phase | Status | Date | Notes |
 |-------|--------|------|-------|
 | A | Complete | 2026-02-05 | summary.json + logs.txt working |
-| B | Not started | | After A proves useful |
+| B | Complete | 2026-02-05 | ai-observer agent created |
 | C | Not started | | Only if needed |
 | D | Not started | | After A/B/C prove useful |
 
@@ -499,7 +508,25 @@ Output location: `logs/testing_logs/ai_test_<timestamp>/` (gitignored)
 
 ### Phase B notes
 
-**Gotchas for Phase B (ai-observer agent):**
+**Completed 2026-02-05**
+
+Files created/modified:
+- `.claude/agents/ai-observer.md` (new) - Agent definition for running and analyzing AI tests
+- `CLAUDE.md` (modified) - Added "AI Behavior Testing" section
+- `scripts/testing/ai_solo_test.gd` (modified) - Added command-line argument parsing for `--duration` and `--timescale`, PID in output directory for parallel runs
+
+**Model:** Haiku (cost-effective for this read-analyze-report task)
+
+**Agent capabilities:**
+- Runs headless test via bash with configurable duration (`--duration=<seconds>`) and time scale (`--timescale=<multiplier>`)
+- Parses `AI_TEST_END` from stdout to find output directory
+- Reads `summary.json` first (low context approach)
+- On failure, reads `logs.txt` and analyzes around failure timestamps
+- Accepts optional focus parameters (e.g., "focus on economy", "check military production", "quick test")
+- Writes `report.md` to the output directory
+- Returns full report to orchestrator
+
+**Gotchas for ai-observer agent:**
 
 1. **AI variance** - AI behavior has randomness (resource placement, decision timing). The agent should:
    - Not fail on single anomalies that could be variance
@@ -519,7 +546,9 @@ Output location: `logs/testing_logs/ai_test_<timestamp>/` (gitignored)
 
 4. **Test duration** - Default is 600 game seconds (10 minutes). Military production typically starts around 370-420s. Tests shorter than 450s may not see military.
 
-5. **Timer bug pattern** - The timer bug found in Phase A (real time vs game time) is a pattern to watch for. Any time-based logic that uses wall clock instead of game time will behave differently at accelerated speeds.
+5. **Short test checks** - The `villagers_at_180s` check will fail for tests with `--duration < 180`. This is expected behavior, not a bug. When running short tests (e.g., `--duration=120`), expect this check to fail.
+
+6. **Timer bug pattern** - The timer bug found in Phase A (real time vs game time) is a pattern to watch for. Any time-based logic that uses wall clock instead of game time will behave differently at accelerated speeds.
 
 ### Phase C notes
 

@@ -6,7 +6,7 @@ class_name AISoloTest
 ## Outputs structured summary.json and logs.txt to /tmp/ai_test_<timestamp>/
 
 @export var time_scale: float = 10.0
-@export var test_duration: float = 300.0  # Game seconds (5 minutes)
+@export var test_duration: float = 600.0  # Game seconds (10 minutes default)
 
 var test_started: bool = false
 
@@ -24,12 +24,17 @@ var ai_controller: Node = null
 
 
 func _ready() -> void:
+	# Parse command-line arguments (passed after -- on command line)
+	_parse_cmdline_args()
+
 	Engine.time_scale = time_scale
 
 	# Create output directory in repo (logs/testing_logs/)
 	# NOTE: This writes to the project directory, which works during development
+	# Include PID to ensure unique directories for parallel runs
 	var timestamp = Time.get_datetime_string_from_system().replace(":", "-").replace("T", "_")
-	output_dir = "res://logs/testing_logs/ai_test_" + timestamp
+	var pid = OS.get_process_id()
+	output_dir = "res://logs/testing_logs/ai_test_%s_p%d" % [timestamp, pid]
 	output_dir = ProjectSettings.globalize_path(output_dir)
 	var dir_err = DirAccess.make_dir_recursive_absolute(output_dir)
 	if dir_err != OK and dir_err != ERR_ALREADY_EXISTS:
@@ -55,6 +60,29 @@ func _ready() -> void:
 	}
 	_log("AI_TEST_START|" + JSON.stringify(start_data))
 	test_started = true
+
+
+func _parse_cmdline_args() -> void:
+	## Parse command-line arguments passed after -- on the command line.
+	## Supported args:
+	##   --duration=<seconds>  Set test duration in game seconds (default: 600)
+	##   --timescale=<multiplier>  Set time scale (default: 10.0)
+	var args = OS.get_cmdline_user_args()
+	for arg in args:
+		if arg.begins_with("--duration="):
+			var value = arg.substr(11)
+			if value.is_valid_float():
+				test_duration = value.to_float()
+				print("AI_TEST_CONFIG: duration set to " + str(test_duration) + " game seconds")
+			else:
+				push_warning("AI_TEST_WARNING: Invalid duration value: " + value)
+		elif arg.begins_with("--timescale="):
+			var value = arg.substr(12)
+			if value.is_valid_float():
+				time_scale = value.to_float()
+				print("AI_TEST_CONFIG: time_scale set to " + str(time_scale))
+			else:
+				push_warning("AI_TEST_WARNING: Invalid timescale value: " + value)
 
 
 func _find_ai_controller() -> Node:

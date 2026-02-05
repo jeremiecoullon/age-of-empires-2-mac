@@ -118,6 +118,29 @@ See `docs/roadmap.md` → "Post-Phase" for the full workflow.
 
 ---
 
+## AI Behavior Testing
+
+**After modifying AI logic or game features that affect AI behavior, run the ai-observer agent.**
+
+The ai-observer agent:
+1. Runs a headless AI test (600 game-seconds at 10x speed)
+2. Reads structured output (`summary.json`) for pass/fail and milestones
+3. On failure, analyzes verbose logs to identify root causes
+4. Returns a report with findings and recommendations
+
+This is different from unit tests: unit tests verify code correctness (deterministic, fast), AI behavior tests verify the AI plays competently (game-level outcomes, stochastic, slower).
+
+**When to run:**
+- After modifying `scripts/ai/` files
+- After adding game features the AI should use (new buildings, units, techs)
+- When debugging AI behavior issues
+
+**Optional focus areas:** You can ask the agent to focus on specific aspects (e.g., "focus on economy", "check military production", "analyze first 3 minutes").
+
+See `docs/ai_player_designs/ai_testing.md` for full documentation of the test infrastructure.
+
+---
+
 ## Running Tests
 
 **Always run tests in two steps:**
