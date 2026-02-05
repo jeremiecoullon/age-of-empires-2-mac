@@ -21,10 +21,11 @@ const TestResourcesScript = preload("res://tests/scenarios/test_resources.gd")
 const TestAnimalsScript = preload("res://tests/scenarios/test_animals.gd")
 const TestDirectionsScript = preload("res://tests/scenarios/test_directions.gd")
 const TestArmorScript = preload("res://tests/scenarios/test_armor.gd")
-const TestAIScript = preload("res://tests/scenarios/test_ai.gd")
 const TestFogOfWarScript = preload("res://tests/scenarios/test_fog_of_war.gd")
 const TestConstructionScript = preload("res://tests/scenarios/test_construction.gd")
 const TestCursorScript = preload("res://tests/scenarios/test_cursor.gd")
+const TestAIEconomyScript = preload("res://tests/scenarios/test_ai_economy.gd")
+const TestAIMilitaryScript = preload("res://tests/scenarios/test_ai_military.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -109,11 +110,6 @@ func _run_all_test_suites() -> void:
 	var armor_tests = TestArmorScript.new(test_runner)
 	await test_runner.run_all_tests(armor_tests.get_all_tests())
 
-	# AI tests (Phase 2C)
-	print("\n=== RUNNING AI TESTS ===\n")
-	var ai_tests = TestAIScript.new(test_runner)
-	await test_runner.run_all_tests(ai_tests.get_all_tests())
-
 	# Fog of War tests (Phase 2E)
 	print("\n=== RUNNING FOG OF WAR TESTS ===\n")
 	var fog_of_war_tests = TestFogOfWarScript.new(test_runner)
@@ -128,6 +124,16 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING CURSOR TESTS ===\n")
 	var cursor_tests = TestCursorScript.new(test_runner)
 	await test_runner.run_all_tests(cursor_tests.get_all_tests())
+
+	# AI Economy tests (Phase 3.1B)
+	print("\n=== RUNNING AI ECONOMY TESTS ===\n")
+	var ai_economy_tests = TestAIEconomyScript.new(test_runner)
+	await test_runner.run_all_tests(ai_economy_tests.get_all_tests())
+
+	# AI Military tests (Phase 3.1C)
+	print("\n=== RUNNING AI MILITARY TESTS ===\n")
+	var ai_military_tests = TestAIMilitaryScript.new(test_runner)
+	await test_runner.run_all_tests(ai_military_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)

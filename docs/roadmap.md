@@ -1,6 +1,6 @@
 # AoE2 Clone - Roadmap
 
-**Last updated:** 2026-02-01 (Phase 3: Strong AI complete)
+**Last updated:** 2026-02-03 (Phase 3 replaced by Phase 3.1 rule-based AI)
 
 ## Goal
 
@@ -36,64 +36,6 @@ These may be reconsidered if core gameplay reaches completion.
 
 ---
 
-## Phase Workflow
-
-Before starting each phase, follow this process:
-
-### 1. Refactor Check (~30 min)
-
-**Do not skip this step.** Assess the current codebase against what's coming. The goal is to catch architectural issues early (when they're cheap to fix) rather than late (when they're expensive).
-
-**Process:**
-
-1. **Read the phase spec** - What features are being added?
-2. **Skim Phase N+1** - What's coming next? Will this phase's code need to change?
-3. **Inspect the code you'll touch.** Ask:
-   - Will adding these features require duplicating existing code?
-   - Are there hardcoded values that need to become dynamic or configurable?
-   - Is there a pattern emerging (3+ similar things) that should be extracted?
-   - Will the current structure make Phase N+1 harder than it needs to be?
-4. **Decide:**
-   - If refactor needed → Do it first. Commit separately. Then build features.
-   - If not → Proceed with the phase.
-
-**Important:** You (the agent) determine what refactoring is needed based on the actual codebase at that moment. Nothing is pre-defined. Use your judgment. Keep refactors minimal and targeted - only fix what will actually cause problems.
-
-**Common areas to watch** (not exhaustive):
-- Resource/economy systems
-- Player vs AI code symmetry
-- Unit/building stat definitions
-- State machines and gating logic
-
-### 2. Build the Phase
-
-- Implement features per the phase spec. You can find details of features in `docs/AoE_manual/AoE_manual.txt` (ie: numbers etc)
-- Update AI behavior as specified
-- Run `/spec-check` on new units/buildings/techs
-- Commit after each logical chunk
-- **Consider unit tests** for logic-heavy code (stat calculations, combat formulas, resource math, state transitions). Not everything needs tests - use judgment. UI and scene setup rarely benefit; game logic often does.
-
-### 3. Post-Phase
-
-- **Self-report on context friction.** Before anything else, answer these questions in the checkpoint doc:
-  1. Did I re-read any file more than twice? Which ones?
-  2. Did I forget earlier decisions and have to correct myself?
-  3. Are there patterns I'm not confident are consistent?
-
-  This surfaces internal friction that tests might not catch. If multiple flags appear, consider splitting future phases smaller.
-
-- **Run the code-reviewer agent** on the phase's changes. Review suggestions critically - apply what's useful, skip what's not.
-- **Run the test agent** to write automated tests for the phase. The test agent receives the checkpoint doc and relevant source files, writes tests, and returns a brief summary of what was tested. Add this summary to the checkpoint doc's "Test Coverage" section.
-- **Update `docs/gotchas.md`** — This is REQUIRED, not optional. Add a new section header for the phase (e.g., "### Phase 3E - Economic Intelligence") and document:
-  - Patterns that worked or didn't work
-  - Non-obvious implementation details future agents need to know
-  - Bugs encountered and their fixes
-  - Any "gotcha" that cost you time and could trip up future work
-- **Write a checkpoint doc** in `docs/phase_checkpoints/` using the template. This is required for both DIRECT and ORCHESTRATOR modes - it's how future sessions know what was built.
-- Verify game still launches and plays correctly
-
----
-
 ## Phases Overview
 
 | Phase | Name | Core Focus |
@@ -103,7 +45,8 @@ Before starting each phase, follow this process:
 | 2 | Military Foundation | Combat triangle, fog of war, counter-units |
 | 2.5 | Bug Fixes & Core Mechanics | Production queue, villager-based building, pathfinding fixes |
 | 2.6 | UI Overhaul | AoE2-style bottom panel, minimap, context-sensitive cursors |
-| 3 | Strong AI | Competitive AI: build orders, scouting, counter-play, micro |
+| 3 | ~~Strong AI~~ | *(Replaced - see Phase 3.1)* |
+| 3.1 | Rule-Based AI | Competitive AI using AoE2-style rule system |
 | 4 | Age System | Dark → Feudal → Castle progression |
 | 5 | Tech & Upgrades | Blacksmith, unit upgrades, research system |
 | 6 | Monks & Relics | Conversion, healing, relic victory |
@@ -366,93 +309,98 @@ Cursor sprites location: `assets/sprites_extracted/cursors/`
 
 ---
 
-## Phase 3: Strong AI (Complete)
-**Goal:** Transform AI from functional to competitive - a real challenge for players
+## Phase 3: Strong AI (Replaced)
 
-This phase makes the AI play well, not just play. Phase 2C made the AI use available features; this phase makes it use them intelligently.
+The original Phase 3 implementation used procedural/imperative code that became unmaintainable. See `docs/ai_player_designs/phase3_failure_summary.md` for details.
 
-**Difficulty:** Single difficulty level ("Very Difficult") - the AI plays to win.
+Archived checkpoint docs: `docs/phase_checkpoints/archive/phase-3.0a.md` through `phase-3.0e.md`
 
-**Sub-phases (approved 2026-02-01):**
-- **3A**: Macro & Build Orders - build order system, continuous villager production, production scaling, idle villager reassignment — *Complete*
-- **3B**: Scouting & Information - scout patrol patterns, enemy base tracking, army composition tracking, threat assessment — *Complete*
-- **3C**: Combat Intelligence - counter-unit production, army composition goals, attack timing, target prioritization, retreat, focus fire — *Complete*
-- **3D**: Micro & Tactics - ranged kiting, villager flee behavior, TC garrison, split attention, reinforcement waves — *Complete*
-- **3E**: Economic Intelligence - resource balance targets, floating resource detection, farm placement, forward building, expansion — *Complete*
+**Replaced by Phase 3.1 below.**
 
 ---
 
-### Phase 3A: Macro & Build Orders
+## Phase 3.1: Rule-Based AI
+**Goal:** Competitive AI using AoE2-style rule-based system
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Build order system | System | Configurable sequence of actions (e.g., 6 vils on sheep → 4 on wood → ...) |
-| Dark Age build order | AI | Optimized opening: scout sheep, queue villagers, build houses on time |
-| Feudal transition timing | AI | Know when to click up based on vil count and resources |
-| Continuous villager production | AI | Never idle TC (unless intentional) |
-| Production building scaling | AI | Build 2nd/3rd barracks/range when floating resources |
-| Idle villager reassignment | AI | Detect and fix idle villagers immediately |
+This phase re-implements the AI using independent rules that fire when conditions match, inspired by the original AoE2 AI scripting system.
 
-**3A Done when:** AI executes a structured build order, never idles TC, scales production buildings, reassigns idle villagers.
+**Key architecture:**
+- Rules are independent - they don't call each other
+- All matching rules fire each tick
+- Clear conditions and actions per rule
+- Easy to add/modify behaviors without cascading effects
 
----
+**Reference docs:**
+- `docs/ai_player_designs/aoe2_ai_rule_system.md` - How the real AoE2 AI works
+- `docs/ai_player_designs/aoe2_strategic_numbers.md` - Tunable parameters
 
-### Phase 3B: Scouting & Information
+**Implementation design:** See `docs/ai_player_designs/godot_rule_implementation.md`
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Early game scouting | AI | Scout finds sheep, boar, enemy base, gold/stone locations |
-| Scout patrol patterns | AI | Circle own base → expand outward → find enemy |
-| Enemy base tracking | AI | Remember where enemy TC/buildings are |
-| Army composition tracking | AI | Estimate what units enemy is making |
-| Threat assessment | AI | Know when enemy is attacking, with how much |
-
-**3B Done when:** AI scouts effectively, tracks enemy base location, estimates enemy army composition.
+**Sub-phases (approved 2026-02-03):**
+- **3.1A**: Core infrastructure + MVP behavior (rule engine, basic economy, militia, attack)
+- **3.1B**: Full economy (4 resources, drop-offs, farms, animals, market)
+- **3.1C**: Full military + intelligence (all units, scouting, defense, mixed composition)
 
 ---
 
-### Phase 3C: Combat Intelligence
+### Phase 3.1A: Core Infrastructure + MVP Behavior
 
 | Feature | Type | Notes |
 |---------|------|-------|
-| Counter-unit production | AI | See archers → make skirmishers; see cavalry → make spearmen |
-| Army composition goals | AI | Target ratios (e.g., 60% main unit, 40% counter) |
-| Attack timing | AI | Attack when ahead or when enemy is vulnerable |
-| Target prioritization | AI | Kill villagers > siege > military > buildings (contextual) |
-| Retreat behavior | AI | Pull back badly damaged units, don't suicide |
-| Focus fire | AI | Concentrate attacks on single targets |
+| AIGameState | System | Wrapper exposing game state to rules (resources, unit counts, can_train, can_build, etc.) |
+| AIRule base class | System | Interface for conditions() and actions() |
+| Rule engine | System | Evaluates all rules each tick, handles action de-duplication |
+| Strategic numbers | System | Dictionary of tunable parameters with AoE2-style defaults |
+| Train villager rule | Rule | Train villagers up to target count |
+| Build house rule | Rule | Build house when housing headroom < 5 |
+| Gather food rule | Rule | Assign villagers to food |
+| Gather wood rule | Rule | Assign villagers to wood |
+| Build barracks rule | Rule | Build barracks when none exists and can afford |
+| Train militia rule | Rule | Train militia from barracks |
+| Attack rule | Rule | Attack when military >= threshold |
 
-**3C Done when:** AI counters player army composition, times attacks well, prioritizes targets, retreats damaged units.
+**3.1A Done when:** AI plays at MVP level using rule-based system - trains villagers, builds houses/barracks, gathers resources, trains militia, attacks.
 
 ---
 
-### Phase 3D: Micro & Tactics
+### Phase 3.1B: Full Economy
 
 | Feature | Type | Notes |
 |---------|------|-------|
-| Ranged unit kiting | AI | Archers back away while attacking melee |
-| Villager flee behavior | AI | Villagers run to TC when attacked |
-| TC garrison under attack | AI | Use Town Bell equivalent when raided |
-| Split attention | AI | Can harass + defend simultaneously |
-| Reinforcement waves | AI | Send new units to join existing army |
+| 4-resource gathering | Rules | Gather gold and stone based on strategic number percentages |
+| Build lumber camp rule | Rule | Build near trees when drop distance too far |
+| Build mining camp rule | Rule | Build near gold/stone when drop distance too far |
+| Build mill rule | Rule | Build near berries/hunt |
+| Build farm rule | Rule | Build farms when natural food depleted |
+| Sheep herding | Rule | Gather sheep, herd to TC |
+| Hunting | Rule | Hunt deer/boar |
+| Market buy/sell | Rules | Conservative trading when surplus/shortage |
 
-**3D Done when:** AI micro-manages units in combat, villagers flee to TC, can multitask harassment and defense.
+**3.1B Done when:** AI manages full 4-resource economy with drop-off optimization and farms.
 
 ---
 
-### Phase 3E: Economic Intelligence
+### Phase 3.1C: Full Military + Intelligence
 
 | Feature | Type | Notes |
 |---------|------|-------|
-| Resource balance targets | AI | Know how many vils on each resource for current goal |
-| Floating resource detection | AI | If gold > 500 and not spending, reallocate or spend |
-| Farm placement optimization | AI | Farms around TC/Mill, not random locations |
-| Forward building | AI | Build military buildings closer to enemy for faster reinforcement |
-| Expansion behavior | AI | Build 2nd TC / expand to new resources when safe |
+| Build archery range rule | Rule | Build when barracks exists |
+| Build stable rule | Rule | Build when barracks exists |
+| Train archer rule | Rule | Train archers |
+| Train spearman rule | Rule | Train spearmen (counter to cavalry) |
+| Train scout cavalry rule | Rule | Train scouts for scouting |
+| Train skirmisher rule | Rule | Train skirmishers (counter to archers) |
+| Train cavalry archer rule | Rule | Train cavalry archers |
+| Scouting behavior | Rules | Send scout to explore, track enemy positions |
+| Defense rules | Rules | Respond to threats, defend base when attacked |
+| Mixed army composition | Rules | Build varied army based on enemy composition |
+| Attack timing | Rules | Attack based on army size and game time |
 
-**3E Done when:** AI balances economy for current goals, doesn't float resources, optimizes farm placement.
+**3.1C Done when:** AI uses all available units/buildings, scouts, defends, and presents a competitive challenge.
 
-**Phase 3 Done when:** Playing against the AI feels like playing against a competent human opponent. The AI should win sometimes.
+---
+
+**Phase 3.1 Done when:** AI provides a competitive challenge using maintainable, debuggable rule-based logic.
 
 ---
 

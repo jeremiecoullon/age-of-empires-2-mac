@@ -31,20 +31,24 @@ A clone of Age of Empires 2 built in Godot 4.x. The goal is to faithfully reprod
 
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Instructions for Claude |
-| `docs/roadmap.md` | Architecture and implementation plan |
-| `docs/gotchas.md` | Accumulated learnings |
-| `docs/design_decisions.md` | Key design choices |
+| `CLAUDE.md` | **How to build** — Phase workflow, when to run agents, policies (git, sprites), project conventions |
+| `docs/roadmap.md` | **What to build** — Phase specs, architecture, unit/building stats, adding new content |
+| `docs/phase_checkpoints/` | **What was built** — One doc per phase summarizing features, files changed, context for next phase |
+| `docs/gotchas.md` | **What we learned** — Pitfalls and lessons per phase, implementation details to remember |
+| `docs/design_decisions.md` | **Why we chose X** — ADRs for strategic choices (scope, architecture, tradeoffs) |
+| `docs/ai_player_designs/ai_testing.md` | **AI testing** — How to run headless tests, output formats, pass/fail checks |
 
 ## To get started on development
 
 **Before starting work:**
 
-1. Check `docs/phase_checkpoints/` to see what's been done. Each completed phase has a checkpoint doc summarizing what was built, files changed, and context for the next phase.
+1. Check `docs/phase_checkpoints/` to see what's been done (latest checkpoint = current state).
 
-2. Read `docs/roadmap.md` to understand the next phase. Follow the Phase Workflow section (refactor check → build → post-phase).
+2. Read `docs/roadmap.md` to understand the next phase's spec.
 
-3. Read `docs/gotchas.md` to avoid known pitfalls.
+3. Read `CLAUDE.md` for the phase workflow (refactor check → build → post-phase).
+
+4. Read `docs/gotchas.md` to avoid known pitfalls.
 
 
 ## Running Tests

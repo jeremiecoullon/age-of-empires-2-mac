@@ -9,27 +9,14 @@
 >    - `docs/gotchas.md` — Known pitfalls to avoid
 >
 > This applies to every new session. Don't start coding until you've read these.
+>
+> **Ignore the archive:** `docs/phase_checkpoints/archive/` contains replaced implementations. Do not read or reference these unless explicitly asked.
 
 ---
 
 ## Git Policy
 
 **Never perform git operations.** No commits, no pushes, no branch operations. The user handles all git manually.
-
----
-
-## Spec Verification
-
-**Always verify implementations against the AoE2 manual.**
-
-After implementing or modifying any unit, building, or technology:
-1. Use the **spec-check agent** to verify implementation matches specs
-2. Review the comparison table it returns
-3. Fix any mismatches, or document intentional deviations in `docs/gotchas.md`
-
-The spec-check agent searches `docs/AoE_manual/AoE_manual.txt` and compares against your implementation.
-
-**Do not skip this step.** The goal is a faithful AoE2 clone, not "close enough."
 
 ---
 
@@ -53,66 +40,124 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 ## Phase Workflow
 
-**For the full phase workflow (refactor check, build, post-phase), see `docs/roadmap.md` → "Phase Workflow" section.**
+This is the canonical workflow for building phases. Each phase (or sub-phase) follows these steps.
 
-**Sub-phases:** Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub-phase follows the full workflow including its own checkpoint doc.
+### 1. Refactor check
 
-**Checkpoint naming:** Always use `phase-X.Ya.md` format (e.g., `phase-2.0a.md`, `phase-2.5b.md`). The `.0` is required for major phases so that files sort correctly (otherwise `phase-2.5a` sorts before `phase-2a`).
+**Do not skip this step.** Assess the current codebase against what's coming. The goal is to catch architectural issues early (when they're cheap to fix) rather than late (when they're expensive).
 
-**Sub-phase sizing:** Each sub-phase should be a coherent chunk - related features that touch the same systems. Too small and you spend more time on ceremony than code. Too large and you get context rot anyway. A good heuristic: 3-5 related features, or 1-2 new systems with their dependent content.
+1. **Read the phase spec** in `docs/roadmap.md` — What features are being added?
+2. **Skim Phase N+1** — What's coming next? Will this phase's code need to change?
+3. **Inspect the code you'll touch.** Ask:
+   - Will adding these features require duplicating existing code?
+   - Are there hardcoded values that need to become dynamic?
+   - Is there a pattern emerging (3+ similar things) that should be extracted?
+   - Will the current structure make Phase N+1 harder than it needs to be?
+4. **Decide:**
+   - If refactor needed → Do it first, then build features.
+   - If not → Proceed with the phase.
 
-**Orchestrating a full phase:** When the user says "do all of phase X" or "complete phase X":
+**Important:** You (the agent) determine what refactoring is needed based on the actual codebase. Use your judgment. YAGNI — only fix what will actually cause problems.
 
-1. **Propose a split.** Read the phase spec in `docs/roadmap.md`, analyze the scope, and propose sub-phases (e.g., 2.0A, 2.0B, 2.0C). Explain what each sub-phase covers and why. Get user approval once upfront.
+### 2. Build the phase
 
-2. **Persist the split.** After approval, update `docs/roadmap.md` with the sub-phase breakdown under that phase's section. Add a "Sub-phases" block with date and brief description of each sub-phase. This is the source of truth for future sessions.
+1. **Implement features** per the phase spec. Details in `docs/AoE_manual/AoE_manual.txt`.
+2. **Run spec-check agent** on new units/buildings/techs to verify against AoE2 specs.
+3. **If phase adds features the AI should use:**
+   - Add AI rules for the new features (in `scripts/ai/ai_rules.gd`)
+   - Add observability so tests can track the new behavior:
+     - Skip reasons in `ai_controller.gd` (explains why rules don't fire)
+     - Milestones in `ai_test_analyzer.gd` for new buildings/units
+     - Update `AI_STATE` logging if new counts are needed
+4. **Consider unit tests** for logic-heavy code (stat calculations, combat formulas, state transitions). Not everything needs tests — UI and scene setup rarely benefit; game logic often does.
 
-   **Sub-phase descriptions must include both entities AND systems.** Don't just list units/buildings—also list any new mechanics or systems being introduced (e.g., "armor system", "fog of war", "stance system"). If a previous checkpoint deferred something to this phase, it should appear in the description.
+### 3. Post-phase
 
-3. **Execute sub-phase.** Do the full workflow for the current sub-phase:
-   - Refactor check
-   - Build features
-   - Run spec-check on new units/buildings/techs
-   - Run code-reviewer agent
-   - Run test agent
-   - Write checkpoint doc
+1. **Self-report on context friction** in the checkpoint doc:
+   - Did I re-read any file more than twice? Which ones?
+   - Did I forget earlier decisions and have to correct myself?
+   - Are there patterns I'm not confident are consistent?
 
-4. **Signal for context clear.** Say: "2.0A complete. Clear context now." (Claude cannot clear its own context.)
+2. **Run code-reviewer agent.** Review suggestions critically — apply what's useful, skip what's not.
 
-5. **Continue automatically.** When user clears context and says "continue", read the sub-phase breakdown in `roadmap.md` and checkpoint docs to see what's done, then immediately continue with the next sub-phase. No re-proposing, no asking permission - just execute.
+3. **Run test agent** to write automated tests. After it returns, YOU must update the checkpoint doc's "Test Coverage" section with what was tested.
 
-After the initial split approval, Claude executes autonomously. The only user actions needed are context clears and saying "continue".
+4. **Run ai-observer agent** if the phase affects AI behavior (modified `scripts/ai/`, added buildings/units/techs, added mechanics AI should use). Add results to checkpoint doc's "AI Behavior Tests" section.
+
+5. **Update `docs/gotchas.md`** — REQUIRED. Add a section for the phase documenting:
+   - Patterns that worked or didn't
+   - Non-obvious implementation details
+   - Bugs encountered and fixes
+
+6. **Write checkpoint doc** in `docs/phase_checkpoints/` using the template.
+
+7. **Verify** game still launches and plays correctly.
+
+---
+
+## Sub-phases
+
+Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub-phase follows the full workflow above including its own checkpoint doc.
+
+**Checkpoint naming:** Always use `phase-X.Ya.md` format (e.g., `phase-2.0a.md`, `phase-2.5b.md`). The `.0` is required for major phases so files sort correctly.
+
+**Sub-phase sizing:** Each sub-phase should be a coherent chunk — 3-5 related features, or 1-2 new systems with their dependent content. Too small = ceremony overhead. Too large = context rot.
+
+**Orchestrating a full phase:** When the user says "do all of phase X":
+
+1. **Propose a split.** Read the phase spec, propose sub-phases (e.g., 2.0A, 2.0B, 2.0C). Explain what each covers. Get user approval once upfront.
+
+2. **Persist the split.** Update `docs/roadmap.md` with the sub-phase breakdown. This is the source of truth for future sessions. Sub-phase descriptions must include both **entities** (units, buildings) AND **systems** (mechanics being introduced).
+
+3. **Execute sub-phase.** Full workflow above.
+
+4. **Signal for context clear.** Say: "2.0A complete. Clear context now."
+
+5. **Continue automatically.** When user clears context and says "continue", read the breakdown in `roadmap.md` and checkpoint docs, then continue with the next sub-phase. No re-proposing.
+
+After the initial split approval, Claude executes autonomously. The only user actions needed are context clears and "continue".
 
 ---
 
 ## Code Review
 
-**Always run the code-reviewer agent after completing work.** This includes:
-- Phases and sub-phases
-- Writing or modifying tests
-- Bug fixes
-- Refactoring
+Run the code-reviewer agent after completing work (phases, tests, bug fixes, refactoring). Review suggestions critically — apply what's useful, skip what's not.
 
-Review the suggestions critically - apply what's useful, skip what's not.
-
-Note: For non-phase work (tests, bug fixes), you don't need the full phase ceremony (refactor check, checkpoint docs). Just do the work, then run code review.
+**For non-phase work** (tests, bug fixes): You don't need the full phase ceremony (refactor check, checkpoint docs). Just do the work, then run code review.
 
 ---
 
 ## Test Agent
 
-**After code review, run the test agent to write automated tests for the phase.**
+The test agent writes automated tests for phase features. It receives the checkpoint doc + relevant source files, writes tests, and returns a summary.
 
-The test agent:
-1. Receives the checkpoint doc + relevant source files
-2. Writes tests for the phase's features
-3. Returns a brief summary of what was tested
+**IMPORTANT:** After the test agent returns, YOU must update the checkpoint doc's "Test Coverage" section with what was tested.
 
-**IMPORTANT: After the test agent returns, you MUST update the checkpoint doc.** Add the test summary to the "Test Coverage → Automated Tests" section (list test files and what they cover). This step is YOUR responsibility, not the test agent's. The checkpoint is how future sessions know what's tested.
+**Writing tests manually:** When writing tests yourself (not via test agent), still run code review afterward.
 
-See `docs/roadmap.md` → "Post-Phase" for the full workflow.
+---
 
-**Writing tests manually:** When writing or modifying tests yourself (not via test agent), still run code review afterward per the Code Review section above.
+## AI Behavior Testing
+
+The ai-observer agent runs headless AI tests and analyzes behavior. It:
+1. Runs a 600 game-second test at 10x speed
+2. Reads structured output (`summary.json`) for pass/fail and milestones
+3. On failure, analyzes verbose logs to identify root causes
+4. Returns a report with findings and recommendations
+
+This is different from unit tests: unit tests verify code correctness (deterministic, fast), AI behavior tests verify the AI plays competently (game-level outcomes, stochastic, slower).
+
+**Optional focus areas:** You can ask the agent to focus on specific aspects (e.g., "focus on economy", "check military production", "analyze first 3 minutes").
+
+See `docs/ai_player_designs/ai_testing.md` for full documentation of the test infrastructure.
+
+---
+
+## Spec Verification
+
+The spec-check agent verifies implementations against the AoE2 manual (`docs/AoE_manual/AoE_manual.txt`). It returns a comparison table showing mismatches.
+
+Fix any mismatches, or document intentional deviations in `docs/gotchas.md`.
 
 ---
 
@@ -122,12 +167,12 @@ See `docs/roadmap.md` → "Post-Phase" for the full workflow.
 
 1. **Validate project import** (catches .tscn/.tres syntax errors):
    ```bash
-   godot --headless --import --path .
+   /Applications/Godot.app/Contents/MacOS/Godot --headless --import --path .
    ```
 
 2. **Run the test suite**:
    ```bash
-   godot --headless --path . tests/test_scene.tscn
+   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . tests/test_scene.tscn
    ```
 
 Both steps are required. The import step catches scene file errors that won't show up in tests (since tests use mock HUD).

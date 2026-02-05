@@ -18,5 +18,7 @@ export_presets.cfg
 *.swp
 *~
 
+# Test logs
+logs/
 
 images/

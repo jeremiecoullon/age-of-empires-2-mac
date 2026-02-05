@@ -9,6 +9,7 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("farms")
 	add_to_group("resources")  # So villagers can target it
+	add_to_group("food_resources")  # So AI can find farms when assigning food gatherers
 	building_name = "Farm"
 	size = Vector2i(2, 2)
 	wood_cost = 50

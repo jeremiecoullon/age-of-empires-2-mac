@@ -28,6 +28,11 @@ func get_all_tests() -> Array[Callable]:
 		test_unit_cannot_die_twice,
 		test_villager_initial_hp,
 		test_militia_initial_hp,
+		# Phase 3.1C unit tests
+		test_skirmisher_initial_stats,
+		test_skirmisher_group_membership,
+		test_cavalry_archer_initial_stats,
+		test_cavalry_archer_group_membership,
 	]
 
 
@@ -177,5 +182,101 @@ func test_militia_initial_hp() -> Assertions.AssertResult:
 	if militia.current_hp != militia.max_hp:
 		return Assertions.AssertResult.new(false,
 			"Militia current_hp should equal max_hp initially")
+
+	return Assertions.AssertResult.new(true)
+
+
+# =============================================================================
+# Phase 3.1C Unit Tests
+# =============================================================================
+
+func test_skirmisher_initial_stats() -> Assertions.AssertResult:
+	## Skirmisher should have correct AoE2 stats: 30 HP, 2 attack, 0/3 armor
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if skirmisher.max_hp != 30:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher max_hp should be 30, got: %d" % skirmisher.max_hp)
+
+	if skirmisher.attack_damage != 2:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher attack_damage should be 2, got: %d" % skirmisher.attack_damage)
+
+	if skirmisher.melee_armor != 0:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher melee_armor should be 0, got: %d" % skirmisher.melee_armor)
+
+	if skirmisher.pierce_armor != 3:
+		return Assertions.AssertResult.new(false,
+			"Skirmisher pierce_armor should be 3, got: %d" % skirmisher.pierce_armor)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_skirmisher_group_membership() -> Assertions.AssertResult:
+	## Skirmisher should be in military, archers, and skirmishers groups
+	var skirmisher = runner.spawner.spawn_skirmisher(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if not skirmisher.is_in_group("military"):
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should be in 'military' group")
+
+	if not skirmisher.is_in_group("archers"):
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should be in 'archers' group (for targeting purposes)")
+
+	if not skirmisher.is_in_group("skirmishers"):
+		return Assertions.AssertResult.new(false,
+			"Skirmisher should be in 'skirmishers' group (for AI counting)")
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_cavalry_archer_initial_stats() -> Assertions.AssertResult:
+	## Cavalry Archer should have correct AoE2 stats: 50 HP, 6 attack, 0/0 armor
+	var cav_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if cav_archer.max_hp != 50:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer max_hp should be 50, got: %d" % cav_archer.max_hp)
+
+	if cav_archer.attack_damage != 6:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer attack_damage should be 6, got: %d" % cav_archer.attack_damage)
+
+	if cav_archer.melee_armor != 0:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer melee_armor should be 0, got: %d" % cav_archer.melee_armor)
+
+	if cav_archer.pierce_armor != 0:
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer pierce_armor should be 0, got: %d" % cav_archer.pierce_armor)
+
+	return Assertions.AssertResult.new(true)
+
+
+func test_cavalry_archer_group_membership() -> Assertions.AssertResult:
+	## Cavalry Archer should be in military, cavalry, archers, and cavalry_archers groups
+	var cav_archer = runner.spawner.spawn_cavalry_archer(Vector2(400, 400))
+	await runner.wait_frames(2)
+
+	if not cav_archer.is_in_group("military"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'military' group")
+
+	if not cav_archer.is_in_group("cavalry"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'cavalry' group (for spearman bonus)")
+
+	if not cav_archer.is_in_group("archers"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'archers' group (for skirmisher bonus)")
+
+	if not cav_archer.is_in_group("cavalry_archers"):
+		return Assertions.AssertResult.new(false,
+			"Cavalry Archer should be in 'cavalry_archers' group (for AI counting)")
 
 	return Assertions.AssertResult.new(true)

@@ -232,58 +232,90 @@ Track layout/visual issues for future polish.
 
 - **Cursor hidden when switching to Godot editor (macOS)**: When running the game from the Godot editor and switching to the editor window, the system cursor may remain hidden. This happens despite polling `window.has_focus()` and calling `Input.mouse_mode = Input.MOUSE_MODE_VISIBLE` on focus loss. **No known fix** - appears to be a macOS/Godot limitation when running from the editor. The cursor restores correctly when the game closes. Likely works fine in standalone builds.
 
-### Phase 3A - Macro & Build Orders
+### Phase 3 (Original - Replaced)
 
-- **Pending villager assignment tracking**: When tracking resource assignments for newly spawned villagers, handle edge cases carefully. Villager death during spawn can cause assignment queue desync. Check both pending and actually-idle states when reassigning.
+The original Phase 3 (procedural AI) was scrapped due to architectural issues. The learnings from that failed implementation are documented in `docs/ai_player_designs/phase3_failure_summary.md`.
 
-- **Build order step completion verification**: Ensure build order steps that queue villagers actually complete the queue operation before advancing to the next step. Easy to mark a step complete without verifying the action succeeded.
+**Key takeaway**: Procedural AI with tightly coupled systems led to "whack-a-mole" debugging where fixing one behavior broke others. Phase 3.1 replaces this with a rule-based system where rules are independent.
 
-- **Cache group lookups in loops**: When iterating villagers and calling functions that query groups (like `_get_ai_villagers()`), cache the result once outside the loop. Calling `get_tree().get_nodes_in_group()` per iteration creates O(n²) behavior.
+### Phase 3.1A - Rule-Based AI Core
 
-- **Build order graceful degradation**: Build order may skip steps (like camp building) if preconditions aren't met (e.g., no resource cluster found nearby). This is acceptable on edge maps - the AI continues with the next step rather than getting stuck.
+- **AIGameState wraps all queries**: Rules should never access game objects directly. Go through AIGameState which provides a clean interface and allows caching/de-duplication.
 
-### Phase 3B - Scouting & Information
+- **Action de-duplication pattern**: Rules queue intentions (e.g., `gs.train("villager")`), then `execute_actions()` runs once at end of tick. This prevents multiple rules from issuing conflicting commands.
 
-- **Scout state machine integration**: When adding states like COMBAT to a state machine, remember to add transitions INTO that state, not just the handler. Easy to define a state but never enter it because no code sets the state to that value.
+- **Limit AI training queue size**: Without queue limits, rules can over-commit resources by queueing many units. Check `building.get_queue_size()` in `can_train()` and limit to 3 per building.
 
-- **Building type identification**: GDScript's `get_class()` can be unreliable for type checking - use explicit `is` checks or a custom method like `_get_building_type_string()` for type identification.
+- **Use preload() for AI building scenes**: AI creates buildings at runtime. Use preloaded PackedScene constants, not `load()` at runtime, to avoid file I/O during gameplay.
 
-- **Dictionary clearing vs reassignment**: When resetting a tracking dictionary, clear individual values instead of reassigning the dictionary. Reassignment breaks external references to the original dictionary object.
+- **is_under_attack() must check all buildings**: Don't just check distance from Town Center. AI buildings spread out - check if enemy military is near ANY AI building. Per gotchas.md Phase 2E: "Buildings may spread out."
 
-- **Typed arrays for entity lists**: Use `Array[Node2D]` for entity lists to match existing codebase patterns and improve type safety. Consistency matters more than personal preference.
+- **Attack fallback when TC destroyed**: If player TC is destroyed during the game, AI attack logic should find an alternative target (any player building) rather than silently doing nothing.
 
-### Phase 3C - Combat Intelligence
+- **Use group checks over type checks**: `resource.is_in_group("farms")` is more robust than `resource is Farm`. The latter requires the Farm class to be loaded and can fail if load order changes.
 
-- **Unified scoring constants for priority systems**: When multiple functions need consistent priority scoring (e.g., target selection and focus fire), use shared constants (`TARGET_PRIORITY_VILLAGER`, `TARGET_PRIORITY_RANGED`, etc.) to prevent drift. Without this, AI units may select different targets in attack vs focus fire, causing army splitting.
+- **Spawning AI starting base**: The AIController spawns the AI's starting Town Center, House, and Villagers on `_ready()`. This keeps the main scene clean and allows AI initialization logic to be self-contained.
 
-- **Type-safe state enum checks**: Instead of magic numbers for state enums (`if state == 2`), use type checks with proper enum values: `if unit is Militia and unit.current_state == Militia.State.ATTACKING`. Create a helper like `_is_unit_attacking(unit)` that handles all unit types. Magic numbers are fragile and break if state enums change.
+### Phase 3.1B - Full Economy Rules
 
-- **Retreat units tracking**: When implementing retreat behavior, maintain a `retreating_units` array to track which units are currently fleeing. Check this array before assigning units to new attacks to avoid re-sending retreating units into battle.
+- **_queued flags must reset**: Building rules that use `_queued` flags to prevent duplicate construction attempts (e.g., `_lumber_camp_queued`) must reset the flag when the building is completed. Otherwise, if the building is destroyed, the AI will never rebuild it. Pattern: check if `get_building_count() > 0` at start of conditions() and reset flag.
 
-### Phase 3D - Micro & Tactics
+- **Villager assignment de-duplication**: Multiple rules (GatherSheepRule, HuntRule) can fire in the same tick and try to assign the same idle villager. Track assigned villagers in a dictionary (`_assigned_villagers_this_tick`) and skip if already assigned. Clear the dictionary in `_clear_pending()`.
 
-- **Specialized units need rule exclusions**: Units assigned to special roles (harass squad, scouting) should be excluded from general micro behaviors (kiting, auto-attack). For example, harass squad units should follow harassment rules rather than individual kiting logic, which could cause them to back away from the harassment target.
+- **Build vs gather race condition**: Build rules and gather rules can capture the same idle villager in one tick. The action execution order (builds first, then villager assignments) means a villager assigned to construction can be immediately reassigned by a gather rule like GatherSheepRule. The `command_hunt()` call cancels the build by clearing `target_construction`. **Fix:** In `_do_villager_assignment()`, check `if villager.current_state == villager.State.BUILDING: return` before reassigning. This prevents gather rules from stealing builders mid-tick.
 
-- **Cooldown for toggling behaviors**: Systems like Town Bell (mass villager garrison) need cooldowns to prevent rapid toggling. Without a cooldown, threat detection and resolution happening in quick succession causes repeated activate/deactivate cycles that disrupt normal operation.
+- **Mills should be near natural food, not farms**: When using `build_near_resource("mill", "food")`, the `_find_nearest_resource_position()` will find farms if they exist. Add `exclude_farms` parameter to find berries instead - mills are meant for natural food sources.
 
-- **Rally point positioning for reinforcements**: When reinforcing an attack, calculate rally points relative to the actual battle position, not just the home base. Sending reinforcements to a static point far from the action reduces their effectiveness.
+- **Natural food count excludes farms**: When checking if the AI needs to build farms, count "natural" food sources (berries, sheep, deer, boar) separately from farms. Use `is_in_group("farms")` to filter them out.
 
-- **Unit role tracking with multiple arrays**: When units can be in different "roles" (main_army, harass_squad, kiting_units, retreating_units), clearly document which combinations are valid and check all relevant arrays before reassigning. A unit might be in multiple arrays temporarily (e.g., kiting while in main_army), which is acceptable but should be intentional.
+- **Economy phase transitions**: Use GOAL constants to track economy phases (early, mid, late game). Transition based on villager count and building presence. Consider whether transitions should be reversible if conditions change (e.g., barracks destroyed).
 
-- **Harass targeting economy, not military**: Harassment squads should target enemy villagers and resource areas, not enemy military positions. Using `enemy_army_last_position` for harassment defeats the purpose - target known TC positions offset toward resources instead.
+- **Conservative market trading**: AI market rules should use high thresholds to prevent poor trades. Sell when surplus > 400, buy when desperate (< 50) and have gold > 150. This matches the gotchas from Phase 1E about AI market usage.
 
-- **Cache group lookups in micro loops**: When checking conditions for many units (e.g., threat detection for each ranged unit), cache the group lookup once rather than per-unit. Calling `get_tree().get_nodes_in_group()` inside a unit iteration loop creates O(n²) behavior that becomes noticeable with larger armies.
+- **Prevent villager clustering on resources**: When assigning villagers to gather, don't just pick the nearest resource - check how many villagers are already targeting it. Use `_get_current_gatherer_counts()` to get a `{target_instance_id: count}` dictionary, then skip resources at capacity. The `sn_max_gatherers_per_resource` strategic number controls the limit (default 2). Apply this pattern to all resource assignment functions: `assign_villager_to_resource()`, `get_nearest_sheep()`, `get_nearest_huntable()`. Use graceful degradation: if all resources are full, still assign to the nearest one rather than leaving the villager idle.
 
-### Phase 3E - Economic Intelligence
+- **Count RETURNING villagers in gatherer limits**: Villagers in RETURNING state (walking back to drop off resources) will return to the same resource after depositing. If you only count GATHERING/HUNTING states, you'll under-count and over-assign. The `_get_current_gatherer_counts()` function must check for `villager.State.RETURNING` and use `target_resource` or `target_animal` (whichever is valid) to track their target.
 
-- **Economy mode provides strategic context**: Tracking whether the AI should BOOM, be BALANCED, or focus on MILITARY makes villager allocation more intelligent. The mode should transition based on game state (villager count, threat level, military strength comparison) rather than fixed timings.
+- **Distance vs capacity tradeoff for resource assignment**: An empty resource 1000px away is often worse than a "full" resource 50px away (sharing is more efficient than walking). Use distance thresholds: if the nearest available resource is >400px but a "full" resource is <200px, prefer the closer one. This prevents absurd long-distance assignments when local resources are slightly over capacity.
 
-- **Dynamic targets beat static constants**: Static villager allocation targets (FOOD_VILLAGERS = 10, etc.) don't adapt to game conditions. Use dynamic targets that adjust based on economy mode and emergency shortages. Store them in a dictionary (`dynamic_villager_targets`) that can be modified at runtime.
+- **Farms are renewable - exempt from gatherer limits**: Farms regrow and provide infinite food, unlike depletable resources (sheep, berries). The max_gatherers limit makes sense for sheep (limited food) but farms can support many villagers. Check `resource.is_in_group("farms")` and skip the capacity check for farms.
 
-- **Forward building needs safety checks**: Placing military buildings toward the enemy (for faster reinforcement) can get builders killed. Always check `_is_position_safe()` before committing resources to forward construction. Fall back to base position if forward position is unsafe.
+- **Track pending assignments within same tick**: When multiple rules fire in one tick, `_get_current_gatherer_counts()` only sees villagers already in GATHERING/HUNTING states. Villagers assigned earlier in the same tick (queued but not executed) aren't counted, causing multiple villagers to be assigned to the same target. Fix: maintain `_assigned_targets_this_tick` dictionary tracking `{target_instance_id: count}` and merge it into gatherer counts.
 
-- **Expansion requires economy first**: Only build expansion camps after achieving a stable economy (e.g., 25+ villagers). Expanding too early spreads resources thin and makes the AI vulnerable.
+- **Hard cap graceful degradation**: When all resources of a type are at capacity, graceful degradation assigns villagers to the nearest anyway (better than leaving idle). But without a cap, this causes excessive piling. Add a hard cap (e.g., 2x max_gatherers) - if a target exceeds this, return null instead of assigning more.
 
-- **Ring placement for farms**: Mathematical ring patterns (using sin/cos) create more efficient farm layouts than fixed offset lists. Inner ring for close placement, outer ring for expansion. Check `_is_valid_building_position()` for each position to handle obstacles.
+- **Drop-off buildings need resources FAR from existing drop-offs**: When placing mills, lumber camps, or mining camps, `_find_nearest_resource_position()` must skip resources that are already close to an existing drop-off (< 200px). Otherwise the AI builds a lumber camp near trees that are already next to the TC - useless. The `for_dropoff_building` parameter enables this filtering. If no qualifying resources exist (all resources already have nearby drop-offs), return `Vector2.ZERO` to fail placement. The rule will retry on future ticks.
 
-- **Dead unit checks in group queries**: Functions like `_get_ai_villagers()` and `_get_military_count()` must check `is_dead` flag because `queue_free()`'d nodes stay in groups until the end of frame. Counting dead units causes overestimation that affects economy mode decisions.
+- **Max hunt/herd distance**: Don't send villagers to hunt deer/boar or herd sheep beyond a maximum distance (e.g., 500px). Walking across the map to hunt distant animals is inefficient - better to farm or gather nearby resources. If `get_nearest_huntable()` or `get_nearest_sheep()` only finds targets beyond this distance, return null so the villager gets assigned to something else.
+
+### AI Economy Fixes
+
+- **Depletion awareness in villager assignment**: Use `has_gatherable_resources(resource_type)` to check if any gatherable resources exist before assigning villagers. If a resource type is depleted, set its effective allocation percentage to 0 in `_get_most_needed_resource()`. This prevents the AI from trying to assign villagers to non-existent resources.
+
+- **Stockpile caps to prevent over-gathering**: When stockpile > STOCKPILE_CAP (400), set allocation to 0% for that resource. This prevents the AI from wasting villager labor gathering resources it doesn't need. Edge case: if ALL resources are capped or depleted, allow gathering the lowest stockpile to prevent all villagers going idle.
+
+- **Villagers handle depletion naturally**: When a villager's target resource depletes mid-gather, they automatically become IDLE (villager.gd:94-106). No special "stranded gatherer" detection needed - the normal assignment loop picks them up.
+
+- **Prefer farms over distant hunting**: When farms exist near base and huntable animals are far (> 300px from base), skip the HuntRule and let the general villager assignment send villagers to farms instead. Farms are renewable and near drop-offs - more efficient than chasing distant deer. Add `has_nearby_farms()` and `get_nearest_huntable_distance()` helpers to support this check.
+
+### Phase 3.1C - Full Military + Intelligence
+
+- **Counter-unit logic requires enemy detection helpers**: Rules like TrainSpearmanRule need to know enemy army composition. Add `get_enemy_cavalry_count()`, `get_enemy_archer_count()`, etc. to AIGameState. Exclude dead units and AI's own units from these counts.
+
+- **Scout cavalry trains from stable (not archery range)**: Despite being a ranged unit, cavalry archers train from the stable per AoE2 spec. Document this clearly in the rule code to avoid confusion.
+
+- **Unit groups for category counting**: To count units by category (infantry, ranged, cavalry), use groups. Add units to appropriate groups: "infantry", "cavalry", "archer" (ranged group), etc. This enables flexible queries like `get_unit_count("infantry")` without hardcoding unit type lists.
+
+- **Scout cavalry must be in scout_cavalry group**: The AI's `get_unit_count("scout_cavalry")` relies on the unit being in the "scout_cavalry" group. If the group membership is missing from the unit's script, counting will always return 0.
+
+- **Scouting skip reason should be specific**: Distinguish between "no_scouts" (don't have any) vs "scouts_busy_N" (have N scouts but all are moving). Helps debug why scouting isn't happening.
+
+- **TrainArcherRule floor prevents deadlock**: The condition `ranged_count < max(3, infantry_count + 2)` ensures at least 3 archers can be trained even if the AI has no infantry. Without the `max(3, ...)`, archers would never be trained if the AI built archery range before barracks.
+
+- **Defense rule checks is_under_attack()**: The `is_under_attack()` method detects enemy military within 300px of any AI building. The defense rule then uses `get_nearest_threat()` to find the closest threat and `defend_against()` to send military units.
+
+- **Units must be in specific groups for AI counting**: When adding new units, add them to their own group (e.g., "skirmishers", "cavalry_archers") in addition to category groups (e.g., "archers", "cavalry"). The AI's `get_unit_count()` relies on exact group names. Missing group = counting returns 0.
+
+- **Avoid double-counting when iterating multiple groups**: If a unit belongs to multiple groups (e.g., cavalry_archer in both "archers" and "cavalry"), don't iterate both groups and count. Either iterate only one group (if they're superset/subset) or track seen instance IDs.
+
+- **AI test timeout is mandatory**: Always use `timeout` when running AI headless tests. Formula: `timeout_seconds = (duration / timescale) * 2`. Without timeout, tests can hang indefinitely if the AI gets stuck. Example: `timeout 120 godot --headless ... scenes/test_ai_solo.tscn`

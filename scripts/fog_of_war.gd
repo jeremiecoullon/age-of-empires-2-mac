@@ -6,6 +6,9 @@ class_name FogOfWar
 ## - EXPLORED (fog): Previously seen but not currently visible
 ## - VISIBLE (clear): Currently in line of sight
 
+## Debug: Set to true to disable fog of war for testing
+@export var debug_disable_fog: bool = true
+
 enum VisibilityState { UNEXPLORED, EXPLORED, VISIBLE }
 
 const TILE_SIZE: int = 32
@@ -68,6 +71,14 @@ func _initial_reveal() -> void:
 	_update_visibility()
 
 func _process(delta: float) -> void:
+	# Handle debug mode toggle
+	if debug_disable_fog:
+		fog_sprite.visible = false
+		_make_all_enemies_visible()
+		return
+	else:
+		fog_sprite.visible = true
+
 	update_timer += delta
 	if update_timer >= UPDATE_INTERVAL:
 		update_timer = 0.0
@@ -197,6 +208,20 @@ func is_explored(world_pos: Vector2) -> bool:
 func get_visibility_at(world_pos: Vector2) -> VisibilityState:
 	var tile = _world_to_tile(world_pos)
 	return visibility_grid[tile.x][tile.y]
+
+func _make_all_enemies_visible() -> void:
+	# Make all enemy units visible (for debug mode)
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if is_instance_valid(unit):
+			unit.visible = true
+
+	# Make all enemy buildings visible
+	var buildings = get_tree().get_nodes_in_group("buildings")
+	for building in buildings:
+		if is_instance_valid(building):
+			building.visible = true
+
 
 ## Reveal entire map (for debugging or cheats)
 func reveal_all() -> void:
