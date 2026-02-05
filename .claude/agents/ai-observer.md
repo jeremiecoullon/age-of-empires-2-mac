@@ -20,13 +20,13 @@ Run the headless AI test, read the structured output, and provide analysis. On f
 ```bash
 # Default: 600 game-seconds at 10x speed (~60 real seconds)
 # Use 120s timeout (2x expected duration for safety margin)
-timeout 120 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn
+timeout 120 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=600 --timescale=10
 
 # Custom duration (e.g., 120 game-seconds for a quick 2-minute test)
-timeout 60 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=120
+timeout 60 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=120 --timescale=10
 
 # Custom time scale (e.g., 5x instead of 10x)
-timeout 180 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --timescale=5
+timeout 180 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . scenes/test_ai_solo.tscn -- --duration=600 --timescale=5
 ```
 
 **Timeout calculation:** `timeout_seconds = (duration / timescale) * 2`

@@ -108,7 +108,8 @@ func _process(_delta: float) -> void:
 	if analyzer and ai_controller.game_state:
 		analyzer.check_state(game_time, ai_controller.game_state)
 
-	if game_time >= test_duration:
+	# End test if duration reached OR game ended (AI won/lost)
+	if game_time >= test_duration or GameManager.game_ended:
 		_end_test()
 
 
