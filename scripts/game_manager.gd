@@ -246,6 +246,9 @@ func notify_unit_damaged(unit: Node, amount: int, attacker: Node2D) -> void:
 		return
 	if game_ended:
 		return
+	# Don't notify for friendly fire (e.g. villager hunting own sheep)
+	if is_instance_valid(attacker) and "team" in attacker and attacker.team == unit.team:
+		return
 
 	var current_time = Time.get_ticks_msec() / 1000.0
 	var attack_type: String
@@ -271,6 +274,9 @@ func notify_building_damaged(building: Node, amount: int, attacker: Node2D) -> v
 	if building.team != 0:  # Only notify for player buildings
 		return
 	if game_ended:
+		return
+	# Don't notify for friendly fire
+	if is_instance_valid(attacker) and "team" in attacker and attacker.team == building.team:
 		return
 
 	var current_time = Time.get_ticks_msec() / 1000.0

@@ -11,11 +11,11 @@ class_name Villager
 ##   - (optional) gather_rate: float - defaults to 1.0 if not present
 ## Both ResourceNode and Farm implement this interface.
 
-enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING, BUILDING }
+enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING, BUILDING, ATTACKING, REPAIRING }
 
 @export var carry_capacity: int = 10
 @export var gather_time: float = 1.0  # seconds per resource unit
-@export var attack_damage: int = 3  # Villager attack for hunting
+@export var attack_damage: int = 3  # Villager melee attack (hunting + combat)
 @export var attack_range: float = 25.0
 @export var attack_cooldown: float = 1.5
 @export var build_range: float = 50.0  # Distance to stand from building while constructing
@@ -28,6 +28,8 @@ var target_animal: Animal = null  # For hunting
 var last_animal_position: Vector2 = Vector2.ZERO  # For finding carcass after animal dies
 var drop_off_building: Building = null
 var target_construction: Building = null  # Building we're constructing
+var repair_target: Building = null  # Building we're repairing
+var attack_target: Node2D = null  # For attacking enemy units/buildings
 var gather_timer: float = 0.0
 var attack_timer: float = 0.0
 var move_target: Vector2 = Vector2.ZERO
@@ -39,10 +41,13 @@ func _ready() -> void:
 	_load_directional_animations("res://assets/sprites/units/villager_frames", "Villagerstand", 75)
 
 func die() -> void:
-	# Clean up construction assignment before dying
+	# Clean up construction/repair assignment before dying
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
 		target_construction = null
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
+		repair_target = null
 	super.die()
 
 func _find_drop_off(resource_type: String) -> Building:
@@ -79,6 +84,10 @@ func _physics_process(delta: float) -> void:
 			_process_hunting(delta)
 		State.BUILDING:
 			_process_building(delta)
+		State.ATTACKING:
+			_process_attacking(delta)
+		State.REPAIRING:
+			_process_repairing(delta)
 
 func _process_moving(delta: float) -> void:
 	var distance = global_position.distance_to(move_target)
@@ -236,30 +245,42 @@ func _update_carry_visual() -> void:
 		_apply_team_color()
 
 func command_gather(resource: Node) -> void:  # Accepts ResourceNode or Farm
-	# If we were building, leave that job
+	# If we were building/repairing, leave that job
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
 	target_construction = null
+	repair_target = null
+	attack_target = null
 	target_resource = resource
 	carried_resource_type = resource.get_resource_type()
 	current_state = State.GATHERING
 	gather_timer = 0.0
 
 func move_to(target_position: Vector2) -> void:
-	# If we were building, leave that job
+	# If we were building/repairing, leave that job
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
 	target_resource = null
 	target_animal = null
 	target_construction = null
+	repair_target = null
+	attack_target = null
 	current_state = State.MOVING
 	move_target = target_position
 
 func command_hunt(animal: Animal) -> void:
-	# If we were building, leave that job
+	# If we were building/repairing, leave that job
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
 	target_construction = null
+	repair_target = null
+	attack_target = null
 	target_animal = animal
 	last_animal_position = animal.global_position
 	target_resource = null
@@ -267,14 +288,63 @@ func command_hunt(animal: Animal) -> void:
 	current_state = State.HUNTING
 	attack_timer = 0.0
 
-func command_build(building: Building) -> void:
-	# If we were building something else, leave that job
+func command_attack(target: Node2D) -> void:
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
-
-	target_construction = building
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
+	target_construction = null
+	repair_target = null
 	target_resource = null
 	target_animal = null
+	attack_target = target
+	current_state = State.ATTACKING
+	attack_timer = 0.0
+
+func _process_attacking(delta: float) -> void:
+	if not is_instance_valid(attack_target):
+		attack_target = null
+		current_state = State.IDLE
+		return
+
+	if attack_target is Unit and attack_target.is_dead:
+		attack_target = null
+		current_state = State.IDLE
+		return
+	if attack_target is Building and attack_target.is_destroyed:
+		attack_target = null
+		current_state = State.IDLE
+		return
+
+	var distance = global_position.distance_to(attack_target.global_position)
+
+	if distance > attack_range:
+		nav_agent.target_position = attack_target.global_position
+		var next_path_position = nav_agent.get_next_path_position()
+		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
+		_apply_movement(direction * move_speed)
+		return
+
+	_stop_and_stay()
+	attack_timer += delta
+
+	if attack_timer >= attack_cooldown:
+		attack_timer = 0.0
+		attack_target.take_damage(attack_damage, "melee", 0, self)
+
+func command_build(building: Building) -> void:
+	# If we were building/repairing something else, leave that job
+	if target_construction and is_instance_valid(target_construction):
+		target_construction.remove_builder(self)
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
+
+	target_construction = building
+	repair_target = null
+	target_resource = null
+	target_animal = null
+	attack_target = null
 	current_state = State.BUILDING
 	building.add_builder(self)
 
@@ -315,3 +385,54 @@ func _process_building(delta: float) -> void:
 		# Notify player about idle villager
 		if team == 0:
 			GameManager.villager_idle.emit(self, "Construction complete")
+
+func command_repair(building: Building) -> void:
+	# Clear other tasks
+	if target_construction and is_instance_valid(target_construction):
+		target_construction.remove_builder(self)
+	if repair_target and is_instance_valid(repair_target):
+		repair_target.remove_builder(self)
+	target_construction = null
+	target_resource = null
+	target_animal = null
+	attack_target = null
+	repair_target = building
+	current_state = State.REPAIRING
+	# Use the builder system so diminishing returns apply
+	building.add_builder(self)
+	building.start_repair()
+
+func _process_repairing(delta: float) -> void:
+	# Check if building still exists and needs repair
+	if not is_instance_valid(repair_target) or repair_target.is_destroyed:
+		repair_target = null
+		current_state = State.IDLE
+		return
+
+	# Already at full HP (e.g., another repairer finished first)
+	if not repair_target.needs_repair():
+		repair_target.remove_builder(self)
+		repair_target = null
+		current_state = State.IDLE
+		return
+
+	# Move into range
+	var distance = global_position.distance_to(repair_target.global_position)
+	if distance > build_range:
+		nav_agent.target_position = repair_target.global_position
+		var next_path_position = nav_agent.get_next_path_position()
+		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
+		_apply_movement(direction * move_speed)
+		return
+
+	# In range — stop and repair
+	_stop_and_stay()
+	var completed = repair_target.progress_repair(delta)
+
+	if completed:
+		repair_target.remove_builder(self)
+		repair_target = null
+		current_state = State.IDLE
+		if team == 0:
+			GameManager.villager_idle.emit(self, "Repair complete")

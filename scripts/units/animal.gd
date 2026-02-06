@@ -51,7 +51,7 @@ func _physics_process(delta: float) -> void:
 			_process_attacking(delta)
 
 func _process_idle(delta: float) -> void:
-	velocity = Vector2.ZERO
+	_stop_and_stay()
 
 	# Check for aggro if aggressive (throttled for performance)
 	if is_aggressive:
@@ -72,21 +72,21 @@ func _process_idle(delta: float) -> void:
 func _process_wandering(delta: float) -> void:
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
-		velocity = Vector2.ZERO
 		return
 
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
+	_resume_movement()
 	_apply_movement(direction * move_speed)
 
 func _process_fleeing(delta: float) -> void:
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
-		velocity = Vector2.ZERO
 		return
 
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
+	_resume_movement()
 	_apply_movement(direction * move_speed)
 
 func _process_attacking(delta: float) -> void:
@@ -102,11 +102,12 @@ func _process_attacking(delta: float) -> void:
 		nav_agent.target_position = attack_target.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
 		_apply_movement(direction * move_speed)
 		return
 
 	# In range, attack
-	velocity = Vector2.ZERO
+	_stop_and_stay()
 	attack_timer += delta
 
 	if attack_timer >= attack_cooldown:

@@ -233,9 +233,9 @@ func _get_selection_based_cursor() -> CursorType:
 		if hover_animal and is_instance_valid(hover_animal):
 			return CursorType.HAND
 
-		# Hovering over friendly building under construction - help build
+		# Hovering over friendly building under construction or damaged - build/repair
 		if hover_building and is_instance_valid(hover_building):
-			if hover_building.team == 0 and not hover_building.is_constructed:
+			if hover_building.team == 0 and (not hover_building.is_constructed or hover_building.needs_repair()):
 				return CursorType.BUILD
 
 		# Hovering over enemy - attack cursor

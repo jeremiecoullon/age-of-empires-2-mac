@@ -30,7 +30,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	match current_state:
 		State.IDLE:
-			velocity = Vector2.ZERO
+			_stop_and_stay()
 		State.MOVING_TO_DESTINATION:
 			_process_moving_to_destination(delta)
 		State.TRADING:
@@ -62,6 +62,7 @@ func _process_moving_to_destination(delta: float) -> void:
 	nav_agent.target_position = destination_market.global_position
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
+	_resume_movement()
 	_apply_movement(direction * move_speed)
 
 func _process_trading(delta: float) -> void:
