@@ -125,12 +125,12 @@ Edit `scenes/test_ai_solo.tscn` or the exported vars in `scripts/testing/ai_solo
 - `time_scale`: Game speed multiplier (default: 10.0)
 - `test_duration`: How many game-seconds to run (default: 600.0 = 10 minutes)
 
-Debug toggles (editable in Godot Inspector):
+Debug toggles (editable in Godot Inspector — all are `@export` vars):
 
-| Setting | File | Variable | Default |
-|---------|------|----------|---------|
-| AI state logging | `scripts/ai/ai_controller.gd` | `debug_print_enabled` | `true` |
-| Fog of War | `scripts/fog_of_war.gd` | `debug_disable_fog` | `true` |
+| Setting | File | Variable | Default | What it does |
+|---------|------|----------|---------|--------------|
+| AI terminal logging | `scripts/ai/ai_controller.gd` | `debug_print_enabled` | `false` | Prints AI_STATE, RULE_TICK, AI_ACTION to terminal. Turn on when debugging AI behavior. Test log callbacks still work regardless. |
+| Fog of war | `scripts/fog_of_war.gd` | `debug_disable_fog` | `false` | Disables fog of war rendering. Turn on to see the full map during testing. |
 
 ### What to look for
 
