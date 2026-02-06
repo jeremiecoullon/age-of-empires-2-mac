@@ -57,7 +57,7 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
    - Will the current structure make Phase N+1 harder than it needs to be?
 4. **Decide:** If refactor needed → include it in the plan before features.
 
-**Then write the execution plan** to the plan file with:
+**Then write the execution plan** to both the plan file AND `docs/plans/phase-{X}-plan.md` (identical content in both). This ensures the comprehensive plan survives into the build phase without information loss. The plan should contain:
 
 1. **Refactoring identified** — what (if anything) needs refactoring first
 2. **Ordered feature list** — specific files to create/modify, in implementation order
@@ -70,9 +70,9 @@ Use `ExitPlanMode` to present the plan for user approval.
 
 ### 2. Build the phase
 
-After plan approval, **first** write the plan to `docs/plans/phase-{X}-plan.md`. This file is a **compaction-resistant checklist** — re-read it after any context compaction. Update it during implementation (mark completed items, add discovered work).
+The plan is already in `docs/plans/phase-{X}-plan.md` (written during plan mode). This file is a **compaction-resistant checklist** — re-read it after any context compaction. Update it during implementation (mark completed items, add discovered work).
 
-Then implement:
+Implement:
 
 1. **Implement features** per the execution plan. Details in `docs/AoE_manual/AoE_manual.txt`.
 2. **Run spec-check agent** on new units/buildings/techs to verify against AoE2 specs.
