@@ -42,9 +42,11 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 This is the canonical workflow for building phases. Each phase (or sub-phase) follows these steps.
 
-### 1. Refactor check
+### 1. Plan (in planning mode)
 
-**Do not skip this step.** Assess the current codebase against what's coming. The goal is to catch architectural issues early (when they're cheap to fix) rather than late (when they're expensive).
+**Do not skip this step.** Use `EnterPlanMode` to explore the codebase and design the execution plan before writing any code.
+
+**In planning mode, do the refactor check:**
 
 1. **Read the phase spec** in `docs/roadmap.md` — What features are being added?
 2. **Skim Phase N+1** — What's coming next? Will this phase's code need to change?
@@ -53,24 +55,24 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
    - Are there hardcoded values that need to become dynamic?
    - Is there a pattern emerging (3+ similar things) that should be extracted?
    - Will the current structure make Phase N+1 harder than it needs to be?
-4. **Decide:**
-   - If refactor needed → Do it first, then build features.
-   - If not → Proceed with the phase.
+4. **Decide:** If refactor needed → include it in the plan before features.
+
+**Then write the execution plan** to the plan file with:
+
+1. **Refactoring identified** — what (if anything) needs refactoring first
+2. **Ordered feature list** — specific files to create/modify, in implementation order
+3. **Key implementation notes** — non-obvious gotchas, dependencies between features, patterns to follow
+4. **Post-phase checklist** — the post-phase steps (from step 3 below) listed explicitly so they survive context compaction
+
+Use `ExitPlanMode` to present the plan for user approval.
 
 **Important:** You (the agent) determine what refactoring is needed based on the actual codebase. Use your judgment. YAGNI — only fix what will actually cause problems.
 
-### 2. Write the execution plan
+### 2. Build the phase
 
-After the refactor check, write `docs/plans/phase-{X}-plan.md` with:
+After plan approval, **first** write the plan to `docs/plans/phase-{X}-plan.md`. This file is a **compaction-resistant checklist** — re-read it after any context compaction. Update it during implementation (mark completed items, add discovered work).
 
-1. **Ordered feature list** — specific files to create/modify, in implementation order
-2. **Refactoring identified** — what (if anything) needs refactoring first, from step 1
-3. **Key implementation notes** — non-obvious gotchas, dependencies between features, patterns to follow
-4. **Post-phase checklist** — the post-phase steps (from step 4 below) listed explicitly so they survive context compaction
-
-This file is a **compaction-resistant checklist**. Re-read it after any context compaction to recover your plan. Update it if the plan changes during implementation (e.g., mark completed items, add discovered work).
-
-### 3. Build the phase
+Then implement:
 
 1. **Implement features** per the execution plan. Details in `docs/AoE_manual/AoE_manual.txt`.
 2. **Run spec-check agent** on new units/buildings/techs to verify against AoE2 specs.
@@ -82,7 +84,7 @@ This file is a **compaction-resistant checklist**. Re-read it after any context 
      - Update `AI_STATE` logging if new counts are needed
 4. **Consider unit tests** for logic-heavy code (stat calculations, combat formulas, state transitions). Not everything needs tests — UI and scene setup rarely benefit; game logic often does.
 
-### 4. Post-phase
+### 3. Post-phase
 
 1. **Self-report on context friction** in the checkpoint doc:
    - Did I re-read any file more than twice? Which ones?
@@ -122,7 +124,7 @@ Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub
 
 2. **Persist the split.** Update `docs/roadmap.md` with the sub-phase breakdown. This is the source of truth for future sessions. Sub-phase descriptions must include both **entities** (units, buildings) AND **systems** (mechanics being introduced).
 
-3. **Execute the next sub-phase only.** Run the full Phase Workflow (refactor check → execution plan → build → post-phase) for one sub-phase.
+3. **Execute the next sub-phase only.** Run the full Phase Workflow (plan → build → post-phase) for one sub-phase.
 
 4. **Signal for context clear.** Say: "4.0A complete. Clear context now."
 
