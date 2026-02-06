@@ -94,8 +94,11 @@ class AdjustGathererPercentagesRule extends AIRule:
 		var vill_count = gs.get_civilian_population()
 		var has_barracks = gs.get_building_count("barracks") >= 1
 
-		# Transition to Phase 1 when economy is established
-		if current_phase == 0 and vill_count >= 10 and has_barracks:
+		# Transition to Phase 1 when economy is established AND we have a
+		# gold-spending building. Without this gate, 15% of villagers mine
+		# gold that sits idle (militia only costs food/wood).
+		var has_archery_range = gs.get_building_count("archery_range") >= 1
+		if current_phase == 0 and vill_count >= 10 and has_barracks and has_archery_range:
 			return true
 
 		# Future: Phase 2 transitions can be added here
@@ -145,11 +148,13 @@ class TrainVillagerRule extends AIRule:
 		var target = gs.get_sn("sn_target_villagers")
 		if target <= 0:
 			target = 20  # Default
-		# Pause villager production if we urgently need military.
+		# Pause villager production until we have a small military force.
 		# Militia costs 60 food; villagers cost 50 — without this pause,
 		# villager training consumes all food before it reaches 60.
+		# Threshold of 3 builds a small defensive force before resuming
+		# villager production (~180s pause at typical food income).
 		if gs.get_building_count("barracks") >= 1 \
-			and gs.get_military_population() == 0 \
+			and gs.get_military_population() < 3 \
 			and gs.get_civilian_population() >= 10:
 			return false
 		return gs.get_civilian_population() < target \

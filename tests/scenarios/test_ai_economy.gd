@@ -594,7 +594,7 @@ func test_build_farm_rule_respects_farm_cap() -> Assertions.AssertResult:
 # =============================================================================
 
 func test_adjust_gatherers_transitions_at_thresholds() -> Assertions.AssertResult:
-	## Rule should trigger transition at 10+ villagers with barracks
+	## Rule should trigger transition at 10+ villagers with barracks + archery range
 	var gs = _create_ai_game_state()
 
 	# Set initial phase 0
@@ -604,8 +604,9 @@ func test_adjust_gatherers_transitions_at_thresholds() -> Assertions.AssertResul
 	for i in range(10):
 		runner.spawner.spawn_villager(Vector2(500 + i * 50, 500), 1)
 
-	# Spawn barracks
+	# Spawn barracks and archery range (gold gathering requires a gold-spending building)
 	var barracks = runner.spawner.spawn_barracks(Vector2(600, 600), 1)
+	var archery_range = runner.spawner.spawn_archery_range(Vector2(700, 600), 1)
 	await runner.wait_frames(2)
 
 	var rule = AIRules.AdjustGathererPercentagesRule.new()
@@ -613,7 +614,7 @@ func test_adjust_gatherers_transitions_at_thresholds() -> Assertions.AssertResul
 
 	if not should_fire:
 		return Assertions.AssertResult.new(false,
-			"AdjustGathererPercentagesRule should fire at 10+ villagers with barracks")
+			"AdjustGathererPercentagesRule should fire at 10+ villagers with barracks + archery range")
 
 	return Assertions.AssertResult.new(true)
 
