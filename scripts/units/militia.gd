@@ -19,6 +19,7 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("infantry")
+	add_to_group("militia")
 	max_hp = 50
 	current_hp = max_hp
 	# 30 frames total, 8 directions = ~4 frames per direction

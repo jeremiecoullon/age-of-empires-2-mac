@@ -25,6 +25,7 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("infantry")
+	add_to_group("spearmen")
 	max_hp = 45
 	current_hp = max_hp
 	move_speed = 96.0  # Same as archer, slower than militia
@@ -65,7 +66,6 @@ func _check_auto_aggro(delta: float) -> void:
 func _process_moving(delta: float) -> void:
 	if nav_agent.is_navigation_finished():
 		current_state = State.IDLE
-		velocity = Vector2.ZERO
 		return
 
 	var next_path_position = nav_agent.get_next_path_position()
@@ -98,7 +98,6 @@ func _process_attacking(delta: float) -> void:
 		if stance == Stance.STAND_GROUND:
 			attack_target = null
 			current_state = State.IDLE
-			velocity = Vector2.ZERO
 			return
 
 		if stance == Stance.DEFENSIVE and original_position != Vector2.ZERO:
@@ -106,7 +105,6 @@ func _process_attacking(delta: float) -> void:
 			if dist_from_origin > DEFENSIVE_CHASE_RANGE:
 				attack_target = null
 				current_state = State.IDLE
-				velocity = Vector2.ZERO
 				return
 
 		# Move closer to target using nav_agent

@@ -29,9 +29,22 @@ ls -t logs/game_logs/ | head -1
 Read in this order:
 1. `metadata.json` — check git commit, duration, winner
 2. `comparison.md` — the main analysis input
-3. `human_actions.jsonl` — skim for action patterns (optional, for deeper context)
+3. `snapshots.jsonl` — raw snapshot data (required for validation)
+4. `human_actions.jsonl` — skim for action patterns (required for validation)
 
-### 3. Identify Exactly ONE Finding
+### 3. Validate Data Integrity
+
+Before analyzing strategy, check for logging bugs. Bad data leads to wrong diagnoses.
+
+**Check 1 — Train actions vs snapshot counts:**
+Count "train" actions in `human_actions.jsonl` by unit type. Compare against the military counts in `snapshots.jsonl`. If the player trained N units of type X but snapshots always show X=0, the snapshot logging is broken for that unit type. Flag this as a **data integrity issue**.
+
+**Check 2 — Military total consistency:**
+For each snapshot, verify that `military.total` equals the sum of all other numeric fields in the `military` object. If total > sum, units are being double-counted. Flag this as a **data integrity issue**.
+
+**If any data integrity issue is found:** Report it as the primary finding instead of doing strategic analysis. Bad data makes strategic analysis unreliable. Include the specific numbers that don't add up and suggest which logging code to investigate.
+
+### 4. Identify Exactly ONE Finding
 
 Analyze the comparison data for strategic gaps. Common patterns:
 
@@ -43,7 +56,7 @@ Analyze the comparison data for strategic gaps. Common patterns:
 
 **Pick the ONE gap with the highest strategic impact.** Not two. Not three. One.
 
-### 4. Propose ONE Concrete Change
+### 5. Propose ONE Concrete Change
 
 Your proposed change must specify:
 - **File**: Which file to modify (usually `scripts/ai/ai_rules.gd` or strategic numbers in `scripts/ai/ai_controller.gd`)
@@ -54,11 +67,13 @@ Your proposed change must specify:
 
 If you can't determine the current value, say so — but still name the specific parameter.
 
-### 5. Check for Staleness
+**Before proposing a parameter change, read the relevant code.** For example, if proposing a change to `can_train()` thresholds, read `scripts/ai/ai_rules.gd` first to understand what the function actually checks. Don't guess at parameter names or values — look them up.
+
+### 6. Check for Staleness
 
 Read `metadata.json` and check the git commit. If the commit is very old or the `git_dirty` flag is true, note this — the game may have been played on outdated code and the analysis may not reflect the current AI state.
 
-### 6. Write Report
+### 7. Write Report
 
 Write `analysis.md` to the SAME directory as the game log files. Also return the full report content.
 

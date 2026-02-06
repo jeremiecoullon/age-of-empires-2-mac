@@ -78,22 +78,27 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 		"cavalry_archer": 0,
 	}
 
-	# Map group names to result keys
-	var groups = {
-		"militia": "militia",
-		"spearmen": "spearman",
-		"archers": "archer",
-		"skirmishers": "skirmisher",
-		"scout_cavalry": "scout_cavalry",
-		"cavalry_archers": "cavalry_archer",
-	}
-
-	for group_name in groups:
-		var key = groups[group_name]
-		for unit in scene_tree.get_nodes_in_group(group_name):
-			if unit.team == team and not unit.is_dead:
-				result[key] += 1
-				result["total"] += 1
+	# Iterate military group once and classify with elif chain.
+	# Check specific subtypes before generic ones to avoid double-counting
+	# (e.g. skirmishers are in both "skirmishers" and "archers" groups).
+	for unit in scene_tree.get_nodes_in_group("military"):
+		if unit.team != team or unit.is_dead:
+			continue
+		result["total"] += 1
+		if unit.is_in_group("skirmishers"):
+			result["skirmisher"] += 1
+		elif unit.is_in_group("cavalry_archers"):
+			result["cavalry_archer"] += 1
+		elif unit.is_in_group("scout_cavalry"):
+			result["scout_cavalry"] += 1
+		elif unit.is_in_group("archers"):
+			result["archer"] += 1
+		elif unit.is_in_group("militia"):
+			result["militia"] += 1
+		elif unit.is_in_group("spearmen"):
+			result["spearman"] += 1
+		else:
+			push_warning("GameStateSnapshot: unclassified military unit '%s' in team %d" % [unit.name, team])
 
 	return result
 
