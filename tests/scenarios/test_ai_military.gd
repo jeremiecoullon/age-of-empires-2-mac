@@ -260,6 +260,7 @@ func test_get_enemy_infantry_count_includes_spearmen() -> Assertions.AssertResul
 func test_build_archery_range_requires_barracks() -> Assertions.AssertResult:
 	## BuildArcheryRangeRule should not fire without barracks
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Archery range requires Feudal
 
 	# Spawn enough villagers
 	for i in range(10):
@@ -281,6 +282,7 @@ func test_build_archery_range_requires_barracks() -> Assertions.AssertResult:
 func test_build_archery_range_requires_villagers() -> Assertions.AssertResult:
 	## BuildArcheryRangeRule should not fire with too few villagers
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Archery range requires Feudal
 
 	# Spawn barracks but only 5 villagers (need 8)
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
@@ -303,6 +305,7 @@ func test_build_archery_range_requires_villagers() -> Assertions.AssertResult:
 func test_build_archery_range_fires_when_conditions_met() -> Assertions.AssertResult:
 	## BuildArcheryRangeRule should fire when barracks exists and 8+ villagers
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Archery range requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	for i in range(9):
@@ -328,6 +331,7 @@ func test_build_archery_range_fires_when_conditions_met() -> Assertions.AssertRe
 func test_build_archery_range_queued_flag_prevents_multiple() -> Assertions.AssertResult:
 	## BuildArcheryRangeRule should not fire twice (queued flag)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Archery range requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	for i in range(9):
@@ -356,6 +360,7 @@ func test_build_archery_range_queued_flag_prevents_multiple() -> Assertions.Asse
 func test_build_archery_range_queued_flag_resets() -> Assertions.AssertResult:
 	## BuildArcheryRangeRule queued flag should reset when building exists
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Archery range requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	for i in range(9):
@@ -389,6 +394,7 @@ func test_build_archery_range_queued_flag_resets() -> Assertions.AssertResult:
 func test_build_stable_requires_barracks() -> Assertions.AssertResult:
 	## BuildStableRule should not fire without barracks
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Stable requires Feudal
 
 	for i in range(12):
 		var v = runner.spawner.spawn_villager(Vector2(500 + (i % 4) * 50, 500 + (i / 4) * 50), 1)
@@ -409,6 +415,7 @@ func test_build_stable_requires_barracks() -> Assertions.AssertResult:
 func test_build_stable_requires_more_villagers_than_archery_range() -> Assertions.AssertResult:
 	## BuildStableRule requires 10+ villagers (vs 8 for archery range)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Both buildings require Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	# Spawn exactly 8 villagers (enough for archery range but not stable)
@@ -438,6 +445,7 @@ func test_build_stable_requires_more_villagers_than_archery_range() -> Assertion
 func test_build_stable_fires_when_conditions_met() -> Assertions.AssertResult:
 	## BuildStableRule should fire when barracks exists and 10+ villagers
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Stable requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	for i in range(12):
@@ -463,6 +471,7 @@ func test_build_stable_fires_when_conditions_met() -> Assertions.AssertResult:
 func test_build_stable_queued_flag_prevents_multiple() -> Assertions.AssertResult:
 	## BuildStableRule should not fire twice (queued flag)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Stable requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	for i in range(12):
@@ -537,6 +546,7 @@ func test_train_militia_fires_with_barracks() -> Assertions.AssertResult:
 func test_train_spearman_requires_enemy_cavalry() -> Assertions.AssertResult:
 	## TrainSpearmanRule should only fire when enemy has cavalry (counter unit)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Spearman requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -563,6 +573,7 @@ func test_train_spearman_requires_enemy_cavalry() -> Assertions.AssertResult:
 func test_train_spearman_doesnt_fire_without_cavalry() -> Assertions.AssertResult:
 	## TrainSpearmanRule should NOT fire when enemy has no cavalry
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Spearman requires Feudal
 
 	runner.spawner.spawn_barracks(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -603,6 +614,7 @@ func test_train_archer_requires_archery_range() -> Assertions.AssertResult:
 func test_train_archer_respects_ranged_cap() -> Assertions.AssertResult:
 	## TrainArcherRule has a cap: max(3, infantry+2)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Archer requires Feudal
 
 	runner.spawner.spawn_archery_range(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -630,6 +642,7 @@ func test_train_archer_respects_ranged_cap() -> Assertions.AssertResult:
 func test_train_skirmisher_requires_enemy_archers() -> Assertions.AssertResult:
 	## TrainSkirmisherRule should only fire when enemy has archers (counter unit)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Skirmisher requires Feudal
 
 	runner.spawner.spawn_archery_range(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -656,6 +669,7 @@ func test_train_skirmisher_requires_enemy_archers() -> Assertions.AssertResult:
 func test_train_skirmisher_doesnt_fire_without_archers() -> Assertions.AssertResult:
 	## TrainSkirmisherRule should NOT fire when enemy has no archers
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Skirmisher requires Feudal
 
 	runner.spawner.spawn_archery_range(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -695,6 +709,7 @@ func test_train_scout_cavalry_requires_stable() -> Assertions.AssertResult:
 func test_train_scout_cavalry_first_always_trains() -> Assertions.AssertResult:
 	## TrainScoutCavalryRule always trains first scout (for scouting)
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Scout cavalry requires Feudal
 
 	runner.spawner.spawn_stable(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -719,6 +734,7 @@ func test_train_scout_cavalry_first_always_trains() -> Assertions.AssertResult:
 func test_train_scout_cavalry_caps_at_three() -> Assertions.AssertResult:
 	## TrainScoutCavalryRule should not train more than 3 scouts
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_FEUDAL  # Scout cavalry requires Feudal
 
 	runner.spawner.spawn_stable(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -764,6 +780,7 @@ func test_train_cavalry_archer_requires_stable() -> Assertions.AssertResult:
 func test_train_cavalry_archer_requires_gold() -> Assertions.AssertResult:
 	## TrainCavalryArcherRule requires gold > 150
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_CASTLE  # Cavalry archer requires Castle
 
 	runner.spawner.spawn_stable(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)
@@ -788,6 +805,7 @@ func test_train_cavalry_archer_requires_gold() -> Assertions.AssertResult:
 func test_train_cavalry_archer_requires_military() -> Assertions.AssertResult:
 	## TrainCavalryArcherRule requires 3+ military
 	var gs = _create_ai_game_state()
+	GameManager.ai_age = GameManager.AGE_CASTLE  # Cavalry archer requires Castle
 
 	runner.spawner.spawn_stable(Vector2(600, 600), 1)
 	runner.spawner.spawn_house(Vector2(500, 500), 1)

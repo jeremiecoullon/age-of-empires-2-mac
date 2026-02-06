@@ -301,6 +301,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(120, 25)
 text = "Train Villager (50F)"
 
+[node name="AdvanceAgeButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Advance Age"
+
 [node name="TrainMilitiaButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
 layout_mode = 2
@@ -502,6 +508,7 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildArcheryRangeButton" to="." method="_on_build_archery_range_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton" to="." method="_on_build_stable_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/AdvanceAgeButton" to="." method="_on_advance_age_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMilitiaButton" to="." method="_on_train_militia_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSpearmanButton" to="." method="_on_train_spearman_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainArcherButton" to="." method="_on_train_archer_pressed"]

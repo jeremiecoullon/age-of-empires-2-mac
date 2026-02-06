@@ -85,6 +85,57 @@ func refresh() -> void:
 
 
 # =============================================================================
+# CONDITION HELPERS - Age
+# =============================================================================
+
+func get_age() -> int:
+	return GameManager.get_age(AI_TEAM)
+
+
+func can_advance_age() -> bool:
+	return GameManager.can_advance_age(AI_TEAM)
+
+
+func get_qualifying_building_count(target_age: int) -> int:
+	return GameManager.get_qualifying_building_count(target_age, AI_TEAM)
+
+
+func should_save_for_age() -> bool:
+	## Returns true when the AI should pause non-essential spending to save for age advancement.
+	## True when: all non-resource conditions met, can't yet afford, not under attack.
+	var current_age = get_age()
+	if current_age >= GameManager.AGE_IMPERIAL:
+		return false
+	var target_age = current_age + 1
+	# Check non-resource conditions
+	var min_vills = 10 if target_age == GameManager.AGE_FEUDAL else 15
+	if get_civilian_population() < min_vills:
+		return false
+	if get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+		return false
+	# Already researching or can already afford — no need to save
+	var tc = _get_ai_town_center()
+	if tc and tc.is_researching_age:
+		return false
+	if GameManager.can_afford_age(target_age, AI_TEAM):
+		return false
+	# Don't save if under attack — survival first
+	if is_under_attack():
+		return false
+	return true
+
+
+func research_age(target_age: int) -> bool:
+	## Start age research at AI Town Center
+	var tc = _get_ai_town_center()
+	if not tc or not tc.is_functional():
+		return false
+	if tc.is_researching_age:
+		return false
+	return tc.start_age_research(target_age)
+
+
+# =============================================================================
 # CONDITION HELPERS - Resources
 # =============================================================================
 
@@ -304,6 +355,11 @@ func get_can_train_reason(unit_type: String) -> String:
 	## Used for debugging rule evaluation.
 	const MAX_AI_QUEUE: int = 3
 
+	# Check age requirement
+	if not GameManager.is_unit_unlocked(unit_type, AI_TEAM):
+		var required_age = GameManager.UNIT_AGE_REQUIREMENTS.get(unit_type, GameManager.AGE_DARK)
+		return "requires_%s" % GameManager.AGE_NAMES[required_age].to_lower().replace(" ", "_")
+
 	# Check population space
 	if not GameManager.can_add_population(AI_TEAM):
 		return "no_pop_space"
@@ -315,6 +371,8 @@ func get_can_train_reason(unit_type: String) -> String:
 				return "no_town_center"
 			if not tc.is_functional():
 				return "tc_not_functional"
+			if tc.is_researching_age:
+				return "tc_researching_age"
 			if tc.get_queue_size() >= MAX_AI_QUEUE:
 				return "queue_full"
 			if not GameManager.can_afford("food", tc.VILLAGER_COST, AI_TEAM):
@@ -409,6 +467,11 @@ func get_can_build_reason(building_type: String) -> String:
 	## Used for debugging rule evaluation.
 	if building_type not in BUILDING_COSTS:
 		return "unknown_building_type"
+
+	# Check age requirement
+	if not GameManager.is_building_unlocked(building_type, AI_TEAM):
+		var required_age = GameManager.BUILDING_AGE_REQUIREMENTS.get(building_type, GameManager.AGE_DARK)
+		return "requires_%s" % GameManager.AGE_NAMES[required_age].to_lower().replace(" ", "_")
 
 	# Check resources
 	var costs = BUILDING_COSTS[building_type]
@@ -685,8 +748,7 @@ func _do_train(unit_type: String) -> void:
 		"villager":
 			var tc = _get_ai_town_center()
 			if tc and tc.is_functional():
-				tc.train_villager()
-				success = true
+				success = tc.train_villager()
 		"militia":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():

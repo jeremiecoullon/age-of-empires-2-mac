@@ -25,6 +25,8 @@ var milestones: Dictionary = {
 	"reached_15_villagers": null,
 	"first_military_unit": null,
 	"first_attack": null,
+	"reached_feudal_age": null,
+	"reached_castle_age": null,
 }
 
 # Previous state for change detection
@@ -121,6 +123,13 @@ func _check_milestones(game_time: float, state) -> void:
 	if milestones["first_military_unit"] == null and military_count > 0 and _prev_military_count == 0:
 		milestones["first_military_unit"] = game_time
 	_prev_military_count = military_count
+
+	# Age milestones
+	var current_age = GameManager.get_age(AI_TEAM)
+	if milestones["reached_feudal_age"] == null and current_age >= GameManager.AGE_FEUDAL:
+		milestones["reached_feudal_age"] = game_time
+	if milestones["reached_castle_age"] == null and current_age >= GameManager.AGE_CASTLE:
+		milestones["reached_castle_age"] = game_time
 
 	# Attack milestone (set via record_attack())
 	if milestones["first_attack"] == null and attack_issued:
@@ -336,10 +345,23 @@ func generate_summary(test_duration: float, time_scale: float, game_time: float,
 			missed.append(key)
 
 	# Final state
+	# Age research status
+	var age_info = {
+		"current_age": state.get_age(),
+		"age_name": GameManager.get_age_name(AI_TEAM),
+		"researching_age": false,
+	}
+	var tc = state._get_ai_town_center()
+	if tc and tc.is_researching_age:
+		age_info["researching_age"] = true
+		age_info["research_target"] = tc.age_research_target
+		age_info["research_progress"] = snappedf(tc.get_age_research_progress(), 0.01)
+
 	var final_state = {
 		"game_time": snappedf(game_time, 0.1),
 		"villagers": state.get_civilian_population(),
 		"military": state.get_military_population(),
+		"age": age_info,
 		"resources": {
 			"food": state.get_resource("food"),
 			"wood": state.get_resource("wood"),

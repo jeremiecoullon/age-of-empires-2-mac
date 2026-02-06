@@ -349,3 +349,37 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **`_repair_cost_accumulator` must reset between sessions**: Call `start_repair()` (which resets the accumulator to 0) when starting a new repair session. Without this, leftover fractional cost from a previous interrupted repair carries over.
 
 - **Cleanup pattern for repair_target**: Same as `target_construction` — every `command_*` method and `die()` must check and clean up `repair_target` from the builder list. Missing this causes phantom builders that inflate `get_builder_count()` and affect diminishing returns.
+
+### Phase 4A - Age Infrastructure & Advancement
+
+- **Qualifying buildings count distinct types, not total buildings**: AoE2 requires 2 *different* building types for age advancement (e.g., barracks + mill), not 2 of the same type (e.g., 2 barracks). `get_qualifying_building_count()` iterates group names and checks if at least one functional building exists per group, then counts distinct groups. This was caught by spec-check.
+
+- **TC destruction during age research must refund resources**: If a TC is destroyed mid-research, `cancel_age_research()` must be called in `_destroy()` to refund costs. Otherwise resources are permanently lost. Similar to the production queue refund pattern.
+
+- **Age research blocks villager training**: The TC's `_process()` uses `if is_researching_age ... elif is_training` to prioritize age research over training. Training is paused (not cancelled) during research. After research completes, `_start_next_training()` resumes the queue.
+
+- **AI can't train villagers during age research**: The AI's `get_can_train_reason('villager')` must check `tc.is_researching_age` and return `"tc_researching_age"`. Without this, `can_train()` returns "ok" but `train_villager()` silently fails, causing misleading logs.
+
+- **AI resource saving for age advancement**: The AI spends food continuously on villagers and military, so it never naturally accumulates 500 food for Feudal. Fix: `should_save_for_age()` in AIGameState returns true when all non-resource conditions are met but can't afford. Military training rules check this and pause. Villager training does NOT pause — more villagers = more food income = faster saving. Saving is skipped if under attack. This approach lets the AI save ~500 food in ~80-100s while maintaining economy growth.
+
+- **AI observer needs diagnostic data**: The AI observer agent guesses incorrectly when it lacks data. Two fixes: (1) `debug_print_enabled = true` in `ai_solo_test.gd` so RULE_TICK and AI_STATE logs are captured; (2) `final_state.age` in summary.json includes current age, whether research is in progress, and progress percentage. Without these, the observer can't distinguish "never started" from "started but didn't finish."
+
+- **`_do_train()` should capture return value**: The AI's `_do_train('villager')` was setting `success = true` regardless of whether `tc.train_villager()` actually succeeded. Changed to `success = tc.train_villager()` to properly track failures.
+
+- **`is_destroyed` guard in `_process()`**: Add `if is_destroyed: return` at the top of TC's `_process()` to prevent any logic (timers, signals) from running after destruction but before `queue_free()` actually frees the node.
+
+### Phase 4B - Age-Gating
+
+- **Age requirement data lives in GameManager**: Central `BUILDING_AGE_REQUIREMENTS` and `UNIT_AGE_REQUIREMENTS` dictionaries with `is_building_unlocked()` / `is_unit_unlocked()` helpers. Avoids scattered exports across 15+ classes. Easy for Phase 5 to extend with tech requirements.
+
+- **Age checks at caller level, not in train_X() methods**: HUD and AI both check via GameManager helpers before calling train methods. Adding checks inside every `train_X()` method would mean touching 8 functions across 4 files with identical logic.
+
+- **Starting Scout Cavalry**: AoE2 starts players with 3 villagers + 1 scout. The scout exists in Dark Age but *training* more requires Feudal (Stable building). Player scout is in main.tscn, AI scout is spawned in `_spawn_starting_base()`. Starting population increased from 3 to 4.
+
+- **Existing tests need age context**: When adding age gating, tests that set up Feudal/Castle content (archery ranges, stables, spearmen, etc.) must also set `GameManager.ai_age` to the appropriate age. Without this, the age check in `get_can_train_reason()`/`get_can_build_reason()` rejects the action before reaching the condition being tested. Tests that expect failure may "pass by accident" but test the wrong thing.
+
+- **Building visual changes deferred**: No age-variant sprites exist. The only option would be tinting which would conflict with team color modulation. Deferred to Phase 9 (Polish).
+
+- **Cavalry Archer is Castle Age**: Even though the Stable (its training building) is Feudal Age, the Cavalry Archer unit itself requires Castle Age. The button appears in the Stable panel but is disabled until Castle Age.
+
+- **AI build-queue flags need timeouts, not booleans**: Build rules (barracks, archery range, stable, mill, lumber camp, mining camp) use a flag to prevent queuing the same building twice. Originally a boolean that was only reset when the building existed. If the build failed silently (can't afford, no valid position), the flag was never reset, permanently blocking the rule. Fixed by using a timestamp + 30s timeout: `_barracks_queued_at` instead of `_barracks_queued`.

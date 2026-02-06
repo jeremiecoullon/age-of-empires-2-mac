@@ -157,6 +157,7 @@ class TrainVillagerRule extends AIRule:
 			and gs.get_military_population() < 3 \
 			and gs.get_civilian_population() >= 10:
 			return false
+		# Don't pause villagers for age saving — more villagers = more food income = faster saving
 		return gs.get_civilian_population() < target \
 			and gs.can_train("villager")
 
@@ -169,41 +170,45 @@ class TrainVillagerRule extends AIRule:
 # =============================================================================
 
 class BuildLumberCampRule extends AIRule:
-	var _lumber_camp_queued: bool = false
+	var _lumber_camp_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_lumber_camp"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
 		if gs.get_building_count("lumber_camp") > 0:
-			_lumber_camp_queued = false
+			_lumber_camp_queued_at = -1.0
 			return false
 
-		# Build lumber camp when wood is too far from drop-offs
-		return not _lumber_camp_queued \
+		if _lumber_camp_queued_at > 0.0 and gs.get_game_time() - _lumber_camp_queued_at > QUEUE_TIMEOUT:
+			_lumber_camp_queued_at = -1.0
+
+		return _lumber_camp_queued_at < 0.0 \
 			and gs.needs_lumber_camp() \
 			and gs.can_build("lumber_camp")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build_near_resource("lumber_camp", "wood")
-		_lumber_camp_queued = true
+		_lumber_camp_queued_at = gs.get_game_time()
 
 
 class BuildMiningCampRule extends AIRule:
-	var _mining_camp_queued: bool = false
+	var _mining_camp_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_mining_camp"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
 		if gs.get_building_count("mining_camp") > 0:
-			_mining_camp_queued = false
+			_mining_camp_queued_at = -1.0
 			return false
 
-		# Build mining camp when gold or stone is too far
-		return not _mining_camp_queued \
+		if _mining_camp_queued_at > 0.0 and gs.get_game_time() - _mining_camp_queued_at > QUEUE_TIMEOUT:
+			_mining_camp_queued_at = -1.0
+
+		return _mining_camp_queued_at < 0.0 \
 			and (gs.needs_mining_camp_for_gold() or gs.needs_mining_camp_for_stone()) \
 			and gs.can_build("mining_camp")
 
@@ -213,29 +218,31 @@ class BuildMiningCampRule extends AIRule:
 			gs.build_near_resource("mining_camp", "gold")
 		else:
 			gs.build_near_resource("mining_camp", "stone")
-		_mining_camp_queued = true
+		_mining_camp_queued_at = gs.get_game_time()
 
 
 class BuildMillRule extends AIRule:
-	var _mill_queued: bool = false
+	var _mill_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_mill"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
 		if gs.get_building_count("mill") > 0:
-			_mill_queued = false
+			_mill_queued_at = -1.0
 			return false
 
-		# Build mill when natural food is far from drop-offs
-		return not _mill_queued \
+		if _mill_queued_at > 0.0 and gs.get_game_time() - _mill_queued_at > QUEUE_TIMEOUT:
+			_mill_queued_at = -1.0
+
+		return _mill_queued_at < 0.0 \
 			and gs.needs_mill() \
 			and gs.can_build("mill")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build_near_resource("mill", "food")
-		_mill_queued = true
+		_mill_queued_at = gs.get_game_time()
 
 
 class BuildFarmRule extends AIRule:
@@ -432,74 +439,85 @@ class MarketBuyRule extends AIRule:
 # =============================================================================
 
 class BuildBarracksRule extends AIRule:
-	var _barracks_queued: bool = false
+	var _barracks_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0  # Reset flag if build hasn't completed in 30s
 
 	func _init():
 		rule_name = "build_barracks"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
+		# Already have one
 		if gs.get_building_count("barracks") > 0:
-			_barracks_queued = false
+			_barracks_queued_at = -1.0
 			return false
+
+		# Reset flag if build timed out (failed silently or villager died)
+		if _barracks_queued_at > 0.0 and gs.get_game_time() - _barracks_queued_at > QUEUE_TIMEOUT:
+			_barracks_queued_at = -1.0
 
 		# Build barracks when we have none and have some economy going
 		# Only queue once (avoid building multiple while first is under construction)
-		return not _barracks_queued \
+		return _barracks_queued_at < 0.0 \
 			and gs.get_civilian_population() >= 5 \
 			and gs.can_build("barracks")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("barracks")
-		_barracks_queued = true
+		_barracks_queued_at = gs.get_game_time()
 
 
 class BuildArcheryRangeRule extends AIRule:
-	var _archery_range_queued: bool = false
+	var _archery_range_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_archery_range"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists
 		if gs.get_building_count("archery_range") > 0:
-			_archery_range_queued = false
+			_archery_range_queued_at = -1.0
 			return false
+
+		if _archery_range_queued_at > 0.0 and gs.get_game_time() - _archery_range_queued_at > QUEUE_TIMEOUT:
+			_archery_range_queued_at = -1.0
 
 		# Build archery range when we have barracks and 8+ villagers
 		# This gives us ranged options in addition to infantry
-		return not _archery_range_queued \
+		return _archery_range_queued_at < 0.0 \
 			and gs.get_building_count("barracks") >= 1 \
 			and gs.get_civilian_population() >= 8 \
 			and gs.can_build("archery_range")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("archery_range")
-		_archery_range_queued = true
+		_archery_range_queued_at = gs.get_game_time()
 
 
 class BuildStableRule extends AIRule:
-	var _stable_queued: bool = false
+	var _stable_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_stable"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists
 		if gs.get_building_count("stable") > 0:
-			_stable_queued = false
+			_stable_queued_at = -1.0
 			return false
 
 		# Build stable when we have barracks and 10+ villagers
 		# Cavalry is more expensive, so wait for stronger economy
-		return not _stable_queued \
+		if _stable_queued_at > 0.0 and gs.get_game_time() - _stable_queued_at > QUEUE_TIMEOUT:
+			_stable_queued_at = -1.0
+
+		return _stable_queued_at < 0.0 \
 			and gs.get_building_count("barracks") >= 1 \
 			and gs.get_civilian_population() >= 10 \
 			and gs.can_build("stable")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("stable")
-		_stable_queued = true
+		_stable_queued_at = gs.get_game_time()
 
 
 # =============================================================================
@@ -511,7 +529,8 @@ class TrainMilitiaRule extends AIRule:
 		rule_name = "train_militia"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train militia when we have a barracks
+		if gs.should_save_for_age():
+			return false
 		return gs.get_building_count("barracks") >= 1 \
 			and gs.can_train("militia")
 
@@ -524,13 +543,12 @@ class TrainSpearmanRule extends AIRule:
 		rule_name = "train_spearman"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train spearmen as anti-cavalry - triggered by army composition logic
-		# For now, train if we have barracks and enemy has cavalry
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("barracks") < 1:
 			return false
 		if not gs.can_train("spearman"):
 			return false
-		# Only train spearmen if enemy has cavalry (counter unit)
 		return gs.get_enemy_cavalry_count() > 0
 
 	func actions(gs: AIGameState) -> void:
@@ -542,6 +560,8 @@ class TrainArcherRule extends AIRule:
 		rule_name = "train_archer"
 
 	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
 		# Train archers - good general ranged unit
 		if gs.get_building_count("archery_range") < 1:
 			return false
@@ -562,12 +582,12 @@ class TrainSkirmisherRule extends AIRule:
 		rule_name = "train_skirmisher"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train skirmishers as anti-archer
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("archery_range") < 1:
 			return false
 		if not gs.can_train("skirmisher"):
 			return false
-		# Only train skirmishers if enemy has archers (counter unit)
 		return gs.get_enemy_archer_count() > 0
 
 	func actions(gs: AIGameState) -> void:
@@ -579,16 +599,15 @@ class TrainScoutCavalryRule extends AIRule:
 		rule_name = "train_scout_cavalry"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train at least one scout for scouting, then more for raiding
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("stable") < 1:
 			return false
 		if not gs.can_train("scout_cavalry"):
 			return false
-		# Always want at least 1 scout for scouting
 		var scout_count = gs.get_unit_count("scout_cavalry")
 		if scout_count < 1:
 			return true
-		# Train more scouts if we have good food income and not too many
 		return scout_count < 3 and gs.get_resource("food") > 150
 
 	func actions(gs: AIGameState) -> void:
@@ -600,19 +619,67 @@ class TrainCavalryArcherRule extends AIRule:
 		rule_name = "train_cavalry_archer"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train cavalry archers - mobile ranged, expensive
-		# Note: Despite being archers, cavalry archers train from stables (per AoE2 spec)
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("stable") < 1:
 			return false
 		if not gs.can_train("cavalry_archer"):
 			return false
-		# Only train cavalry archers when we have good gold income
-		# and already have some other military
 		return gs.get_resource("gold") > 150 \
 			and gs.get_military_population() >= 3
 
 	func actions(gs: AIGameState) -> void:
 		gs.train("cavalry_archer")
+
+
+# =============================================================================
+# AGE ADVANCEMENT (Phase 4A)
+# =============================================================================
+
+class AdvanceToFeudalAgeRule extends AIRule:
+	## Advance to Feudal Age when economy is established
+	## Requirements: Dark Age, 10+ villagers, 2 qualifying buildings, 500 food
+
+	func _init():
+		rule_name = "advance_to_feudal"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_age() != GameManager.AGE_DARK:
+			return false
+		if gs.get_civilian_population() < 10:
+			return false
+		var target_age = GameManager.AGE_FEUDAL
+		if gs.get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+			return false
+		if not gs.can_advance_age():
+			return false
+		return true
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_age(GameManager.AGE_FEUDAL)
+
+
+class AdvanceToCastleAgeRule extends AIRule:
+	## Advance to Castle Age when Feudal economy is running
+	## Requirements: Feudal Age, 15+ villagers, 2 qualifying Feudal buildings, 800 food + 200 gold
+
+	func _init():
+		rule_name = "advance_to_castle"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_age() != GameManager.AGE_FEUDAL:
+			return false
+		if gs.get_civilian_population() < 15:
+			return false
+		var target_age = GameManager.AGE_CASTLE
+		if gs.get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+			return false
+		if not gs.can_advance_age():
+			return false
+		return true
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_age(GameManager.AGE_CASTLE)
 
 
 # =============================================================================
@@ -730,6 +797,9 @@ static func create_all_rules() -> Array:
 		TrainSkirmisherRule.new(),
 		TrainScoutCavalryRule.new(),
 		TrainCavalryArcherRule.new(),
+		# Age advancement (Phase 4A)
+		AdvanceToFeudalAgeRule.new(),
+		AdvanceToCastleAgeRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)

@@ -409,28 +409,65 @@ This phase re-implements the AI using independent rules that fire when condition
 
 **AI Competency (cumulative):** By end of this phase, AI must do everything from Phases 0-3, plus: research age advancement when economically ready, respect age-gating for buildings/units.
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Age state machine | System | Track current age per player |
-| Dark Age | Age | Starting age, basic units/buildings |
-| Feudal Age | Age | Cost: 500 food, requires 2 qualifying Dark Age buildings |
-| Castle Age | Age | Cost: 800 food + 200 gold, requires 2 qualifying Feudal Age buildings |
-| Age advancement UI | UI | Button at TC, progress bar, notification |
-| Age-gating | System | Buildings/units locked until specific age |
-| Building visual changes | Visual | Buildings update appearance per age |
+**Sub-phases (approved 2026-02-06):**
+- **4A**: Age infrastructure + advancement mechanic + AI advancement rules
+- **4B**: Age-gating (lock buildings/units by age), UI for locked content, building visual changes
+
+| Feature | Type | Sub-phase | Notes |
+|---------|------|-----------|-------|
+| Age state machine | System | 4A | Track current age per player |
+| Dark Age | Age | 4A | Starting age, basic units/buildings |
+| Feudal Age | Age | 4A | Cost: 500 food, requires 2 qualifying Dark Age buildings |
+| Castle Age | Age | 4A | Cost: 800 food + 200 gold, requires 2 qualifying Feudal Age buildings |
+| Age advancement UI | UI | 4A | Button at TC, progress bar, notification |
+| AI age advancement | AI | 4A | AI researches ages when economically ready |
+| Age-gating | System | 4B | Buildings/units locked until specific age |
+| Locked content UI | UI | 4B | Greyed-out buttons with age requirement tooltip |
+| Building visual changes | Visual | 4B | Buildings update appearance per age |
 
 **Qualifying buildings for age advancement:**
 - Buildings that train units or research techs (Barracks, Mill, Lumber Camp, Mining Camp, Dock, etc.)
-- Does NOT count: Houses, Farms, towers, walls, Gates, Outposts
+- Does NOT count: Houses, Farms, Town Center, towers, walls, Gates, Outposts
 
 **Age-gated content:**
 - **Dark Age:** Villager, Militia, Barracks, House, Mill, Mining Camp, Lumber Camp, Farm, Outpost, Palisade Wall
-- **Feudal Age:** Archery Range, Stable, Market, Blacksmith, Watch Tower, Stone Wall, Gate; Scout Cavalry, Archer, Skirmisher, Spearman
+- **Feudal Age:** Archery Range, Stable, Market, Blacksmith, Watch Tower, Stone Wall, Gate; Scout Cavalry (training; one free starting unit exists in Dark Age), Archer, Skirmisher, Spearman, Trade Cart
 - **Castle Age:** Siege Workshop, Monastery, University, Castle, Town Center (additional); Knight, Cavalry Archer, Crossbowman, Pikeman, siege units
 
 **AI updates:** AI researches age advancement when economically ready.
 
 **Done when:** Games have distinct early-game (Dark Age eco), mid-game (Feudal military), late-game (Castle power).
+
+---
+
+### Phase 4A: Age Infrastructure + Advancement
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Age constants & tracking | System | AGE_DARK/FEUDAL/CASTLE/IMPERIAL, per-player age vars, age_changed signal |
+| Qualifying building logic | System | Count functional buildings by group to determine advancement eligibility |
+| Age research at TC | Mechanic | Timer-based research, blocks villager training, can cancel |
+| Advance Age button | UI | In TC panel, validates requirements, shows progress |
+| Age label update | UI | Top bar updates with current age name |
+| Age-up notification | UI | Notification when age research completes |
+| AI age advancement rules | AI | AdvanceToFeudalAgeRule, AdvanceToCastleAgeRule |
+| AI age observability | AI | Skip reasons, milestones, AI_STATE logging |
+
+**4A Done when:** Player and AI can advance through ages. UI shows progress. AI advances when economically ready.
+
+---
+
+### Phase 4B: Age-Gating + Visual Changes
+
+| Feature | Type | Notes |
+|---------|------|-------|
+| Building age-gating | System | Buildings locked until specific age |
+| Unit age-gating | System | Units locked until specific age |
+| Greyed-out UI | UI | Locked buttons show age requirement |
+| Building visual upgrades | Visual | Buildings change appearance per age |
+| AI respects age-gating | AI | AI only builds/trains age-appropriate content |
+
+**4B Done when:** Age advancement creates meaningful progression. Content is locked/unlocked correctly.
 
 ---
 
@@ -1082,7 +1119,7 @@ All technologies organized by building and phase.
 | Arbalester | 25W, 45G | 40 | 6 | 0/0 | 5 | Med |
 | Skirmisher | 25F, 35W | 30 | 2 | 0/3 | 4 | Med |
 | Elite Skirmisher | 25F, 35W | 35 | 3 | 0/4 | 5 | Med |
-| Cavalry Archer | 40W, 70G | 50 | 6 | 0/0 | 4 | Fast |
+| Cavalry Archer | 40W, 70G | 50 | 6 | 0/0 | 3 | Fast |
 | Heavy Cav Archer | 40W, 70G | 60 | 7 | 1/0 | 4 | Fast |
 | Hand Cannoneer | 45F, 50G | 35 | 17 | 1/0 | 7 | Med |
 

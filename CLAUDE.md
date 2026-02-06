@@ -42,9 +42,11 @@ When you make a significant design choice (scope, architecture, tradeoffs), add 
 
 This is the canonical workflow for building phases. Each phase (or sub-phase) follows these steps.
 
-### 1. Refactor check
+### 1. Plan (in planning mode)
 
-**Do not skip this step.** Assess the current codebase against what's coming. The goal is to catch architectural issues early (when they're cheap to fix) rather than late (when they're expensive).
+**Do not skip this step.** Use `EnterPlanMode` to explore the codebase and design the execution plan before writing any code.
+
+**In planning mode, do the refactor check:**
 
 1. **Read the phase spec** in `docs/roadmap.md` — What features are being added?
 2. **Skim Phase N+1** — What's coming next? Will this phase's code need to change?
@@ -53,15 +55,26 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
    - Are there hardcoded values that need to become dynamic?
    - Is there a pattern emerging (3+ similar things) that should be extracted?
    - Will the current structure make Phase N+1 harder than it needs to be?
-4. **Decide:**
-   - If refactor needed → Do it first, then build features.
-   - If not → Proceed with the phase.
+4. **Decide:** If refactor needed → include it in the plan before features.
+
+**Then write the execution plan** to both the plan file AND `docs/plans/phase-{X}-plan.md` (identical content in both). This ensures the comprehensive plan survives into the build phase without information loss. The plan should contain:
+
+1. **Refactoring identified** — what (if anything) needs refactoring first
+2. **Ordered feature list** — specific files to create/modify, in implementation order
+3. **Key implementation notes** — non-obvious gotchas, dependencies between features, patterns to follow
+4. **Post-phase checklist** — the post-phase steps (from step 3 below) listed explicitly so they survive context compaction
+
+Use `ExitPlanMode` to present the plan for user approval.
 
 **Important:** You (the agent) determine what refactoring is needed based on the actual codebase. Use your judgment. YAGNI — only fix what will actually cause problems.
 
 ### 2. Build the phase
 
-1. **Implement features** per the phase spec. Details in `docs/AoE_manual/AoE_manual.txt`.
+The plan is already in `docs/plans/phase-{X}-plan.md` (written during plan mode). This file is a **compaction-resistant checklist** — re-read it after any context compaction. Update it during implementation (mark completed items, add discovered work).
+
+Implement:
+
+1. **Implement features** per the execution plan. Details in `docs/AoE_manual/AoE_manual.txt`.
 2. **Run spec-check agent** on new units/buildings/techs to verify against AoE2 specs.
 3. **If phase adds features the AI should use:**
    - Add AI rules for the new features (in `scripts/ai/ai_rules.gd`)
@@ -111,7 +124,7 @@ Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub
 
 2. **Persist the split.** Update `docs/roadmap.md` with the sub-phase breakdown. This is the source of truth for future sessions. Sub-phase descriptions must include both **entities** (units, buildings) AND **systems** (mechanics being introduced).
 
-3. **Execute the next sub-phase only.** Run the full Phase Workflow (refactor check → build → post-phase) for one sub-phase.
+3. **Execute the next sub-phase only.** Run the full Phase Workflow (plan → build → post-phase) for one sub-phase.
 
 4. **Signal for context clear.** Say: "4.0A complete. Clear context now."
 
@@ -180,6 +193,20 @@ Fix any mismatches, or document intentional deviations in `docs/gotchas.md`.
 Both steps are required. The import step catches scene file errors that won't show up in tests (since tests use mock HUD).
 
 Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures. Do not ask the user to run tests manually in the GUI.
+
+--- 
+
+## Improving the AI player
+
+Games are logged to `logs/game_logs/` with snapshots every 10 seconds. When the user asks to analyze a game:
+
+1. **Run the game-analyzer agent** on the game log directory the user specifies. It identifies the biggest strategic gap and proposes a concrete code change. The report goes to `analysis.md` inside that game log folder.
+2. **Critically assess the recommendation.** Don't blindly accept — check whether the proposed change makes sense given current AI logic and game state.
+3. **Wait for user confirmation** before implementing anything.
+4. **Implement the fix**, then run the code-reviewer agent on the changes.
+5. **Update the AI tuning log** in `docs/ai_player_designs/ai_tuning_log.md` to track what changed and why. This history matters as new features/maps are added — earlier tuning may become irrelevant.
+
+
 
 ---
 

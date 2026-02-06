@@ -28,6 +28,7 @@ const STARTING_VILLAGERS: int = 3
 const TC_SCENE: PackedScene = preload("res://scenes/buildings/town_center.tscn")
 const HOUSE_SCENE: PackedScene = preload("res://scenes/buildings/house.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/units/villager.tscn")
+const SCOUT_CAVALRY_SCENE: PackedScene = preload("res://scenes/units/scout_cavalry.tscn")
 
 # Decision timing
 const DECISION_INTERVAL: float = 0.5  # Evaluate rules every 0.5 seconds
@@ -142,6 +143,13 @@ func _spawn_starting_base() -> void:
 		units_container.add_child(villager)
 		GameManager.add_population(1, AI_TEAM)
 
+	# Spawn starting scout cavalry (AoE2 standard: 3 villagers + 1 scout)
+	var scout = SCOUT_CAVALRY_SCENE.instantiate()
+	scout.global_position = AI_BASE_POSITION + Vector2(60, 40)
+	scout.team = AI_TEAM
+	units_container.add_child(scout)
+	GameManager.add_population(1, AI_TEAM)
+
 
 func _process(delta: float) -> void:
 	if GameManager.game_ended:
@@ -224,8 +232,8 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 		"build_barracks":
 			if game_state.get_building_count("barracks") > 0:
 				return "already_have_barracks"
-			# Check if queued (rule has internal state)
-			if rule and rule.get("_barracks_queued"):
+			# Check if queued (rule has internal state with timeout)
+			if rule and rule.get("_barracks_queued_at", -1.0) > 0.0:
 				return "already_queued"
 			var pop = game_state.get_civilian_population()
 			if pop < 5:
@@ -234,8 +242,8 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 		"build_mill":
 			if game_state.get_building_count("mill") > 0:
 				return "already_have_mill"
-			# Check if queued (rule has internal state)
-			if rule and rule.get("_mill_queued"):
+			# Check if queued (rule has internal state with timeout)
+			if rule and rule.get("_mill_queued_at", -1.0) > 0.0:
 				return "already_queued"
 			if not game_state.needs_mill():
 				return "not_needed"
@@ -243,13 +251,15 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 		"build_lumber_camp":
 			if game_state.get_building_count("lumber_camp") > 0:
 				return "already_have_lumber_camp"
-			# Check if queued (rule has internal state)
-			if rule and rule.get("_lumber_camp_queued"):
+			# Check if queued (rule has internal state with timeout)
+			if rule and rule.get("_lumber_camp_queued_at", -1.0) > 0.0:
 				return "already_queued"
 			if not game_state.needs_lumber_camp():
 				return "not_needed"
 			return game_state.get_can_build_reason("lumber_camp")
 		"train_militia":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
 			if game_state.get_building_count("barracks") < 1:
 				return "no_barracks"
 			return game_state.get_can_train_reason("militia")
@@ -306,6 +316,34 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if pop < 10:
 				return "need_10_villagers_have_%d" % pop
 			return game_state.get_can_build_reason("stable")
+		"advance_to_feudal":
+			if game_state.get_age() != GameManager.AGE_DARK:
+				return "not_dark_age"
+			var feudal_vills = game_state.get_civilian_population()
+			if feudal_vills < 10:
+				return "need_10_villagers_have_%d" % feudal_vills
+			var feudal_tc = game_state._get_ai_town_center()
+			if feudal_tc and feudal_tc.is_researching_age:
+				return "already_researching"
+			var feudal_qualifying = game_state.get_qualifying_building_count(GameManager.AGE_FEUDAL)
+			if feudal_qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, feudal_qualifying]
+			if not game_state.can_advance_age():
+				return "cannot_afford"
+		"advance_to_castle":
+			if game_state.get_age() != GameManager.AGE_FEUDAL:
+				return "not_feudal_age"
+			var castle_vills = game_state.get_civilian_population()
+			if castle_vills < 15:
+				return "need_15_villagers_have_%d" % castle_vills
+			var castle_tc = game_state._get_ai_town_center()
+			if castle_tc and castle_tc.is_researching_age:
+				return "already_researching"
+			var castle_qualifying = game_state.get_qualifying_building_count(GameManager.AGE_CASTLE)
+			if castle_qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, castle_qualifying]
+			if not game_state.can_advance_age():
+				return "cannot_afford"
 		"defend_base":
 			if not game_state.is_under_attack():
 				return "not_under_attack"
@@ -354,6 +392,7 @@ func _get_rule_blockers() -> Dictionary:
 		"build_barracks", "build_archery_range", "build_stable",
 		"build_mill", "build_lumber_camp",
 		"train_militia", "train_archer", "train_scout_cavalry",
+		"advance_to_feudal", "advance_to_castle",
 		"defend_base", "attack"
 	]
 	for rule in rules:
@@ -547,6 +586,8 @@ func _print_debug_state() -> void:
 	# Build state dictionary
 	var state: Dictionary = {
 		"t": snappedf(game_time, 0.1),
+		"age": game_state.get_age(),
+		"age_name": GameManager.get_age_name(AIGameState.AI_TEAM),
 		"resources": {
 			"food": game_state.get_resource("food"),
 			"wood": game_state.get_resource("wood"),

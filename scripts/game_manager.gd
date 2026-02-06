@@ -1,5 +1,62 @@
 extends Node
 
+# Age constants
+const AGE_DARK: int = 0
+const AGE_FEUDAL: int = 1
+const AGE_CASTLE: int = 2
+const AGE_IMPERIAL: int = 3
+
+const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age", "Imperial Age"]
+
+# Age advancement costs and research times
+const AGE_COSTS: Array[Dictionary] = [
+	{},  # Dark Age (starting age, no cost)
+	{"food": 500},  # Feudal Age
+	{"food": 800, "gold": 200},  # Castle Age
+	{"food": 1000, "gold": 800},  # Imperial Age
+]
+
+const AGE_RESEARCH_TIMES: Array[float] = [
+	0.0,   # Dark Age
+	130.0, # Feudal Age (AoE2: ~130 seconds)
+	160.0, # Castle Age (AoE2: ~160 seconds)
+	190.0, # Imperial Age (AoE2: ~190 seconds)
+]
+
+# Qualifying building groups per target age
+# To advance to Feudal: need 2 from Dark Age qualifying buildings
+# To advance to Castle: need 2 from Feudal Age qualifying buildings
+# To advance to Imperial: need 2 from Castle Age qualifying buildings
+const AGE_QUALIFYING_GROUPS: Array[Array] = [
+	[],  # Dark Age (starting age)
+	["barracks", "mills", "lumber_camps", "mining_camps"],  # For Feudal
+	["archery_ranges", "stables", "markets"],  # For Castle
+	[],  # For Imperial (placeholder - Castle Age buildings not yet implemented)
+]
+
+const AGE_REQUIRED_QUALIFYING_COUNT: int = 2
+
+# Age requirements for buildings and units
+# Buildings/units not listed here are available from Dark Age
+const BUILDING_AGE_REQUIREMENTS: Dictionary = {
+	"archery_range": AGE_FEUDAL,
+	"stable": AGE_FEUDAL,
+	"market": AGE_FEUDAL,
+}
+
+const UNIT_AGE_REQUIREMENTS: Dictionary = {
+	"archer": AGE_FEUDAL,
+	"skirmisher": AGE_FEUDAL,
+	"spearman": AGE_FEUDAL,
+	"scout_cavalry": AGE_FEUDAL,
+	"trade_cart": AGE_FEUDAL,
+	"cavalry_archer": AGE_CASTLE,
+}
+
+# Age state per player
+var player_age: int = AGE_DARK
+var ai_age: int = AGE_DARK
+
 # Resource pools - dictionary-based for extensibility
 var resources: Dictionary = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
 var ai_resources: Dictionary = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
@@ -15,7 +72,7 @@ const PRICE_CHANGE_PER_TRADE: int = 3  # Price change per 100-unit trade
 var market_prices: Dictionary = {"wood": 100, "food": 100, "stone": 130}
 
 # Population
-var population: int = 3
+var population: int = 4
 var population_cap: int = 5
 var ai_population: int = 0
 var ai_population_cap: int = 5
@@ -27,6 +84,7 @@ signal game_over(winner: int)  # 0 = player wins, 1 = AI wins
 signal villager_idle(villager: Node, reason: String)  # Emitted when player villager goes idle
 signal market_prices_changed  # Emitted when market prices update
 signal player_under_attack(attack_type: String)  # "military", "villager", or "building"
+signal age_changed(team: int, new_age: int)  # Emitted when a player advances to a new age
 
 var game_ended: bool = false
 
@@ -160,6 +218,89 @@ func get_population(team: int = 0) -> int:
 func get_population_cap(team: int = 0) -> int:
 	return population_cap if team == 0 else ai_population_cap
 
+# Age functions
+func get_age(team: int = 0) -> int:
+	return player_age if team == 0 else ai_age
+
+func set_age(age: int, team: int = 0) -> void:
+	if team == 0:
+		player_age = age
+	else:
+		ai_age = age
+	age_changed.emit(team, age)
+
+func get_age_name(team: int = 0) -> String:
+	var age = get_age(team)
+	return AGE_NAMES[age] if age < AGE_NAMES.size() else "Unknown"
+
+
+func is_building_unlocked(building_type: String, team: int = 0) -> bool:
+	var required_age = BUILDING_AGE_REQUIREMENTS.get(building_type, AGE_DARK)
+	return get_age(team) >= required_age
+
+
+func is_unit_unlocked(unit_type: String, team: int = 0) -> bool:
+	var required_age = UNIT_AGE_REQUIREMENTS.get(unit_type, AGE_DARK)
+	return get_age(team) >= required_age
+
+
+func get_required_age_name(entity_type: String, is_building: bool = false) -> String:
+	var reqs = BUILDING_AGE_REQUIREMENTS if is_building else UNIT_AGE_REQUIREMENTS
+	var required_age = reqs.get(entity_type, AGE_DARK)
+	return AGE_NAMES[required_age] if required_age < AGE_NAMES.size() else "Unknown"
+
+func can_advance_age(team: int = 0) -> bool:
+	var current_age = get_age(team)
+	if current_age >= AGE_IMPERIAL:
+		return false  # Already at max age
+	var target_age = current_age + 1
+	# Check qualifying building count
+	if get_qualifying_building_count(target_age, team) < AGE_REQUIRED_QUALIFYING_COUNT:
+		return false
+	# Check resources
+	if not can_afford_age(target_age, team):
+		return false
+	return true
+
+func get_qualifying_building_count(target_age: int, team: int = 0) -> int:
+	# Counts distinct building types (groups) with at least one functional building.
+	# AoE2 requires 2 *different* building types, not 2 buildings of the same type.
+	if target_age <= 0 or target_age >= AGE_QUALIFYING_GROUPS.size():
+		return 0
+	var qualifying_groups: Array = AGE_QUALIFYING_GROUPS[target_age]
+	var distinct_count: int = 0
+	for group_name in qualifying_groups:
+		for building in get_tree().get_nodes_in_group(group_name):
+			if building.team == team and building.is_functional():
+				distinct_count += 1
+				break
+	return distinct_count
+
+func can_afford_age(target_age: int, team: int = 0) -> bool:
+	if target_age <= 0 or target_age >= AGE_COSTS.size():
+		return false
+	var costs: Dictionary = AGE_COSTS[target_age]
+	var pool = resources if team == 0 else ai_resources
+	for resource_type in costs:
+		if pool[resource_type] < costs[resource_type]:
+			return false
+	return true
+
+func spend_age_cost(target_age: int, team: int = 0) -> bool:
+	if not can_afford_age(target_age, team):
+		return false
+	var costs: Dictionary = AGE_COSTS[target_age]
+	for resource_type in costs:
+		spend_resource(resource_type, costs[resource_type], team)
+	return true
+
+func refund_age_cost(target_age: int, team: int = 0) -> void:
+	if target_age <= 0 or target_age >= AGE_COSTS.size():
+		return
+	var costs: Dictionary = AGE_COSTS[target_age]
+	for resource_type in costs:
+		add_resource(resource_type, costs[resource_type], team)
+
 # Victory check
 func check_victory() -> void:
 	if game_ended:
@@ -220,10 +361,12 @@ func complete_building_placement() -> void:
 func reset() -> void:
 	resources = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
 	ai_resources = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
-	population = 3
+	population = 4
 	population_cap = 5
 	ai_population = 0
 	ai_population_cap = 5
+	player_age = AGE_DARK
+	ai_age = AGE_DARK
 	game_ended = false
 	clear_selection()
 	is_placing_building = false

@@ -35,6 +35,7 @@ extends CanvasLayer
 
 # Train buttons
 @onready var train_villager_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton
+@onready var advance_age_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/AdvanceAgeButton
 @onready var train_militia_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMilitiaButton
 @onready var train_spearman_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSpearmanButton
 @onready var train_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainArcherButton
@@ -113,12 +114,13 @@ func _ready() -> void:
 	GameManager.villager_idle.connect(_on_villager_idle)
 	GameManager.market_prices_changed.connect(_update_market_prices)
 	GameManager.player_under_attack.connect(_on_player_under_attack)
+	GameManager.age_changed.connect(_on_age_changed)
 
 	# Group buttons for easier management
 	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
 					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
 					 build_archery_range_btn, build_stable_btn]
-	tc_buttons = [train_villager_btn]
+	tc_buttons = [train_villager_btn, advance_age_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
 	archery_range_buttons = [train_archer_btn, train_skirmisher_btn]
 	stable_buttons = [train_scout_cavalry_btn, train_cavalry_archer_btn]
@@ -128,6 +130,7 @@ func _ready() -> void:
 	# Initial update
 	_update_resources()
 	_update_population()
+	_update_age_label()
 	_update_market_prices()
 	_setup_attack_notification()
 
@@ -166,6 +169,17 @@ func _update_production_progress() -> void:
 		cancel_btn.visible = false
 		return
 
+	# Age research progress (TC only)
+	if selected_building is TownCenter:
+		var tc = selected_building as TownCenter
+		if tc.is_researching_age:
+			train_progress.value = tc.get_age_research_progress() * 100
+			train_progress.visible = true
+			var age_name = GameManager.AGE_NAMES[tc.age_research_target] if tc.age_research_target < GameManager.AGE_NAMES.size() else "?"
+			queue_label.text = age_name
+			cancel_btn.visible = true
+			return
+
 	var queue_size = selected_building.get_queue_size()
 	queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
 	cancel_btn.visible = queue_size > 0
@@ -200,6 +214,7 @@ func _show_build_buttons() -> void:
 	_hide_all_action_buttons()
 	for btn in build_buttons:
 		btn.visible = true
+	_update_build_button_states()
 	action_title.text = "Build"
 
 
@@ -210,6 +225,7 @@ func _show_tc_buttons(tc: TownCenter) -> void:
 	action_title.text = "Town Center"
 	selected_building = tc
 	selected_building_type = "tc"
+	_update_advance_age_button()
 
 
 func _show_barracks_buttons(barracks: Barracks) -> void:
@@ -219,6 +235,7 @@ func _show_barracks_buttons(barracks: Barracks) -> void:
 	action_title.text = "Barracks"
 	selected_building = barracks
 	selected_building_type = "barracks"
+	_update_barracks_button_states()
 
 
 func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
@@ -228,6 +245,7 @@ func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
 	action_title.text = "Archery Range"
 	selected_building = archery_range
 	selected_building_type = "archery_range"
+	_update_archery_range_button_states()
 
 
 func _show_stable_buttons(stable: Stable) -> void:
@@ -237,6 +255,7 @@ func _show_stable_buttons(stable: Stable) -> void:
 	action_title.text = "Stable"
 	selected_building = stable
 	selected_building_type = "stable"
+	_update_stable_button_states()
 
 
 func _show_market_buttons(market: Market) -> void:
@@ -247,6 +266,7 @@ func _show_market_buttons(market: Market) -> void:
 	selected_building = market
 	selected_building_type = "market"
 	_update_market_prices()
+	_update_market_button_states()
 
 
 func _update_market_prices() -> void:
@@ -256,6 +276,89 @@ func _update_market_prices() -> void:
 	sell_wood_btn.text = "Sell Wood: %dg" % GameManager.get_market_sell_price("wood")
 	sell_food_btn.text = "Sell Food: %dg" % GameManager.get_market_sell_price("food")
 	sell_stone_btn.text = "Sell Stone: %dg" % GameManager.get_market_sell_price("stone")
+
+
+# ============================================================================
+# Age-gating helpers
+# ============================================================================
+
+func _set_button_age_locked(btn: Button, locked: bool, age_name: String, base_text: String) -> void:
+	if locked:
+		btn.disabled = true
+		btn.text = "%s (%s)" % [base_text, age_name]
+	else:
+		btn.disabled = false
+		btn.text = base_text
+
+
+func _update_build_button_states() -> void:
+	# Dark Age buildings - always enabled
+	build_house_btn.disabled = false
+	build_barracks_btn.disabled = false
+	build_farm_btn.disabled = false
+	build_mill_btn.disabled = false
+	build_lumber_camp_btn.disabled = false
+	build_mining_camp_btn.disabled = false
+
+	# Feudal Age buildings
+	_set_button_age_locked(build_archery_range_btn, not GameManager.is_building_unlocked("archery_range"), GameManager.get_required_age_name("archery_range", true), "Archery Range")
+	_set_button_age_locked(build_stable_btn, not GameManager.is_building_unlocked("stable"), GameManager.get_required_age_name("stable", true), "Stable")
+	_set_button_age_locked(build_market_btn, not GameManager.is_building_unlocked("market"), GameManager.get_required_age_name("market", true), "Market")
+
+
+func _update_barracks_button_states() -> void:
+	# Militia - Dark Age, always available
+	train_militia_btn.disabled = false
+	train_militia_btn.text = "Train Militia"
+
+	# Spearman - Feudal Age
+	var locked = not GameManager.is_unit_unlocked("spearman")
+	_set_button_age_locked(train_spearman_btn, locked, GameManager.get_required_age_name("spearman"), "Train Spearman")
+
+
+func _update_archery_range_button_states() -> void:
+	# Archer - Feudal Age (archery range itself is Feudal, so should always be unlocked here)
+	train_archer_btn.disabled = false
+	train_archer_btn.text = "Train Archer"
+
+	# Skirmisher - Feudal Age
+	train_skirmisher_btn.disabled = false
+	train_skirmisher_btn.text = "Train Skirmisher"
+
+
+func _update_stable_button_states() -> void:
+	# Scout Cavalry - Feudal Age (stable itself is Feudal, so should always be unlocked here)
+	train_scout_cavalry_btn.disabled = false
+	train_scout_cavalry_btn.text = "Train Scout Cavalry"
+
+	# Cavalry Archer - Castle Age
+	var locked = not GameManager.is_unit_unlocked("cavalry_archer")
+	_set_button_age_locked(train_cavalry_archer_btn, locked, GameManager.get_required_age_name("cavalry_archer"), "Train Cavalry Archer")
+
+
+func _update_market_button_states() -> void:
+	# Trade Cart - Feudal Age (market itself is Feudal, so should always be unlocked here)
+	train_trade_cart_btn.disabled = false
+	train_trade_cart_btn.text = "Train Trade Cart"
+
+
+func _refresh_current_panel() -> void:
+	## Re-evaluates button states for the currently visible panel.
+	## Called when age changes to immediately unlock newly available content.
+	if selected_building_type == "tc":
+		_update_advance_age_button()
+	elif selected_building_type == "barracks":
+		_update_barracks_button_states()
+	elif selected_building_type == "archery_range":
+		_update_archery_range_button_states()
+	elif selected_building_type == "stable":
+		_update_stable_button_states()
+	elif selected_building_type == "market":
+		_update_market_button_states()
+
+	# Also refresh build buttons if a villager is selected
+	if selected_info_entity is Villager and selected_info_entity.team == 0:
+		_update_build_button_states()
 
 
 # ============================================================================
@@ -703,18 +806,27 @@ func _on_build_mining_camp_pressed() -> void:
 	get_parent().start_mining_camp_placement()
 
 func _on_build_market_pressed() -> void:
+	if not GameManager.is_building_unlocked("market"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("market", true))
+		return
 	if not GameManager.can_afford("wood", 175):
 		_show_error("Need 175 wood!")
 		return
 	get_parent().start_market_placement()
 
 func _on_build_archery_range_pressed() -> void:
+	if not GameManager.is_building_unlocked("archery_range"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("archery_range", true))
+		return
 	if not GameManager.can_afford("wood", 175):
 		_show_error("Need 175 wood!")
 		return
 	get_parent().start_archery_range_placement()
 
 func _on_build_stable_pressed() -> void:
+	if not GameManager.is_building_unlocked("stable"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("stable", true))
+		return
 	if not GameManager.can_afford("wood", 175):
 		_show_error("Need 175 wood!")
 		return
@@ -748,6 +860,9 @@ func _on_train_militia_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 func _on_train_spearman_pressed() -> void:
+	if not GameManager.is_unit_unlocked("spearman"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("spearman"))
+		return
 	if selected_building is Barracks:
 		var barracks = selected_building as Barracks
 		if barracks.train_spearman():
@@ -762,6 +877,9 @@ func _on_train_spearman_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 func _on_train_archer_pressed() -> void:
+	if not GameManager.is_unit_unlocked("archer"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("archer"))
+		return
 	if selected_building is ArcheryRange:
 		var ar = selected_building as ArcheryRange
 		if ar.train_archer():
@@ -776,6 +894,9 @@ func _on_train_archer_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 func _on_train_skirmisher_pressed() -> void:
+	if not GameManager.is_unit_unlocked("skirmisher"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("skirmisher"))
+		return
 	if selected_building is ArcheryRange:
 		var ar = selected_building as ArcheryRange
 		if ar.train_skirmisher():
@@ -790,6 +911,9 @@ func _on_train_skirmisher_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 func _on_train_scout_cavalry_pressed() -> void:
+	if not GameManager.is_unit_unlocked("scout_cavalry"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("scout_cavalry"))
+		return
 	if selected_building is Stable:
 		var stable = selected_building as Stable
 		if stable.train_scout_cavalry():
@@ -802,6 +926,9 @@ func _on_train_scout_cavalry_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 func _on_train_cavalry_archer_pressed() -> void:
+	if not GameManager.is_unit_unlocked("cavalry_archer"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("cavalry_archer"))
+		return
 	if selected_building is Stable:
 		var stable = selected_building as Stable
 		if stable.train_cavalry_archer():
@@ -814,6 +941,70 @@ func _on_train_cavalry_archer_pressed() -> void:
 				_show_error("Need 70 gold!")
 			elif not GameManager.can_add_population():
 				_show_error("Pop cap reached!")
+
+
+func _on_advance_age_pressed() -> void:
+	if not selected_building is TownCenter:
+		return
+	var tc = selected_building as TownCenter
+	if tc.is_researching_age:
+		_show_error("Already researching!")
+		return
+
+	var current_age = GameManager.get_age(0)
+	if current_age >= GameManager.AGE_IMPERIAL:
+		_show_error("Already at max age!")
+		return
+
+	var target_age = current_age + 1
+	var qualifying = GameManager.get_qualifying_building_count(target_age, 0)
+	if qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+		_show_error("Need %d qualifying buildings (have %d)" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, qualifying])
+		return
+
+	if not GameManager.can_afford_age(target_age, 0):
+		var costs = GameManager.AGE_COSTS[target_age]
+		var cost_parts: Array[String] = []
+		for res in costs:
+			cost_parts.append("%d %s" % [costs[res], res])
+		_show_error("Need %s" % ", ".join(cost_parts))
+		return
+
+	if tc.start_age_research(target_age):
+		var age_name = GameManager.AGE_NAMES[target_age]
+		_show_notification("Researching %s..." % age_name)
+		if _game_logger:
+			_game_logger.log_action("age_research", {"target": age_name})
+
+
+func _update_advance_age_button() -> void:
+	var current_age = GameManager.get_age(0)
+	if current_age >= GameManager.AGE_IMPERIAL:
+		advance_age_btn.text = "Max Age"
+		advance_age_btn.disabled = true
+		return
+
+	var target_age = current_age + 1
+	var age_name = GameManager.AGE_NAMES[target_age]
+	var costs = GameManager.AGE_COSTS[target_age]
+	var cost_parts: Array[String] = []
+	for res in costs:
+		var short = res[0].to_upper()  # "F", "G", etc.
+		cost_parts.append("%d%s" % [costs[res], short])
+
+	advance_age_btn.text = "%s (%s)" % [age_name, ", ".join(cost_parts)]
+	advance_age_btn.disabled = false
+
+
+func _update_age_label() -> void:
+	age_label.text = GameManager.get_age_name(0)
+
+
+func _on_age_changed(team: int, new_age: int) -> void:
+	if team == 0:
+		_update_age_label()
+		_show_notification("Advanced to %s!" % GameManager.AGE_NAMES[new_age])
+		_refresh_current_panel()
 
 
 func _on_buy_wood_pressed() -> void:
@@ -871,6 +1062,9 @@ func _on_sell_stone_pressed() -> void:
 			_show_error("Need 100 stone!")
 
 func _on_train_trade_cart_pressed() -> void:
+	if not GameManager.is_unit_unlocked("trade_cart"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("trade_cart"))
+		return
 	if selected_building is Market:
 		var market = selected_building as Market
 		if market.train_trade_cart():
@@ -887,6 +1081,13 @@ func _on_train_trade_cart_pressed() -> void:
 
 func _on_cancel_pressed() -> void:
 	if selected_building and is_instance_valid(selected_building):
+		# Cancel age research first if active (TC only)
+		if selected_building is TownCenter:
+			var tc = selected_building as TownCenter
+			if tc.is_researching_age:
+				tc.cancel_age_research()
+				_show_notification("Age research cancelled")
+				return
 		selected_building.cancel_training()
 
 
