@@ -319,3 +319,19 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Avoid double-counting when iterating multiple groups**: If a unit belongs to multiple groups (e.g., cavalry_archer in both "archers" and "cavalry"), don't iterate both groups and count. Either iterate only one group (if they're superset/subset) or track seen instance IDs.
 
 - **AI test timeout is mandatory**: Always use `timeout` when running AI headless tests. Formula: `timeout_seconds = (duration / timescale) * 2`. Without timeout, tests can hang indefinitely if the AI gets stuck. Example: `timeout 120 godot --headless ... scenes/test_ai_solo.tscn`
+
+### Bugfix batch - Unit movement & avoidance
+
+- **`move_and_slide()` with zero velocity causes depenetration**: In Godot 4, `CharacterBody2D.move_and_slide()` applies overlap recovery even when `velocity = Vector2.ZERO`. Two units at the same spawn point get pushed apart every frame. Don't call `move_and_slide()` in `_stop_and_stay()` — it's not needed when velocity is zero in a top-down game.
+
+- **Avoidance must be script-controlled, not scene-controlled**: Scene files set `avoidance_enabled = true`, but avoidance should be disabled by default in `_ready()` and only enabled by `_resume_movement()`. The NavigationServer can process a new agent's avoidance before its first `_physics_process` runs, causing unwanted push on spawn. Guard `_on_velocity_computed` with `if not nav_agent.avoidance_enabled: return` to reject stale callbacks.
+
+- **All unit subclasses must use `_stop_and_stay()` / `_resume_movement()` pattern**: Never use bare `velocity = Vector2.ZERO` to stop a unit — it doesn't disable avoidance. The canonical pattern (from militia/villager): IDLE → `_stop_and_stay()`, before `_apply_movement()` → `_resume_movement()`, in-range attack → `_stop_and_stay()`. Files that needed fixing: archer, spearman, scout_cavalry, skirmisher, cavalry_archer, animal, trade_cart.
+
+- **Boar/animal hunting: check order in `_issue_command()` matters**: Boar extends Animal extends Unit, so it's in both "units" and "animals" groups. The enemy-unit check (`team != 0`) catches boars before the hunting check. Fix: exclude animals with `not target_unit.is_in_group("animals")` in the enemy unit branch.
+
+- **Population cap: pause training, don't refund**: When pop cap is reached at spawn time, AoE2 pauses training and retries next frame. Don't refund resources and continue to next queue item — that drains the entire queue in one frame. Hold `train_timer` at max and `return` without popping from queue.
+
+- **Friendly fire should not trigger attack notifications**: `notify_unit_damaged()` and `notify_building_damaged()` must check if attacker is on the same team as victim. Villager hunting own sheep is friendly fire, not an attack. Use duck-typed check: `if "team" in attacker and attacker.team == unit.team: return`.
+
+- **Selection box must draw in screen space**: The selection rectangle from drag-select uses screen coordinates (mouse events). Drawing it in a Node2D `_draw()` (world space) breaks once the camera pans from origin. Move selection drawing to a Control node on the HUD CanvasLayer (screen space). Set `mouse_filter = IGNORE` so it doesn't intercept clicks.

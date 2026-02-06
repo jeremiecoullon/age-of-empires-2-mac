@@ -11,7 +11,7 @@ class_name Villager
 ##   - (optional) gather_rate: float - defaults to 1.0 if not present
 ## Both ResourceNode and Farm implement this interface.
 
-enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING, BUILDING }
+enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING, BUILDING, ATTACKING }
 
 @export var carry_capacity: int = 10
 @export var gather_time: float = 1.0  # seconds per resource unit
@@ -28,6 +28,7 @@ var target_animal: Animal = null  # For hunting
 var last_animal_position: Vector2 = Vector2.ZERO  # For finding carcass after animal dies
 var drop_off_building: Building = null
 var target_construction: Building = null  # Building we're constructing
+var attack_target: Node2D = null  # For attacking enemy units/buildings
 var gather_timer: float = 0.0
 var attack_timer: float = 0.0
 var move_target: Vector2 = Vector2.ZERO
@@ -79,6 +80,8 @@ func _physics_process(delta: float) -> void:
 			_process_hunting(delta)
 		State.BUILDING:
 			_process_building(delta)
+		State.ATTACKING:
+			_process_attacking(delta)
 
 func _process_moving(delta: float) -> void:
 	var distance = global_position.distance_to(move_target)
@@ -252,6 +255,7 @@ func move_to(target_position: Vector2) -> void:
 	target_resource = null
 	target_animal = null
 	target_construction = null
+	attack_target = null
 	current_state = State.MOVING
 	move_target = target_position
 
@@ -266,6 +270,48 @@ func command_hunt(animal: Animal) -> void:
 	carried_resource_type = "food"
 	current_state = State.HUNTING
 	attack_timer = 0.0
+
+func command_attack(target: Node2D) -> void:
+	if target_construction and is_instance_valid(target_construction):
+		target_construction.remove_builder(self)
+	target_construction = null
+	target_resource = null
+	target_animal = null
+	attack_target = target
+	current_state = State.ATTACKING
+	attack_timer = 0.0
+
+func _process_attacking(delta: float) -> void:
+	if not is_instance_valid(attack_target):
+		attack_target = null
+		current_state = State.IDLE
+		return
+
+	if attack_target is Unit and attack_target.is_dead:
+		attack_target = null
+		current_state = State.IDLE
+		return
+	if attack_target is Building and attack_target.is_destroyed:
+		attack_target = null
+		current_state = State.IDLE
+		return
+
+	var distance = global_position.distance_to(attack_target.global_position)
+
+	if distance > attack_range:
+		nav_agent.target_position = attack_target.global_position
+		var next_path_position = nav_agent.get_next_path_position()
+		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
+		_apply_movement(direction * move_speed)
+		return
+
+	_stop_and_stay()
+	attack_timer += delta
+
+	if attack_timer >= attack_cooldown:
+		attack_timer = 0.0
+		attack_target.take_damage(attack_damage, "melee", 0, self)
 
 func command_build(building: Building) -> void:
 	# If we were building something else, leave that job

@@ -26,6 +26,7 @@ const TestConstructionScript = preload("res://tests/scenarios/test_construction.
 const TestCursorScript = preload("res://tests/scenarios/test_cursor.gd")
 const TestAIEconomyScript = preload("res://tests/scenarios/test_ai_economy.gd")
 const TestAIMilitaryScript = preload("res://tests/scenarios/test_ai_military.gd")
+const TestBugfixesScript = preload("res://tests/scenarios/test_bugfixes.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -134,6 +135,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING AI MILITARY TESTS ===\n")
 	var ai_military_tests = TestAIMilitaryScript.new(test_runner)
 	await test_runner.run_all_tests(ai_military_tests.get_all_tests())
+
+	# Bugfix regression tests
+	print("\n=== RUNNING BUGFIX TESTS ===\n")
+	var bugfix_tests = TestBugfixesScript.new(test_runner)
+	await test_runner.run_all_tests(bugfix_tests.get_all_tests())
 
 	# Final summary (test_runner accumulates across all suites)
 	_print_final_summary(test_runner.passed_count, test_runner.failed_count)

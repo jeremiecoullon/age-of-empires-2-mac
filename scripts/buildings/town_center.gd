@@ -103,6 +103,12 @@ func _complete_training() -> void:
 		train_timer = 0.0
 		return
 
+	# Check population cap at spawn time (may have filled since queue time)
+	# If pop-capped, hold timer and retry next frame (AoE2 pauses training at cap)
+	if not GameManager.can_add_population(team):
+		train_timer = TRAIN_TIME  # Keep timer at max so we retry immediately
+		return
+
 	# Pop the completed unit from queue
 	var completed_type = training_queue.pop_front()
 	queue_changed.emit(training_queue.size())

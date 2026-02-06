@@ -36,7 +36,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	match current_state:
 		State.IDLE:
-			velocity = Vector2.ZERO
+			_stop_and_stay()
 			_check_auto_aggro(delta)
 		State.MOVING:
 			_process_moving(delta)
@@ -70,6 +70,7 @@ func _process_moving(delta: float) -> void:
 
 	var next_path_position = nav_agent.get_next_path_position()
 	var direction = global_position.direction_to(next_path_position)
+	_resume_movement()
 	_apply_movement(direction * move_speed)
 
 func _process_attacking(delta: float) -> void:
@@ -112,11 +113,12 @@ func _process_attacking(delta: float) -> void:
 		nav_agent.target_position = attack_target.global_position
 		var next_path_position = nav_agent.get_next_path_position()
 		var direction = global_position.direction_to(next_path_position)
+		_resume_movement()
 		_apply_movement(direction * move_speed)
 		return
 
 	# In range, stop and attack
-	velocity = Vector2.ZERO
+	_stop_and_stay()
 	attack_timer += delta
 
 	if attack_timer >= attack_cooldown:

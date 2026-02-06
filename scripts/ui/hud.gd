@@ -66,6 +66,9 @@ extends CanvasLayer
 # Minimap
 @onready var minimap: Minimap = $BottomPanel/BottomContent/RightSection/Minimap
 
+# Selection overlay (draws selection rect in screen space)
+@onready var selection_overlay: Control = $SelectionOverlay
+
 # Overlays
 @onready var error_label: Label = $ErrorLabel
 @onready var game_over_panel: PanelContainer = $GameOverPanel
@@ -374,6 +377,10 @@ func hide_stable_panel() -> void:
 		selected_building_type = ""
 
 
+func update_selection_rect(rect: Rect2, visible: bool) -> void:
+	selection_overlay.update_selection_rect(rect, visible)
+
+
 func hide_info() -> void:
 	selected_info_entity = null
 	selected_building = null
@@ -415,6 +422,8 @@ func _show_villager_info(villager: Villager) -> void:
 			state_text = "Hunting"
 		Villager.State.BUILDING:
 			state_text = "Building"
+		Villager.State.ATTACKING:
+			state_text = "Attacking"
 
 	var details = "Status: %s" % state_text
 	if villager.carried_amount > 0:

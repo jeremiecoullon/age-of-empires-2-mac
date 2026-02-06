@@ -40,6 +40,8 @@ func _ready() -> void:
 	current_hp = max_hp
 	nav_agent.path_desired_distance = 4.0
 	nav_agent.target_desired_distance = 4.0
+	nav_agent.target_position = global_position  # Prevent flying to (0,0) on spawn
+	nav_agent.avoidance_enabled = false  # Disable until _resume_movement(); prevents avoidance push before first _physics_process
 	selection_indicator.visible = false
 	_apply_team_color()
 	# Connect to attack notification system
@@ -205,6 +207,8 @@ func _physics_process(delta: float) -> void:
 
 ## Called when avoidance velocity is computed - use safe velocity for movement
 func _on_velocity_computed(safe_velocity: Vector2) -> void:
+	if not nav_agent.avoidance_enabled:
+		return  # Ignore stale callbacks when unit should be stationary
 	velocity = safe_velocity
 	move_and_slide()
 	_update_facing_direction()
@@ -227,7 +231,6 @@ func _stop_and_stay() -> void:
 	velocity = Vector2.ZERO
 	nav_agent.target_position = global_position  # Clear navigation target
 	nav_agent.avoidance_enabled = false  # Disable avoidance while stationary
-	move_and_slide()
 
 ## Re-enable avoidance before moving. Call this before _apply_movement() when resuming movement.
 func _resume_movement() -> void:

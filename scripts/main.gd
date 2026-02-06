@@ -120,7 +120,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 func _update_selection(screen_pos: Vector2) -> void:
 	var size = screen_pos - drag_start
 	selection_rect = Rect2(drag_start, size).abs()
-	queue_redraw()
+	hud.update_selection_rect(selection_rect, true)
 
 func _end_selection(screen_pos: Vector2) -> void:
 	is_dragging = false
@@ -133,7 +133,7 @@ func _end_selection(screen_pos: Vector2) -> void:
 		_box_select()
 
 	selection_rect = Rect2()
-	queue_redraw()
+	hud.update_selection_rect(selection_rect, false)
 
 func _click_select(world_pos: Vector2) -> void:
 	GameManager.clear_selection()
@@ -191,11 +191,11 @@ func _issue_command(world_pos: Vector2) -> void:
 		return
 
 	# Check if clicking on an enemy unit (for attack command)
+	# Exclude animals — they're handled separately below via command_hunt
 	var target_unit = _get_unit_at_position(world_pos)
-	if target_unit and target_unit.team != 0:  # Only attack enemy team units
+	if target_unit and target_unit.team != 0 and not target_unit.is_in_group("animals"):
 		for unit in GameManager.selected_units:
-			# Use military group check - all military units implement command_attack
-			if unit.is_in_group("military") and unit.has_method("command_attack"):
+			if unit.has_method("command_attack"):
 				unit.command_attack(target_unit)
 		return
 
@@ -205,8 +205,7 @@ func _issue_command(world_pos: Vector2) -> void:
 		# Enemy building - attack
 		if target_building.team != 0:
 			for unit in GameManager.selected_units:
-				# Use military group check - all military units implement command_attack
-				if unit.is_in_group("military") and unit.has_method("command_attack"):
+				if unit.has_method("command_attack"):
 					unit.command_attack(target_building)
 			return
 		# Friendly building under construction - help build
@@ -276,15 +275,6 @@ func _get_building_at_position(pos: Vector2) -> Building:
 			closest = building
 
 	return closest
-
-func _draw() -> void:
-	if is_dragging and selection_rect.size != Vector2.ZERO:
-		var local_rect = Rect2(
-			selection_rect.position - global_position,
-			selection_rect.size
-		)
-		draw_rect(local_rect, Color(0.2, 0.8, 0.2, 0.3), true)
-		draw_rect(local_rect, Color(0.2, 0.8, 0.2, 0.8), false, 2.0)
 
 func start_house_placement() -> void:
 	if building_ghost:
