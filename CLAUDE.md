@@ -99,6 +99,8 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
 
 Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub-phase follows the full workflow above including its own checkpoint doc.
 
+**One sub-phase per context window.** Complete one sub-phase, do the full post-phase ceremony, then signal for context clear. Never start the next sub-phase in the same context — context rot makes later sub-phases error-prone.
+
 **Checkpoint naming:** Always use `phase-X.Ya.md` format (e.g., `phase-2.0a.md`, `phase-2.5b.md`). The `.0` is required for major phases so files sort correctly.
 
 **Sub-phase sizing:** Each sub-phase should be a coherent chunk — 3-5 related features, or 1-2 new systems with their dependent content. Too small = ceremony overhead. Too large = context rot.
@@ -109,11 +111,11 @@ Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub
 
 2. **Persist the split.** Update `docs/roadmap.md` with the sub-phase breakdown. This is the source of truth for future sessions. Sub-phase descriptions must include both **entities** (units, buildings) AND **systems** (mechanics being introduced).
 
-3. **Execute sub-phase.** Full workflow above.
+3. **Execute the next sub-phase only.** Run the full Phase Workflow (refactor check → build → post-phase) for one sub-phase.
 
-4. **Signal for context clear.** Say: "2.0A complete. Clear context now."
+4. **Signal for context clear.** Say: "4.0A complete. Clear context now."
 
-5. **Continue automatically.** When user clears context and says "continue", read the breakdown in `roadmap.md` and checkpoint docs, then continue with the next sub-phase. No re-proposing.
+5. **Repeat from step 3.** When user clears context and says "continue", read the breakdown in `roadmap.md` and checkpoint docs to determine which sub-phase is next, then go back to step 3.
 
 After the initial split approval, Claude executes autonomously. The only user actions needed are context clears and "continue".
 
