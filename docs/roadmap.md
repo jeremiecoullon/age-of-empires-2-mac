@@ -427,11 +427,11 @@ This phase re-implements the AI using independent rules that fire when condition
 
 **Qualifying buildings for age advancement:**
 - Buildings that train units or research techs (Barracks, Mill, Lumber Camp, Mining Camp, Dock, etc.)
-- Does NOT count: Houses, Farms, towers, walls, Gates, Outposts
+- Does NOT count: Houses, Farms, Town Center, towers, walls, Gates, Outposts
 
 **Age-gated content:**
 - **Dark Age:** Villager, Militia, Barracks, House, Mill, Mining Camp, Lumber Camp, Farm, Outpost, Palisade Wall
-- **Feudal Age:** Archery Range, Stable, Market, Blacksmith, Watch Tower, Stone Wall, Gate; Scout Cavalry, Archer, Skirmisher, Spearman
+- **Feudal Age:** Archery Range, Stable, Market, Blacksmith, Watch Tower, Stone Wall, Gate; Scout Cavalry (training; one free starting unit exists in Dark Age), Archer, Skirmisher, Spearman, Trade Cart
 - **Castle Age:** Siege Workshop, Monastery, University, Castle, Town Center (additional); Knight, Cavalry Archer, Crossbowman, Pikeman, siege units
 
 **AI updates:** AI researches age advancement when economically ready.
@@ -1119,7 +1119,7 @@ All technologies organized by building and phase.
 | Arbalester | 25W, 45G | 40 | 6 | 0/0 | 5 | Med |
 | Skirmisher | 25F, 35W | 30 | 2 | 0/3 | 4 | Med |
 | Elite Skirmisher | 25F, 35W | 35 | 3 | 0/4 | 5 | Med |
-| Cavalry Archer | 40W, 70G | 50 | 6 | 0/0 | 4 | Fast |
+| Cavalry Archer | 40W, 70G | 50 | 6 | 0/0 | 3 | Fast |
 | Heavy Cav Archer | 40W, 70G | 60 | 7 | 1/0 | 4 | Fast |
 | Hand Cannoneer | 45F, 50G | 35 | 17 | 1/0 | 7 | Med |
 
