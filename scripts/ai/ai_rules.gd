@@ -145,6 +145,13 @@ class TrainVillagerRule extends AIRule:
 		var target = gs.get_sn("sn_target_villagers")
 		if target <= 0:
 			target = 20  # Default
+		# Pause villager production if we urgently need military.
+		# Militia costs 60 food; villagers cost 50 — without this pause,
+		# villager training consumes all food before it reaches 60.
+		if gs.get_building_count("barracks") >= 1 \
+			and gs.get_military_population() == 0 \
+			and gs.get_civilian_population() >= 10:
+			return false
 		return gs.get_civilian_population() < target \
 			and gs.can_train("villager")
 
@@ -251,7 +258,7 @@ class BuildFarmRule extends AIRule:
 		# Roughly 1 farm per 2-3 food gatherers
 		var food_pct = gs.get_sn("sn_food_gatherer_percentage")
 		var target_food_villagers = int(vill_count * food_pct / 100.0)
-		var max_farms = max(4, int(target_food_villagers / 2))
+		var max_farms = max(4, target_food_villagers)
 		var current_farms = gs.get_building_count("farm")
 
 		return should_build \

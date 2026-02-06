@@ -216,6 +216,10 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			var current = game_state.get_civilian_population()
 			if current >= target:
 				return "at_target_%d/%d" % [current, target]
+			if game_state.get_building_count("barracks") >= 1 \
+				and game_state.get_military_population() == 0 \
+				and current >= 10:
+				return "paused_for_military"
 			return game_state.get_can_train_reason("villager")
 		"build_barracks":
 			if game_state.get_building_count("barracks") > 0:

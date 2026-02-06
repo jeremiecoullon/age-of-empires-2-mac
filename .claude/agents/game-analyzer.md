@@ -1,7 +1,7 @@
 ---
 name: game-analyzer
 description: "Analyze a human vs AI game log to identify the biggest strategic gap and propose one concrete AI improvement. Use after playing a game against the AI.\n\nExamples:\n\n<example>\nContext: Just finished a game against the AI.\nuser: \"Analyze my last game\"\nassistant: \"Let me analyze the game log.\"\n<launches game-analyzer agent via Task tool with prompt: \"Analyze the most recent game log in logs/game_logs/\">\n</example>\n\n<example>\nContext: Want to check a specific game.\nassistant: \"Let me analyze that game.\"\n<launches game-analyzer agent via Task tool with prompt: \"Analyze logs/game_logs/game_2026-02-06_14-30-00/\">\n</example>"
-model: sonnet
+model: opus
 color: cyan
 ---
 
