@@ -27,10 +27,11 @@ ls -t logs/game_logs/ | head -1
 ### 2. Read the Files
 
 Read in this order:
-1. `metadata.json` — check git commit, duration, winner
-2. `comparison.md` — the main analysis input
-3. `snapshots.jsonl` — raw snapshot data (required for validation)
-4. `human_actions.jsonl` — skim for action patterns (required for validation)
+1. `docs/ai_player_designs/ai_tuning_log.md` — previous tuning changes and known issues. Read this FIRST to understand what's already been tried and what the current bottlenecks are.
+2. `metadata.json` — check git commit, duration, winner
+3. `comparison.md` — the main analysis input
+4. `snapshots.jsonl` — raw snapshot data (required for validation)
+5. `human_actions.jsonl` — skim for action patterns (required for validation)
 
 ### 3. Validate Data Integrity
 
@@ -68,6 +69,8 @@ Your proposed change must specify:
 If you can't determine the current value, say so — but still name the specific parameter.
 
 **Before proposing a parameter change, read the relevant code.** For example, if proposing a change to `can_train()` thresholds, read `scripts/ai/ai_rules.gd` first to understand what the function actually checks. Don't guess at parameter names or values — look them up.
+
+**Check the tuning log before proposing.** If `ai_tuning_log.md` shows a similar fix was already tried, either propose something different or explain why revisiting it makes sense (e.g., conditions have changed due to new features).
 
 ### 6. Check for Staleness
 
@@ -117,6 +120,7 @@ Write `analysis.md` to the SAME directory as the game log files. Also return the
 
 ## Related Files
 
+- `docs/ai_player_designs/ai_tuning_log.md` — Previous tuning changes, known issues, cross-game metrics
 - `scripts/ai/ai_controller.gd` — AI controller with strategic numbers
 - `scripts/ai/ai_rules.gd` — AI rule definitions
 - `scripts/ai/ai_game_state.gd` — AI state queries
