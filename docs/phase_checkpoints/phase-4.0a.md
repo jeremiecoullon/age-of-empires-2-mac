@@ -34,6 +34,8 @@ Implemented the age advancement system: age state tracking in GameManager (Dark/
 | Age label updates | `scripts/ui/hud.gd:887-898` | Top bar label updates on age change signal |
 | Age research progress | `scripts/ui/hud.gd:175-184` | Reuses train_progress bar for age research |
 | AI age helpers | `scripts/ai/ai_game_state.gd:92-110` | get_age, can_advance_age, qualifying count, research_age |
+| AI resource saving | `scripts/ai/ai_game_state.gd:103-125` | should_save_for_age() pauses military training to accumulate food |
+| AI training rules save check | `scripts/ai/ai_rules.gd` | Militia, spearman, skirmisher, scout cavalry, cavalry archer pause during saving |
 | AI can_train research check | `scripts/ai/ai_game_state.gd:344-345` | tc_researching_age skip reason |
 | AI _do_train return value | `scripts/ai/ai_game_state.gd:713` | success = tc.train_villager() instead of unconditional true |
 | AdvanceToFeudalAgeRule | `scripts/ai/ai_rules.gd:622-642` | Dark Age, 10+ vills, 2 qualifying, 500F |
@@ -41,6 +43,8 @@ Implemented the age advancement system: age state tracking in GameManager (Dark/
 | AI skip reasons for age rules | `scripts/ai/ai_controller.gd:309-334` | Includes already_researching check |
 | AI_STATE age logging | `scripts/ai/ai_controller.gd:632-633` | Age and age name in debug state |
 | Age milestones | `scripts/testing/ai_test_analyzer.gd` | reached_feudal_age, reached_castle_age |
+| Age info in test summary | `scripts/testing/ai_test_analyzer.gd` | final_state includes current_age, researching_age, research_progress |
+| Debug logging in tests | `scripts/testing/ai_solo_test.gd:51` | debug_print_enabled = true for diagnostic logs |
 | Roadmap sub-phase split | `docs/roadmap.md` | 4A/4B breakdown persisted |
 
 ---
@@ -60,7 +64,6 @@ Implemented the age advancement system: age state tracking in GameManager (Dark/
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| AI never accumulates 500 food for Feudal | High | AI spends food continuously on villagers and military. No resource reservation system. Rule conditions are correct but can_afford_age() always fails. AI tuning issue, not code bug. |
 | Imperial qualifying groups placeholder | Low | Empty array with comment. Will be filled when Castle Age buildings are implemented in future phases. |
 
 ---
@@ -84,14 +87,12 @@ All 407 tests pass (363 pre-existing + 41 new + 3 from framework changes).
 
 ## AI Behavior Tests
 
-**Test run:** 2026-02-06, 571 game-seconds at 10x speed
-**Result:** FAIL on age milestones (reached_feudal_age: null)
+**Test run:** 2026-02-06, 600 game-seconds at 10x speed
+**Result:** PASS — AI reaches Feudal Age at ~478s
 
-All economy/military checks pass. The AI builds qualifying buildings (barracks at 58.9s, lumber_camp at 46.4s, mill at 276.1s, mining_camp at 445.9s), reaches 10 villagers at 97.2s, and produces 10 military units. However, the AI never accumulates 500 food to trigger age advancement.
+The AI builds qualifying buildings (barracks, lumber_camp by ~60s), reaches 10 villagers by ~99s, then pauses military training to save food via `should_save_for_age()`. Food accumulates at ~2 food/sec (villager training continues for more gatherers). Research starts at ~340s when 500 food is reached. Feudal Age completed at ~478s. All 8 checks pass.
 
-**Root cause:** The AI's continuous villager training and military production keeps food low (30 at end of test). The age rule conditions are all correct, but `can_afford_age()` always returns false. This is a known AI tuning gap — the AI needs resource reservation logic to save up for age advancement.
-
-**Not a code bug:** The `elif` in TC `_process()` is correct (age research takes priority over training). The observer agent's diagnosis of an `elif` bug was incorrect.
+**Resource saving strategy:** Military training rules check `should_save_for_age()` and pause when all non-resource conditions are met. Villager training continues (more villagers = more food income = faster saving). Saving is skipped if under attack (survival first).
 
 ---
 

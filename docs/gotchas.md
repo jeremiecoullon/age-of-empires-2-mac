@@ -360,7 +360,9 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 
 - **AI can't train villagers during age research**: The AI's `get_can_train_reason('villager')` must check `tc.is_researching_age` and return `"tc_researching_age"`. Without this, `can_train()` returns "ok" but `train_villager()` silently fails, causing misleading logs.
 
-- **AI age rules need resource reservation (known gap)**: The AdvanceToFeudalAgeRule requires 500 food, but the AI spends food continuously on villagers and military. With no resource reservation system, the AI may never accumulate 500 food. The conditions are all correct, but the rule rarely fires because `can_afford_age()` fails. This is an AI tuning issue, not a code bug — future work should add resource saving behavior near age-up thresholds.
+- **AI resource saving for age advancement**: The AI spends food continuously on villagers and military, so it never naturally accumulates 500 food for Feudal. Fix: `should_save_for_age()` in AIGameState returns true when all non-resource conditions are met but can't afford. Military training rules check this and pause. Villager training does NOT pause — more villagers = more food income = faster saving. Saving is skipped if under attack. This approach lets the AI save ~500 food in ~80-100s while maintaining economy growth.
+
+- **AI observer needs diagnostic data**: The AI observer agent guesses incorrectly when it lacks data. Two fixes: (1) `debug_print_enabled = true` in `ai_solo_test.gd` so RULE_TICK and AI_STATE logs are captured; (2) `final_state.age` in summary.json includes current age, whether research is in progress, and progress percentage. Without these, the observer can't distinguish "never started" from "started but didn't finish."
 
 - **`_do_train()` should capture return value**: The AI's `_do_train('villager')` was setting `success = true` regardless of whether `tc.train_villager()` actually succeeded. Changed to `success = tc.train_villager()` to properly track failures.
 
