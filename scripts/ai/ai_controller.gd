@@ -250,6 +250,8 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 				return "not_needed"
 			return game_state.get_can_build_reason("lumber_camp")
 		"train_militia":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
 			if game_state.get_building_count("barracks") < 1:
 				return "no_barracks"
 			return game_state.get_can_train_reason("militia")

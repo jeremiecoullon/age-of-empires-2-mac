@@ -157,6 +157,7 @@ class TrainVillagerRule extends AIRule:
 			and gs.get_military_population() < 3 \
 			and gs.get_civilian_population() >= 10:
 			return false
+		# Don't pause villagers for age saving — more villagers = more food income = faster saving
 		return gs.get_civilian_population() < target \
 			and gs.can_train("villager")
 
@@ -511,7 +512,8 @@ class TrainMilitiaRule extends AIRule:
 		rule_name = "train_militia"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train militia when we have a barracks
+		if gs.should_save_for_age():
+			return false
 		return gs.get_building_count("barracks") >= 1 \
 			and gs.can_train("militia")
 
@@ -524,13 +526,12 @@ class TrainSpearmanRule extends AIRule:
 		rule_name = "train_spearman"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train spearmen as anti-cavalry - triggered by army composition logic
-		# For now, train if we have barracks and enemy has cavalry
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("barracks") < 1:
 			return false
 		if not gs.can_train("spearman"):
 			return false
-		# Only train spearmen if enemy has cavalry (counter unit)
 		return gs.get_enemy_cavalry_count() > 0
 
 	func actions(gs: AIGameState) -> void:
@@ -562,12 +563,12 @@ class TrainSkirmisherRule extends AIRule:
 		rule_name = "train_skirmisher"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train skirmishers as anti-archer
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("archery_range") < 1:
 			return false
 		if not gs.can_train("skirmisher"):
 			return false
-		# Only train skirmishers if enemy has archers (counter unit)
 		return gs.get_enemy_archer_count() > 0
 
 	func actions(gs: AIGameState) -> void:
@@ -579,16 +580,15 @@ class TrainScoutCavalryRule extends AIRule:
 		rule_name = "train_scout_cavalry"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train at least one scout for scouting, then more for raiding
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("stable") < 1:
 			return false
 		if not gs.can_train("scout_cavalry"):
 			return false
-		# Always want at least 1 scout for scouting
 		var scout_count = gs.get_unit_count("scout_cavalry")
 		if scout_count < 1:
 			return true
-		# Train more scouts if we have good food income and not too many
 		return scout_count < 3 and gs.get_resource("food") > 150
 
 	func actions(gs: AIGameState) -> void:
@@ -600,14 +600,12 @@ class TrainCavalryArcherRule extends AIRule:
 		rule_name = "train_cavalry_archer"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Train cavalry archers - mobile ranged, expensive
-		# Note: Despite being archers, cavalry archers train from stables (per AoE2 spec)
+		if gs.should_save_for_age():
+			return false
 		if gs.get_building_count("stable") < 1:
 			return false
 		if not gs.can_train("cavalry_archer"):
 			return false
-		# Only train cavalry archers when we have good gold income
-		# and already have some other military
 		return gs.get_resource("gold") > 150 \
 			and gs.get_military_population() >= 3
 

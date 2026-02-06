@@ -100,6 +100,31 @@ func get_qualifying_building_count(target_age: int) -> int:
 	return GameManager.get_qualifying_building_count(target_age, AI_TEAM)
 
 
+func should_save_for_age() -> bool:
+	## Returns true when the AI should pause non-essential spending to save for age advancement.
+	## True when: all non-resource conditions met, can't yet afford, not under attack.
+	var current_age = get_age()
+	if current_age >= GameManager.AGE_IMPERIAL:
+		return false
+	var target_age = current_age + 1
+	# Check non-resource conditions
+	var min_vills = 10 if target_age == GameManager.AGE_FEUDAL else 15
+	if get_civilian_population() < min_vills:
+		return false
+	if get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+		return false
+	# Already researching or can already afford — no need to save
+	var tc = _get_ai_town_center()
+	if tc and tc.is_researching_age:
+		return false
+	if GameManager.can_afford_age(target_age, AI_TEAM):
+		return false
+	# Don't save if under attack — survival first
+	if is_under_attack():
+		return false
+	return true
+
+
 func research_age(target_age: int) -> bool:
 	## Start age research at AI Town Center
 	var tc = _get_ai_town_center()
