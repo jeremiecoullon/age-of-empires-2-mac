@@ -232,8 +232,8 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 		"build_barracks":
 			if game_state.get_building_count("barracks") > 0:
 				return "already_have_barracks"
-			# Check if queued (rule has internal state)
-			if rule and rule.get("_barracks_queued"):
+			# Check if queued (rule has internal state with timeout)
+			if rule and rule.get("_barracks_queued_at", -1.0) > 0.0:
 				return "already_queued"
 			var pop = game_state.get_civilian_population()
 			if pop < 5:
@@ -242,8 +242,8 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 		"build_mill":
 			if game_state.get_building_count("mill") > 0:
 				return "already_have_mill"
-			# Check if queued (rule has internal state)
-			if rule and rule.get("_mill_queued"):
+			# Check if queued (rule has internal state with timeout)
+			if rule and rule.get("_mill_queued_at", -1.0) > 0.0:
 				return "already_queued"
 			if not game_state.needs_mill():
 				return "not_needed"
@@ -251,8 +251,8 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 		"build_lumber_camp":
 			if game_state.get_building_count("lumber_camp") > 0:
 				return "already_have_lumber_camp"
-			# Check if queued (rule has internal state)
-			if rule and rule.get("_lumber_camp_queued"):
+			# Check if queued (rule has internal state with timeout)
+			if rule and rule.get("_lumber_camp_queued_at", -1.0) > 0.0:
 				return "already_queued"
 			if not game_state.needs_lumber_camp():
 				return "not_needed"

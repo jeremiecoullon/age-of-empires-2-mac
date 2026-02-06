@@ -170,41 +170,45 @@ class TrainVillagerRule extends AIRule:
 # =============================================================================
 
 class BuildLumberCampRule extends AIRule:
-	var _lumber_camp_queued: bool = false
+	var _lumber_camp_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_lumber_camp"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
 		if gs.get_building_count("lumber_camp") > 0:
-			_lumber_camp_queued = false
+			_lumber_camp_queued_at = -1.0
 			return false
 
-		# Build lumber camp when wood is too far from drop-offs
-		return not _lumber_camp_queued \
+		if _lumber_camp_queued_at > 0.0 and gs.get_game_time() - _lumber_camp_queued_at > QUEUE_TIMEOUT:
+			_lumber_camp_queued_at = -1.0
+
+		return _lumber_camp_queued_at < 0.0 \
 			and gs.needs_lumber_camp() \
 			and gs.can_build("lumber_camp")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build_near_resource("lumber_camp", "wood")
-		_lumber_camp_queued = true
+		_lumber_camp_queued_at = gs.get_game_time()
 
 
 class BuildMiningCampRule extends AIRule:
-	var _mining_camp_queued: bool = false
+	var _mining_camp_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_mining_camp"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
 		if gs.get_building_count("mining_camp") > 0:
-			_mining_camp_queued = false
+			_mining_camp_queued_at = -1.0
 			return false
 
-		# Build mining camp when gold or stone is too far
-		return not _mining_camp_queued \
+		if _mining_camp_queued_at > 0.0 and gs.get_game_time() - _mining_camp_queued_at > QUEUE_TIMEOUT:
+			_mining_camp_queued_at = -1.0
+
+		return _mining_camp_queued_at < 0.0 \
 			and (gs.needs_mining_camp_for_gold() or gs.needs_mining_camp_for_stone()) \
 			and gs.can_build("mining_camp")
 
@@ -214,29 +218,31 @@ class BuildMiningCampRule extends AIRule:
 			gs.build_near_resource("mining_camp", "gold")
 		else:
 			gs.build_near_resource("mining_camp", "stone")
-		_mining_camp_queued = true
+		_mining_camp_queued_at = gs.get_game_time()
 
 
 class BuildMillRule extends AIRule:
-	var _mill_queued: bool = false
+	var _mill_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_mill"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
 		if gs.get_building_count("mill") > 0:
-			_mill_queued = false
+			_mill_queued_at = -1.0
 			return false
 
-		# Build mill when natural food is far from drop-offs
-		return not _mill_queued \
+		if _mill_queued_at > 0.0 and gs.get_game_time() - _mill_queued_at > QUEUE_TIMEOUT:
+			_mill_queued_at = -1.0
+
+		return _mill_queued_at < 0.0 \
 			and gs.needs_mill() \
 			and gs.can_build("mill")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build_near_resource("mill", "food")
-		_mill_queued = true
+		_mill_queued_at = gs.get_game_time()
 
 
 class BuildFarmRule extends AIRule:
@@ -433,74 +439,85 @@ class MarketBuyRule extends AIRule:
 # =============================================================================
 
 class BuildBarracksRule extends AIRule:
-	var _barracks_queued: bool = false
+	var _barracks_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0  # Reset flag if build hasn't completed in 30s
 
 	func _init():
 		rule_name = "build_barracks"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists (construction succeeded)
+		# Already have one
 		if gs.get_building_count("barracks") > 0:
-			_barracks_queued = false
+			_barracks_queued_at = -1.0
 			return false
+
+		# Reset flag if build timed out (failed silently or villager died)
+		if _barracks_queued_at > 0.0 and gs.get_game_time() - _barracks_queued_at > QUEUE_TIMEOUT:
+			_barracks_queued_at = -1.0
 
 		# Build barracks when we have none and have some economy going
 		# Only queue once (avoid building multiple while first is under construction)
-		return not _barracks_queued \
+		return _barracks_queued_at < 0.0 \
 			and gs.get_civilian_population() >= 5 \
 			and gs.can_build("barracks")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("barracks")
-		_barracks_queued = true
+		_barracks_queued_at = gs.get_game_time()
 
 
 class BuildArcheryRangeRule extends AIRule:
-	var _archery_range_queued: bool = false
+	var _archery_range_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_archery_range"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists
 		if gs.get_building_count("archery_range") > 0:
-			_archery_range_queued = false
+			_archery_range_queued_at = -1.0
 			return false
+
+		if _archery_range_queued_at > 0.0 and gs.get_game_time() - _archery_range_queued_at > QUEUE_TIMEOUT:
+			_archery_range_queued_at = -1.0
 
 		# Build archery range when we have barracks and 8+ villagers
 		# This gives us ranged options in addition to infantry
-		return not _archery_range_queued \
+		return _archery_range_queued_at < 0.0 \
 			and gs.get_building_count("barracks") >= 1 \
 			and gs.get_civilian_population() >= 8 \
 			and gs.can_build("archery_range")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("archery_range")
-		_archery_range_queued = true
+		_archery_range_queued_at = gs.get_game_time()
 
 
 class BuildStableRule extends AIRule:
-	var _stable_queued: bool = false
+	var _stable_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
 
 	func _init():
 		rule_name = "build_stable"
 
 	func conditions(gs: AIGameState) -> bool:
-		# Reset flag if building now exists
 		if gs.get_building_count("stable") > 0:
-			_stable_queued = false
+			_stable_queued_at = -1.0
 			return false
 
 		# Build stable when we have barracks and 10+ villagers
 		# Cavalry is more expensive, so wait for stronger economy
-		return not _stable_queued \
+		if _stable_queued_at > 0.0 and gs.get_game_time() - _stable_queued_at > QUEUE_TIMEOUT:
+			_stable_queued_at = -1.0
+
+		return _stable_queued_at < 0.0 \
 			and gs.get_building_count("barracks") >= 1 \
 			and gs.get_civilian_population() >= 10 \
 			and gs.can_build("stable")
 
 	func actions(gs: AIGameState) -> void:
 		gs.build("stable")
-		_stable_queued = true
+		_stable_queued_at = gs.get_game_time()
 
 
 # =============================================================================

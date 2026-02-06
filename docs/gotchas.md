@@ -381,3 +381,5 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Building visual changes deferred**: No age-variant sprites exist. The only option would be tinting which would conflict with team color modulation. Deferred to Phase 9 (Polish).
 
 - **Cavalry Archer is Castle Age**: Even though the Stable (its training building) is Feudal Age, the Cavalry Archer unit itself requires Castle Age. The button appears in the Stable panel but is disabled until Castle Age.
+
+- **AI build-queue flags need timeouts, not booleans**: Build rules (barracks, archery range, stable, mill, lumber camp, mining camp) use a flag to prevent queuing the same building twice. Originally a boolean that was only reset when the building existed. If the build failed silently (can't afford, no valid position), the flag was never reset, permanently blocking the rule. Fixed by using a timestamp + 30s timeout: `_barracks_queued_at` instead of `_barracks_queued`.

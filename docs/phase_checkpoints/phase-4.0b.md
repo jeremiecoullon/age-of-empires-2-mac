@@ -86,12 +86,12 @@ All 437 tests pass (407 pre-existing + 30 new).
 
 ## AI Behavior Tests
 
-**Test run:** 2026-02-06, 600 game-seconds at 10x speed
-**Result:** FAIL — `barracks_by_90s` check failed. AI never built barracks or reached Feudal.
+**Test run:** 2026-02-06, 600 game-seconds at 10x speed (3 runs)
+**Result:** FAIL on `barracks_by_90s` deadline (barracks completes at ~150s, deadline is 90s)
 
-**Age-gating compliance: PASS.** The AI correctly respects age requirements — it does NOT build archery_range, stable, or market while in Dark Age. All Feudal-age buildings have zero construction.
+**Age-gating compliance: PASS.** The AI correctly respects age requirements — Feudal buildings only built after reaching Feudal Age. Archery range built at 555s, after Feudal reached at 501s.
 
-**Root cause of failure:** Economic bottleneck, not age-gating bug. The AI accumulated only 389 food in 600s but needs 500 for Feudal advancement. The `should_save_for_age()` mechanism works but food income is too slow. The AI meets all non-resource conditions (10+ villagers, 2 qualifying buildings) but can't accumulate resources fast enough. This is a pre-existing AI economy issue exposed by the age system — to be addressed in AI tuning, not in age-gating code.
+**Build-queue flag bug found and fixed:** First run exposed that a failed early build attempt permanently blocked the barracks rule (boolean flag never reset). Fixed by replacing boolean flags with timestamp-based 30s timeouts across all 6 build rules (barracks, archery_range, stable, mill, lumber_camp, mining_camp). After fix: AI builds barracks at ~90s, reaches Feudal at ~500s, builds archery range at ~555s.
 
 ---
 
