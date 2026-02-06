@@ -59,9 +59,20 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
 
 **Important:** You (the agent) determine what refactoring is needed based on the actual codebase. Use your judgment. YAGNI — only fix what will actually cause problems.
 
-### 2. Build the phase
+### 2. Write the execution plan
 
-1. **Implement features** per the phase spec. Details in `docs/AoE_manual/AoE_manual.txt`.
+After the refactor check, write `docs/plans/phase-{X}-plan.md` with:
+
+1. **Ordered feature list** — specific files to create/modify, in implementation order
+2. **Refactoring identified** — what (if anything) needs refactoring first, from step 1
+3. **Key implementation notes** — non-obvious gotchas, dependencies between features, patterns to follow
+4. **Post-phase checklist** — the post-phase steps (from step 4 below) listed explicitly so they survive context compaction
+
+This file is a **compaction-resistant checklist**. Re-read it after any context compaction to recover your plan. Update it if the plan changes during implementation (e.g., mark completed items, add discovered work).
+
+### 3. Build the phase
+
+1. **Implement features** per the execution plan. Details in `docs/AoE_manual/AoE_manual.txt`.
 2. **Run spec-check agent** on new units/buildings/techs to verify against AoE2 specs.
 3. **If phase adds features the AI should use:**
    - Add AI rules for the new features (in `scripts/ai/ai_rules.gd`)
@@ -71,7 +82,7 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
      - Update `AI_STATE` logging if new counts are needed
 4. **Consider unit tests** for logic-heavy code (stat calculations, combat formulas, state transitions). Not everything needs tests — UI and scene setup rarely benefit; game logic often does.
 
-### 3. Post-phase
+### 4. Post-phase
 
 1. **Self-report on context friction** in the checkpoint doc:
    - Did I re-read any file more than twice? Which ones?
@@ -111,7 +122,7 @@ Phases can be split into sub-phases (e.g., 1.0a, 1.0b, 1.0c) if needed. Each sub
 
 2. **Persist the split.** Update `docs/roadmap.md` with the sub-phase breakdown. This is the source of truth for future sessions. Sub-phase descriptions must include both **entities** (units, buildings) AND **systems** (mechanics being introduced).
 
-3. **Execute the next sub-phase only.** Run the full Phase Workflow (refactor check → build → post-phase) for one sub-phase.
+3. **Execute the next sub-phase only.** Run the full Phase Workflow (refactor check → execution plan → build → post-phase) for one sub-phase.
 
 4. **Signal for context clear.** Say: "4.0A complete. Clear context now."
 
