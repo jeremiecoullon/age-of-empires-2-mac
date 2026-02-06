@@ -107,3 +107,15 @@ Help refine how development happens:
 **4. Play the game & report bugs**
 
 Play the game and report any bugs you find in the [issue tracker](../../issues). You can list multiple bugs in a single issue — they'll be triaged with Claude Code. Even better: open a PR to fix them!
+
+**5. Improve the AI**
+
+Play against the AI, then use Claude Code to analyze and improve its behavior. The workflow:
+
+1. **Play a game.** Games are automatically logged to `logs/game_logs/` with snapshots of both players' state every 10 seconds.
+2. **Run the game analyzer agent.** Ask Claude Code: `"Run the game analyzer on game_<timestamp>"`. It reads the log, identifies the biggest strategic gap between you and the AI, and proposes a concrete code change.
+3. **Review the analysis.** Read the proposed fix and decide if it makes sense. The analyzer writes its report to `analysis.md` inside the game log folder.
+4. **Implement the fix.** If you agree with the proposal, ask Claude Code to implement it as well as run the code-review agent on the changes. It will make the code change and run the test suite.
+5. **Replay and iterate.** Play another game to see if the fix helped. Run the analyzer again to measure improvement and find the next bottleneck.
+
+The tuning history lives in `docs/ai_player_designs/ai_tuning_log.md` — read this first to see what's already been tried and what the current known issues are.

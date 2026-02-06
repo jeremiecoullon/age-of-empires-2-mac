@@ -1,14 +1,14 @@
-[gd_scene load_steps=18 format=3 uid="uid://cmain000001"]
+[gd_scene load_steps=19 format=3 uid="uid://cmain000001"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://b7vxcia6yu3ii" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cmap0000001" path="res://scenes/map.tscn" id="2_map"]
 [ext_resource type="PackedScene" uid="uid://chud0000001" path="res://scenes/ui/hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" uid="uid://ctowncenter" path="res://scenes/buildings/town_center.tscn" id="4_tc"]
 [ext_resource type="PackedScene" uid="uid://cvillager01" path="res://scenes/units/villager.tscn" id="5_villager"]
 [ext_resource type="PackedScene" uid="uid://ctree00001" path="res://scenes/resources/tree.tscn" id="6_tree"]
 [ext_resource type="PackedScene" uid="uid://cberrybush1" path="res://scenes/resources/berry_bush.tscn" id="7_berry"]
-[ext_resource type="Script" path="res://scripts/camera.gd" id="8_camera"]
-[ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="9_ai"]
+[ext_resource type="Script" uid="uid://c610fve12j2e1" path="res://scripts/camera.gd" id="8_camera"]
+[ext_resource type="Script" uid="uid://bwo3g51ikfqjj" path="res://scripts/ai/ai_controller.gd" id="9_ai"]
 [ext_resource type="PackedScene" uid="uid://cgoldmine01" path="res://scenes/resources/gold_mine.tscn" id="10_gold"]
 [ext_resource type="PackedScene" uid="uid://cstonemine1" path="res://scenes/resources/stone_mine.tscn" id="11_stone"]
 [ext_resource type="PackedScene" uid="uid://csheep001" path="res://scenes/units/sheep.tscn" id="12_sheep"]
@@ -16,7 +16,8 @@
 [ext_resource type="PackedScene" uid="uid://cboar0001" path="res://scenes/units/boar.tscn" id="14_boar"]
 [ext_resource type="PackedScene" uid="uid://cwolf0001" path="res://scenes/units/wolf.tscn" id="15_wolf"]
 [ext_resource type="PackedScene" path="res://scenes/units/pelican_bicycle.tscn" id="16_pelican"]
-[ext_resource type="Script" path="res://scripts/fog_of_war.gd" id="17_fog"]
+[ext_resource type="Script" uid="uid://bvxfpx23gte8g" path="res://scripts/fog_of_war.gd" id="17_fog"]
+[ext_resource type="Script" uid="uid://cx1mfba0fkc4e" path="res://scripts/logging/game_logger.gd" id="18_logger"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -145,6 +146,9 @@ script = ExtResource("17_fog")
 
 [node name="AIController" type="Node" parent="."]
 script = ExtResource("9_ai")
+
+[node name="GameLogger" type="Node" parent="."]
+script = ExtResource("18_logger")
 
 [node name="Animals" type="Node2D" parent="."]
 

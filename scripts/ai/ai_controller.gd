@@ -42,13 +42,14 @@ var villager_assign_timer: float = 0.0
 var debug_print_timer: float = 0.0
 var game_time_elapsed: float = 0.0  # Tracks game time (respects Engine.time_scale)
 
-## Debug: Set to true to print AI state every 10 seconds
-@export var debug_print_enabled: bool = true
+## Debug: Set to true to print AI logs to terminal
+@export var debug_print_enabled: bool = false
 
 
 func _log(message: String) -> void:
-	## Central logging method. Prints to stdout and calls log callback if set.
-	print(message)
+	## Central logging method. Prints to stdout (if enabled) and calls log callback if set.
+	if debug_print_enabled:
+		print(message)
 	# Check for log callback (set by test controller)
 	if has_meta("log_callback"):
 		var callback = get_meta("log_callback")
@@ -215,6 +216,10 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			var current = game_state.get_civilian_population()
 			if current >= target:
 				return "at_target_%d/%d" % [current, target]
+			if game_state.get_building_count("barracks") >= 1 \
+				and game_state.get_military_population() < 3 \
+				and current >= 10:
+				return "paused_for_military_%d/3" % game_state.get_military_population()
 			return game_state.get_can_train_reason("villager")
 		"build_barracks":
 			if game_state.get_building_count("barracks") > 0:

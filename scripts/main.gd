@@ -26,12 +26,15 @@ var drag_start: Vector2 = Vector2.ZERO
 var selection_rect: Rect2 = Rect2()
 var building_ghost: Sprite2D = null
 var cursor_manager: Node = null
+var _game_logger: GameLogger = null
 
 func _ready() -> void:
 	# Initialize cursor manager
 	cursor_manager = CursorManager.new()
 	add_child(cursor_manager)
 	cursor_manager.initialize(self)
+
+	_game_logger = get_node_or_null("GameLogger") as GameLogger
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
@@ -197,6 +200,8 @@ func _issue_command(world_pos: Vector2) -> void:
 		for unit in GameManager.selected_units:
 			if unit.has_method("command_attack"):
 				unit.command_attack(target_unit)
+		if _game_logger:
+			_game_logger.log_action("attack", {"target": "unit"})
 		return
 
 	# Check if clicking on a building
@@ -207,18 +212,24 @@ func _issue_command(world_pos: Vector2) -> void:
 			for unit in GameManager.selected_units:
 				if unit.has_method("command_attack"):
 					unit.command_attack(target_building)
+			if _game_logger:
+				_game_logger.log_action("attack", {"target": "building"})
 			return
 		# Friendly building under construction - help build
 		elif not target_building.is_constructed:
 			for unit in GameManager.selected_units:
 				if unit is Villager:
 					unit.command_build(target_building)
+			if _game_logger:
+				_game_logger.log_action("build_assist", {})
 			return
 		# Friendly building damaged - repair
 		elif target_building.needs_repair():
 			for unit in GameManager.selected_units:
 				if unit is Villager:
 					unit.command_repair(target_building)
+			if _game_logger:
+				_game_logger.log_action("repair", {})
 			return
 
 	# Check if clicking on an animal (for hunting)
@@ -227,6 +238,8 @@ func _issue_command(world_pos: Vector2) -> void:
 		for unit in GameManager.selected_units:
 			if unit is Villager:
 				unit.command_hunt(animal)
+		if _game_logger:
+			_game_logger.log_action("hunt", {})
 		return
 
 	# Check if clicking on a resource
@@ -235,11 +248,15 @@ func _issue_command(world_pos: Vector2) -> void:
 		for unit in GameManager.selected_units:
 			if unit is Villager:
 				unit.command_gather(resource)
+		if _game_logger:
+			_game_logger.log_action("gather", {"resource": resource.resource_type if "resource_type" in resource else "unknown"})
 		return
 
 	# Otherwise, move command
 	for unit in GameManager.selected_units:
 		unit.move_to(world_pos)
+	if _game_logger:
+		_game_logger.log_action("move", {"pos": [world_pos.x, world_pos.y]})
 
 func _get_resource_at_position(pos: Vector2) -> Node:  # Returns ResourceNode or Farm
 	var resources = get_tree().get_nodes_in_group("resources")
@@ -447,6 +464,12 @@ func _place_building() -> void:
 	# Command selected villagers to build
 	for villager in builder_villagers:
 		villager.command_build(building)
+
+	if _game_logger:
+		_game_logger.log_action("place_building", {
+			"type": BuildingType.keys()[current_building_type].to_lower(),
+			"pos": [pos.x, pos.y],
+		})
 
 	GameManager.complete_building_placement()
 	current_building_type = BuildingType.NONE

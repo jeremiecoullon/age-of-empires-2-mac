@@ -91,6 +91,9 @@ var selected_military_unit: Unit = null
 # Notification counter to prevent race conditions
 var _notification_counter: int = 0
 
+# Game logger reference
+var _game_logger: GameLogger = null
+
 # All action buttons for easy hide/show
 var build_buttons: Array[Button] = []
 var tc_buttons: Array[Button] = []
@@ -132,6 +135,9 @@ func _ready() -> void:
 	_hide_all_action_buttons()
 	game_over_panel.visible = false
 	error_label.visible = false
+
+	# Cache game logger reference
+	_game_logger = get_parent().get_node_or_null("GameLogger") as GameLogger
 
 
 func _update_resources() -> void:
@@ -718,7 +724,10 @@ func _on_build_stable_pressed() -> void:
 func _on_train_villager_pressed() -> void:
 	if selected_building is TownCenter:
 		var tc = selected_building as TownCenter
-		if not tc.train_villager():
+		if tc.train_villager():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "villager"})
+		else:
 			if not GameManager.can_afford("food", TownCenter.VILLAGER_COST):
 				_show_error("Need 50 food!")
 			elif not GameManager.can_add_population():
@@ -727,7 +736,10 @@ func _on_train_villager_pressed() -> void:
 func _on_train_militia_pressed() -> void:
 	if selected_building is Barracks:
 		var barracks = selected_building as Barracks
-		if not barracks.train_militia():
+		if barracks.train_militia():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "militia"})
+		else:
 			if not GameManager.can_afford("food", Barracks.MILITIA_FOOD_COST):
 				_show_error("Need 60 food!")
 			elif not GameManager.can_afford("wood", Barracks.MILITIA_WOOD_COST):
@@ -738,7 +750,10 @@ func _on_train_militia_pressed() -> void:
 func _on_train_spearman_pressed() -> void:
 	if selected_building is Barracks:
 		var barracks = selected_building as Barracks
-		if not barracks.train_spearman():
+		if barracks.train_spearman():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "spearman"})
+		else:
 			if not GameManager.can_afford("food", Barracks.SPEARMAN_FOOD_COST):
 				_show_error("Need 35 food!")
 			elif not GameManager.can_afford("wood", Barracks.SPEARMAN_WOOD_COST):
@@ -749,7 +764,10 @@ func _on_train_spearman_pressed() -> void:
 func _on_train_archer_pressed() -> void:
 	if selected_building is ArcheryRange:
 		var ar = selected_building as ArcheryRange
-		if not ar.train_archer():
+		if ar.train_archer():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "archer"})
+		else:
 			if not GameManager.can_afford("wood", ArcheryRange.ARCHER_WOOD_COST):
 				_show_error("Need 25 wood!")
 			elif not GameManager.can_afford("gold", ArcheryRange.ARCHER_GOLD_COST):
@@ -760,7 +778,10 @@ func _on_train_archer_pressed() -> void:
 func _on_train_skirmisher_pressed() -> void:
 	if selected_building is ArcheryRange:
 		var ar = selected_building as ArcheryRange
-		if not ar.train_skirmisher():
+		if ar.train_skirmisher():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "skirmisher"})
+		else:
 			if not GameManager.can_afford("food", ArcheryRange.SKIRMISHER_FOOD_COST):
 				_show_error("Need 25 food!")
 			elif not GameManager.can_afford("wood", ArcheryRange.SKIRMISHER_WOOD_COST):
@@ -771,7 +792,10 @@ func _on_train_skirmisher_pressed() -> void:
 func _on_train_scout_cavalry_pressed() -> void:
 	if selected_building is Stable:
 		var stable = selected_building as Stable
-		if not stable.train_scout_cavalry():
+		if stable.train_scout_cavalry():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "scout_cavalry"})
+		else:
 			if not GameManager.can_afford("food", Stable.SCOUT_CAVALRY_FOOD_COST):
 				_show_error("Need 80 food!")
 			elif not GameManager.can_add_population():
@@ -780,7 +804,10 @@ func _on_train_scout_cavalry_pressed() -> void:
 func _on_train_cavalry_archer_pressed() -> void:
 	if selected_building is Stable:
 		var stable = selected_building as Stable
-		if not stable.train_cavalry_archer():
+		if stable.train_cavalry_archer():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "cavalry_archer"})
+		else:
 			if not GameManager.can_afford("wood", Stable.CAVALRY_ARCHER_WOOD_COST):
 				_show_error("Need 40 wood!")
 			elif not GameManager.can_afford("gold", Stable.CAVALRY_ARCHER_GOLD_COST):
@@ -792,43 +819,64 @@ func _on_train_cavalry_archer_pressed() -> void:
 func _on_buy_wood_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.buy_resource("wood"):
+		if market.buy_resource("wood"):
+			if _game_logger:
+				_game_logger.log_action("market_buy", {"resource": "wood"})
+		else:
 			_show_error("Need %d gold!" % GameManager.get_market_buy_price("wood"))
 
 func _on_buy_food_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.buy_resource("food"):
+		if market.buy_resource("food"):
+			if _game_logger:
+				_game_logger.log_action("market_buy", {"resource": "food"})
+		else:
 			_show_error("Need %d gold!" % GameManager.get_market_buy_price("food"))
 
 func _on_buy_stone_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.buy_resource("stone"):
+		if market.buy_resource("stone"):
+			if _game_logger:
+				_game_logger.log_action("market_buy", {"resource": "stone"})
+		else:
 			_show_error("Need %d gold!" % GameManager.get_market_buy_price("stone"))
 
 func _on_sell_wood_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.sell_resource("wood"):
+		if market.sell_resource("wood"):
+			if _game_logger:
+				_game_logger.log_action("market_sell", {"resource": "wood"})
+		else:
 			_show_error("Need 100 wood!")
 
 func _on_sell_food_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.sell_resource("food"):
+		if market.sell_resource("food"):
+			if _game_logger:
+				_game_logger.log_action("market_sell", {"resource": "food"})
+		else:
 			_show_error("Need 100 food!")
 
 func _on_sell_stone_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.sell_resource("stone"):
+		if market.sell_resource("stone"):
+			if _game_logger:
+				_game_logger.log_action("market_sell", {"resource": "stone"})
+		else:
 			_show_error("Need 100 stone!")
 
 func _on_train_trade_cart_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
-		if not market.train_trade_cart():
+		if market.train_trade_cart():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "trade_cart"})
+		else:
 			if not GameManager.can_afford("wood", Market.TRADE_CART_WOOD_COST):
 				_show_error("Need 100 wood!")
 			elif not GameManager.can_afford("gold", Market.TRADE_CART_GOLD_COST):

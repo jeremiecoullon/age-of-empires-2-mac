@@ -7,7 +7,7 @@ class_name FogOfWar
 ## - VISIBLE (clear): Currently in line of sight
 
 ## Debug: Set to true to disable fog of war for testing
-@export var debug_disable_fog: bool = true
+@export var debug_disable_fog: bool = false
 
 enum VisibilityState { UNEXPLORED, EXPLORED, VISIBLE }
 
