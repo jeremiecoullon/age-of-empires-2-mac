@@ -28,6 +28,7 @@ const STARTING_VILLAGERS: int = 3
 const TC_SCENE: PackedScene = preload("res://scenes/buildings/town_center.tscn")
 const HOUSE_SCENE: PackedScene = preload("res://scenes/buildings/house.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/units/villager.tscn")
+const SCOUT_CAVALRY_SCENE: PackedScene = preload("res://scenes/units/scout_cavalry.tscn")
 
 # Decision timing
 const DECISION_INTERVAL: float = 0.5  # Evaluate rules every 0.5 seconds
@@ -141,6 +142,13 @@ func _spawn_starting_base() -> void:
 		villager.team = AI_TEAM
 		units_container.add_child(villager)
 		GameManager.add_population(1, AI_TEAM)
+
+	# Spawn starting scout cavalry (AoE2 standard: 3 villagers + 1 scout)
+	var scout = SCOUT_CAVALRY_SCENE.instantiate()
+	scout.global_position = AI_BASE_POSITION + Vector2(60, 40)
+	scout.team = AI_TEAM
+	units_container.add_child(scout)
+	GameManager.add_population(1, AI_TEAM)
 
 
 func _process(delta: float) -> void:

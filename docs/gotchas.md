@@ -367,3 +367,17 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **`_do_train()` should capture return value**: The AI's `_do_train('villager')` was setting `success = true` regardless of whether `tc.train_villager()` actually succeeded. Changed to `success = tc.train_villager()` to properly track failures.
 
 - **`is_destroyed` guard in `_process()`**: Add `if is_destroyed: return` at the top of TC's `_process()` to prevent any logic (timers, signals) from running after destruction but before `queue_free()` actually frees the node.
+
+### Phase 4B - Age-Gating
+
+- **Age requirement data lives in GameManager**: Central `BUILDING_AGE_REQUIREMENTS` and `UNIT_AGE_REQUIREMENTS` dictionaries with `is_building_unlocked()` / `is_unit_unlocked()` helpers. Avoids scattered exports across 15+ classes. Easy for Phase 5 to extend with tech requirements.
+
+- **Age checks at caller level, not in train_X() methods**: HUD and AI both check via GameManager helpers before calling train methods. Adding checks inside every `train_X()` method would mean touching 8 functions across 4 files with identical logic.
+
+- **Starting Scout Cavalry**: AoE2 starts players with 3 villagers + 1 scout. The scout exists in Dark Age but *training* more requires Feudal (Stable building). Player scout is in main.tscn, AI scout is spawned in `_spawn_starting_base()`. Starting population increased from 3 to 4.
+
+- **Existing tests need age context**: When adding age gating, tests that set up Feudal/Castle content (archery ranges, stables, spearmen, etc.) must also set `GameManager.ai_age` to the appropriate age. Without this, the age check in `get_can_train_reason()`/`get_can_build_reason()` rejects the action before reaching the condition being tested. Tests that expect failure may "pass by accident" but test the wrong thing.
+
+- **Building visual changes deferred**: No age-variant sprites exist. The only option would be tinting which would conflict with team color modulation. Deferred to Phase 9 (Polish).
+
+- **Cavalry Archer is Castle Age**: Even though the Stable (its training building) is Feudal Age, the Cavalry Archer unit itself requires Castle Age. The button appears in the Stable panel but is disabled until Castle Age.

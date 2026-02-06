@@ -29,6 +29,7 @@ const TestAIMilitaryScript = preload("res://tests/scenarios/test_ai_military.gd"
 const TestBugfixesScript = preload("res://tests/scenarios/test_bugfixes.gd")
 const TestRepairScript = preload("res://tests/scenarios/test_repair.gd")
 const TestAgeAdvancementScript = preload("res://tests/scenarios/test_age_advancement.gd")
+const TestAgeGatingScript = preload("res://tests/scenarios/test_age_gating.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -147,6 +148,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING AGE ADVANCEMENT TESTS ===\n")
 	var age_advancement_tests = TestAgeAdvancementScript.new(test_runner)
 	await test_runner.run_all_tests(age_advancement_tests.get_all_tests())
+
+	# Age Gating tests (Phase 4B)
+	print("\n=== RUNNING AGE GATING TESTS ===\n")
+	var age_gating_tests = TestAgeGatingScript.new(test_runner)
+	await test_runner.run_all_tests(age_gating_tests.get_all_tests())
 
 	# Bugfix regression tests
 	print("\n=== RUNNING BUGFIX TESTS ===\n")

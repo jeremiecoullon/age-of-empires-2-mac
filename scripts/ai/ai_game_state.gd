@@ -355,6 +355,11 @@ func get_can_train_reason(unit_type: String) -> String:
 	## Used for debugging rule evaluation.
 	const MAX_AI_QUEUE: int = 3
 
+	# Check age requirement
+	if not GameManager.is_unit_unlocked(unit_type, AI_TEAM):
+		var required_age = GameManager.UNIT_AGE_REQUIREMENTS.get(unit_type, GameManager.AGE_DARK)
+		return "requires_%s" % GameManager.AGE_NAMES[required_age].to_lower().replace(" ", "_")
+
 	# Check population space
 	if not GameManager.can_add_population(AI_TEAM):
 		return "no_pop_space"
@@ -462,6 +467,11 @@ func get_can_build_reason(building_type: String) -> String:
 	## Used for debugging rule evaluation.
 	if building_type not in BUILDING_COSTS:
 		return "unknown_building_type"
+
+	# Check age requirement
+	if not GameManager.is_building_unlocked(building_type, AI_TEAM):
+		var required_age = GameManager.BUILDING_AGE_REQUIREMENTS.get(building_type, GameManager.AGE_DARK)
+		return "requires_%s" % GameManager.AGE_NAMES[required_age].to_lower().replace(" ", "_")
 
 	# Check resources
 	var costs = BUILDING_COSTS[building_type]

@@ -36,6 +36,23 @@ const AGE_QUALIFYING_GROUPS: Array[Array] = [
 
 const AGE_REQUIRED_QUALIFYING_COUNT: int = 2
 
+# Age requirements for buildings and units
+# Buildings/units not listed here are available from Dark Age
+const BUILDING_AGE_REQUIREMENTS: Dictionary = {
+	"archery_range": AGE_FEUDAL,
+	"stable": AGE_FEUDAL,
+	"market": AGE_FEUDAL,
+}
+
+const UNIT_AGE_REQUIREMENTS: Dictionary = {
+	"archer": AGE_FEUDAL,
+	"skirmisher": AGE_FEUDAL,
+	"spearman": AGE_FEUDAL,
+	"scout_cavalry": AGE_FEUDAL,
+	"trade_cart": AGE_FEUDAL,
+	"cavalry_archer": AGE_CASTLE,
+}
+
 # Age state per player
 var player_age: int = AGE_DARK
 var ai_age: int = AGE_DARK
@@ -55,7 +72,7 @@ const PRICE_CHANGE_PER_TRADE: int = 3  # Price change per 100-unit trade
 var market_prices: Dictionary = {"wood": 100, "food": 100, "stone": 130}
 
 # Population
-var population: int = 3
+var population: int = 4
 var population_cap: int = 5
 var ai_population: int = 0
 var ai_population_cap: int = 5
@@ -216,6 +233,22 @@ func get_age_name(team: int = 0) -> String:
 	var age = get_age(team)
 	return AGE_NAMES[age] if age < AGE_NAMES.size() else "Unknown"
 
+
+func is_building_unlocked(building_type: String, team: int = 0) -> bool:
+	var required_age = BUILDING_AGE_REQUIREMENTS.get(building_type, AGE_DARK)
+	return get_age(team) >= required_age
+
+
+func is_unit_unlocked(unit_type: String, team: int = 0) -> bool:
+	var required_age = UNIT_AGE_REQUIREMENTS.get(unit_type, AGE_DARK)
+	return get_age(team) >= required_age
+
+
+func get_required_age_name(entity_type: String, is_building: bool = false) -> String:
+	var reqs = BUILDING_AGE_REQUIREMENTS if is_building else UNIT_AGE_REQUIREMENTS
+	var required_age = reqs.get(entity_type, AGE_DARK)
+	return AGE_NAMES[required_age] if required_age < AGE_NAMES.size() else "Unknown"
+
 func can_advance_age(team: int = 0) -> bool:
 	var current_age = get_age(team)
 	if current_age >= AGE_IMPERIAL:
@@ -328,7 +361,7 @@ func complete_building_placement() -> void:
 func reset() -> void:
 	resources = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
 	ai_resources = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
-	population = 3
+	population = 4
 	population_cap = 5
 	ai_population = 0
 	ai_population_cap = 5

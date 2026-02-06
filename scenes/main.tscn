@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://cmain000001"]
+[gd_scene load_steps=20 format=3 uid="uid://cmain000001"]
 
 [ext_resource type="Script" uid="uid://b7vxcia6yu3ii" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://cmap0000001" path="res://scenes/map.tscn" id="2_map"]
@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://scenes/units/pelican_bicycle.tscn" id="16_pelican"]
 [ext_resource type="Script" uid="uid://bvxfpx23gte8g" path="res://scripts/fog_of_war.gd" id="17_fog"]
 [ext_resource type="Script" uid="uid://cx1mfba0fkc4e" path="res://scripts/logging/game_logger.gd" id="18_logger"]
+[ext_resource type="PackedScene" uid="uid://cscoutcav001" path="res://scenes/units/scout_cavalry.tscn" id="19_scout"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -43,6 +44,9 @@ position = Vector2(440, 560)
 
 [node name="Villager3" parent="Units" instance=ExtResource("5_villager")]
 position = Vector2(480, 580)
+
+[node name="ScoutCavalry" parent="Units" instance=ExtResource("19_scout")]
+position = Vector2(540, 480)
 
 [node name="Resources" type="Node2D" parent="."]
 

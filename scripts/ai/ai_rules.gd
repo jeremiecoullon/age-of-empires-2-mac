@@ -543,6 +543,8 @@ class TrainArcherRule extends AIRule:
 		rule_name = "train_archer"
 
 	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
 		# Train archers - good general ranged unit
 		if gs.get_building_count("archery_range") < 1:
 			return false
