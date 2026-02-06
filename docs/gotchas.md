@@ -335,3 +335,17 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Friendly fire should not trigger attack notifications**: `notify_unit_damaged()` and `notify_building_damaged()` must check if attacker is on the same team as victim. Villager hunting own sheep is friendly fire, not an attack. Use duck-typed check: `if "team" in attacker and attacker.team == unit.team: return`.
 
 - **Selection box must draw in screen space**: The selection rectangle from drag-select uses screen coordinates (mouse events). Drawing it in a Node2D `_draw()` (world space) breaks once the camera pans from origin. Move selection drawing to a Control node on the HUD CanvasLayer (screen space). Set `mouse_filter = IGNORE` so it doesn't intercept clicks.
+
+### Building repair
+
+- **Repair was missing, not broken**: The bug "villagers can't repair" was because repair was never implemented — `_issue_command()` only had branches for enemy buildings (attack) and friendly under-construction buildings (help build). A fully-constructed damaged building fell through to a move command, so villagers just walked to it and stood there.
+
+- **Repair reuses the builder system**: Repair uses the same `add_builder()`/`remove_builder()`/`get_builder_count()` system as construction, so diminishing returns (harmonic series) apply to multiple repairers automatically.
+
+- **Repair cost model**: Full repair (0 to max HP) costs 50% of original build cost. Repair rate is 3x construction speed (takes ~1/3 the build time). Resources are deducted continuously via a fractional accumulator — when the accumulator reaches >= 1, whole resource units are charged. If the owner can't afford, repair pauses (villager stays in REPAIRING state but no HP is restored).
+
+- **Repair charges a single resource type**: `progress_repair()` charges the total repair cost against wood (or food if no wood cost). This works for current buildings which all cost a single resource. If a building with both wood and food cost is added, the cost distribution would need updating — see ISSUE-002 from code review.
+
+- **`_repair_cost_accumulator` must reset between sessions**: Call `start_repair()` (which resets the accumulator to 0) when starting a new repair session. Without this, leftover fractional cost from a previous interrupted repair carries over.
+
+- **Cleanup pattern for repair_target**: Same as `target_construction` — every `command_*` method and `die()` must check and clean up `repair_target` from the builder list. Missing this causes phantom builders that inflate `get_builder_count()` and affect diminishing returns.

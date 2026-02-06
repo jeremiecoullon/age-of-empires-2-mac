@@ -214,6 +214,12 @@ func _issue_command(world_pos: Vector2) -> void:
 				if unit is Villager:
 					unit.command_build(target_building)
 			return
+		# Friendly building damaged - repair
+		elif target_building.needs_repair():
+			for unit in GameManager.selected_units:
+				if unit is Villager:
+					unit.command_repair(target_building)
+			return
 
 	# Check if clicking on an animal (for hunting)
 	var animal = _get_animal_at_position(world_pos)

@@ -27,6 +27,7 @@ const TestCursorScript = preload("res://tests/scenarios/test_cursor.gd")
 const TestAIEconomyScript = preload("res://tests/scenarios/test_ai_economy.gd")
 const TestAIMilitaryScript = preload("res://tests/scenarios/test_ai_military.gd")
 const TestBugfixesScript = preload("res://tests/scenarios/test_bugfixes.gd")
+const TestRepairScript = preload("res://tests/scenarios/test_repair.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -135,6 +136,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING AI MILITARY TESTS ===\n")
 	var ai_military_tests = TestAIMilitaryScript.new(test_runner)
 	await test_runner.run_all_tests(ai_military_tests.get_all_tests())
+
+	# Repair tests
+	print("\n=== RUNNING REPAIR TESTS ===\n")
+	var repair_tests = TestRepairScript.new(test_runner)
+	await test_runner.run_all_tests(repair_tests.get_all_tests())
 
 	# Bugfix regression tests
 	print("\n=== RUNNING BUGFIX TESTS ===\n")

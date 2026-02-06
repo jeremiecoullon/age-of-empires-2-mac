@@ -26,6 +26,9 @@ var is_destroyed: bool = false
 var construction_progress: float = 0.0  # 0.0 to 1.0
 var builders: Array[Node] = []  # Villagers currently constructing this building
 
+# Repair system — tracks fractional resource cost accumulated during repair
+var _repair_cost_accumulator: float = 0.0
+
 signal destroyed
 signal damaged(amount: int, attacker: Node2D)  # Emitted when building takes damage
 signal construction_completed  # Emitted when building finishes construction
@@ -102,7 +105,7 @@ func remove_builder(villager: Node) -> void:
 ## Get the number of active builders
 func get_builder_count() -> int:
 	# Clean up invalid builders
-	builders = builders.filter(func(b): return is_instance_valid(b))
+	builders.assign(builders.filter(func(b): return is_instance_valid(b)))
 	return builders.size()
 
 ## Progress construction by delta time. Returns true if construction completed.
@@ -162,3 +165,74 @@ func is_functional() -> bool:
 ## Get construction progress as percentage (0-100)
 func get_construction_percent() -> int:
 	return int(construction_progress * 100)
+
+# ===== REPAIR SYSTEM =====
+
+## Whether this building can be repaired (constructed, not destroyed, and damaged)
+func needs_repair() -> bool:
+	return is_constructed and not is_destroyed and current_hp < max_hp
+
+## Reset repair state when a new repair session begins
+func start_repair() -> void:
+	_repair_cost_accumulator = 0.0
+
+## Get the total resource cost for a full repair (50% of original build cost).
+## Returns {"wood": int, "food": int} — only non-zero entries.
+func get_full_repair_cost() -> Dictionary:
+	var cost := {}
+	if wood_cost > 0:
+		cost["wood"] = max(1, int(wood_cost * 0.5))
+	if food_cost > 0:
+		cost["food"] = max(1, int(food_cost * 0.5))
+	return cost
+
+## Progress repair by delta time. Returns true if repair is complete.
+## Repair rate = 3x construction rate (takes ~1/3 the build time for a full repair).
+## Resources are deducted continuously from the owner's stockpile.
+## If the owner can't afford the next tick of repair, repair pauses (returns false).
+func progress_repair(delta: float) -> bool:
+	if not needs_repair():
+		return true  # Already at full HP
+
+	var builder_count = get_builder_count()
+	if builder_count == 0:
+		return false
+
+	# Same diminishing-returns formula as construction
+	var speed_mult = 1.0
+	for i in range(1, builder_count):
+		speed_mult += 0.5 / i
+
+	# HP to restore this tick (3x construction speed)
+	var hp_per_second = float(max_hp) / build_time * 3.0 * speed_mult
+	var hp_this_tick = hp_per_second * delta
+	var hp_missing = max_hp - current_hp
+
+	# Clamp so we don't overshoot
+	hp_this_tick = min(hp_this_tick, hp_missing)
+
+	# Calculate resource cost for this tick's HP
+	# Full repair (max_hp HP) costs 50% of build cost → per-HP cost = 0.5 * cost / max_hp
+	var total_build_cost = wood_cost + food_cost
+	if total_build_cost == 0:
+		# Free building — just heal
+		current_hp = min(current_hp + int(ceil(hp_this_tick)), max_hp)
+		return current_hp >= max_hp
+
+	var cost_per_hp = 0.5 * float(total_build_cost) / float(max_hp)
+	_repair_cost_accumulator += cost_per_hp * hp_this_tick
+
+	# Deduct whole-unit costs when accumulator >= 1
+	if _repair_cost_accumulator >= 1.0:
+		var cost_to_deduct = int(_repair_cost_accumulator)
+		# Determine which resource(s) to charge — prioritize wood then food
+		var resource_type = "wood" if wood_cost > 0 else "food"
+		if not GameManager.can_afford(resource_type, cost_to_deduct, team):
+			# Can't afford — pause repair
+			_repair_cost_accumulator -= cost_per_hp * hp_this_tick  # Undo accumulation
+			return false
+		GameManager.spend_resource(resource_type, cost_to_deduct, team)
+		_repair_cost_accumulator -= cost_to_deduct
+
+	current_hp = min(current_hp + int(ceil(hp_this_tick)), max_hp)
+	return current_hp >= max_hp
