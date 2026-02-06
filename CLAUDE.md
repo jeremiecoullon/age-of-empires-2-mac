@@ -181,6 +181,20 @@ Both steps are required. The import step catches scene file errors that won't sh
 
 Tests auto-quit when complete. Exit code 0 = all passed, 1 = failures. Do not ask the user to run tests manually in the GUI.
 
+--- 
+
+## Improving the AI player
+
+Games are logged to `logs/game_logs/` with snapshots every 10 seconds. When the user asks to analyze a game:
+
+1. **Run the game-analyzer agent** on the game log directory the user specifies. It identifies the biggest strategic gap and proposes a concrete code change. The report goes to `analysis.md` inside that game log folder.
+2. **Critically assess the recommendation.** Don't blindly accept — check whether the proposed change makes sense given current AI logic and game state.
+3. **Wait for user confirmation** before implementing anything.
+4. **Implement the fix**, then run the code-reviewer agent on the changes.
+5. **Update the AI tuning log** in `docs/ai_player_designs/ai_tuning_log.md` to track what changed and why. This history matters as new features/maps are added — earlier tuning may become irrelevant.
+
+
+
 ---
 
 ## Sprites & Assets
