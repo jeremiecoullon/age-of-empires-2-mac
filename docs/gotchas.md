@@ -349,3 +349,19 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **`_repair_cost_accumulator` must reset between sessions**: Call `start_repair()` (which resets the accumulator to 0) when starting a new repair session. Without this, leftover fractional cost from a previous interrupted repair carries over.
 
 - **Cleanup pattern for repair_target**: Same as `target_construction` — every `command_*` method and `die()` must check and clean up `repair_target` from the builder list. Missing this causes phantom builders that inflate `get_builder_count()` and affect diminishing returns.
+
+### Phase 4A - Age Infrastructure & Advancement
+
+- **Qualifying buildings count distinct types, not total buildings**: AoE2 requires 2 *different* building types for age advancement (e.g., barracks + mill), not 2 of the same type (e.g., 2 barracks). `get_qualifying_building_count()` iterates group names and checks if at least one functional building exists per group, then counts distinct groups. This was caught by spec-check.
+
+- **TC destruction during age research must refund resources**: If a TC is destroyed mid-research, `cancel_age_research()` must be called in `_destroy()` to refund costs. Otherwise resources are permanently lost. Similar to the production queue refund pattern.
+
+- **Age research blocks villager training**: The TC's `_process()` uses `if is_researching_age ... elif is_training` to prioritize age research over training. Training is paused (not cancelled) during research. After research completes, `_start_next_training()` resumes the queue.
+
+- **AI can't train villagers during age research**: The AI's `get_can_train_reason('villager')` must check `tc.is_researching_age` and return `"tc_researching_age"`. Without this, `can_train()` returns "ok" but `train_villager()` silently fails, causing misleading logs.
+
+- **AI age rules need resource reservation (known gap)**: The AdvanceToFeudalAgeRule requires 500 food, but the AI spends food continuously on villagers and military. With no resource reservation system, the AI may never accumulate 500 food. The conditions are all correct, but the rule rarely fires because `can_afford_age()` fails. This is an AI tuning issue, not a code bug — future work should add resource saving behavior near age-up thresholds.
+
+- **`_do_train()` should capture return value**: The AI's `_do_train('villager')` was setting `success = true` regardless of whether `tc.train_villager()` actually succeeded. Changed to `success = tc.train_villager()` to properly track failures.
+
+- **`is_destroyed` guard in `_process()`**: Add `if is_destroyed: return` at the top of TC's `_process()` to prevent any logic (timers, signals) from running after destruction but before `queue_free()` actually frees the node.

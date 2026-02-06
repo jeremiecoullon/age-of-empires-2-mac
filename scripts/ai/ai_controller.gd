@@ -306,6 +306,34 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if pop < 10:
 				return "need_10_villagers_have_%d" % pop
 			return game_state.get_can_build_reason("stable")
+		"advance_to_feudal":
+			if game_state.get_age() != GameManager.AGE_DARK:
+				return "not_dark_age"
+			var feudal_vills = game_state.get_civilian_population()
+			if feudal_vills < 10:
+				return "need_10_villagers_have_%d" % feudal_vills
+			var feudal_tc = game_state._get_ai_town_center()
+			if feudal_tc and feudal_tc.is_researching_age:
+				return "already_researching"
+			var feudal_qualifying = game_state.get_qualifying_building_count(GameManager.AGE_FEUDAL)
+			if feudal_qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, feudal_qualifying]
+			if not game_state.can_advance_age():
+				return "cannot_afford"
+		"advance_to_castle":
+			if game_state.get_age() != GameManager.AGE_FEUDAL:
+				return "not_feudal_age"
+			var castle_vills = game_state.get_civilian_population()
+			if castle_vills < 15:
+				return "need_15_villagers_have_%d" % castle_vills
+			var castle_tc = game_state._get_ai_town_center()
+			if castle_tc and castle_tc.is_researching_age:
+				return "already_researching"
+			var castle_qualifying = game_state.get_qualifying_building_count(GameManager.AGE_CASTLE)
+			if castle_qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, castle_qualifying]
+			if not game_state.can_advance_age():
+				return "cannot_afford"
 		"defend_base":
 			if not game_state.is_under_attack():
 				return "not_under_attack"
@@ -354,6 +382,7 @@ func _get_rule_blockers() -> Dictionary:
 		"build_barracks", "build_archery_range", "build_stable",
 		"build_mill", "build_lumber_camp",
 		"train_militia", "train_archer", "train_scout_cavalry",
+		"advance_to_feudal", "advance_to_castle",
 		"defend_base", "attack"
 	]
 	for rule in rules:
@@ -547,6 +576,8 @@ func _print_debug_state() -> void:
 	# Build state dictionary
 	var state: Dictionary = {
 		"t": snappedf(game_time, 0.1),
+		"age": game_state.get_age(),
+		"age_name": GameManager.get_age_name(AIGameState.AI_TEAM),
 		"resources": {
 			"food": game_state.get_resource("food"),
 			"wood": game_state.get_resource("wood"),

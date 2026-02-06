@@ -48,6 +48,7 @@ func _ready() -> void:
 	ai_controller = _find_ai_controller()
 	if ai_controller:
 		ai_controller.set_meta("log_callback", _on_ai_log)
+		ai_controller.debug_print_enabled = true
 	else:
 		push_error("AI_TEST_ERROR: Could not find AIController - test cannot proceed")
 		get_tree().quit(1)

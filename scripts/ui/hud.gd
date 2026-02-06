@@ -35,6 +35,7 @@ extends CanvasLayer
 
 # Train buttons
 @onready var train_villager_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton
+@onready var advance_age_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/AdvanceAgeButton
 @onready var train_militia_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMilitiaButton
 @onready var train_spearman_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSpearmanButton
 @onready var train_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainArcherButton
@@ -113,12 +114,13 @@ func _ready() -> void:
 	GameManager.villager_idle.connect(_on_villager_idle)
 	GameManager.market_prices_changed.connect(_update_market_prices)
 	GameManager.player_under_attack.connect(_on_player_under_attack)
+	GameManager.age_changed.connect(_on_age_changed)
 
 	# Group buttons for easier management
 	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
 					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
 					 build_archery_range_btn, build_stable_btn]
-	tc_buttons = [train_villager_btn]
+	tc_buttons = [train_villager_btn, advance_age_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
 	archery_range_buttons = [train_archer_btn, train_skirmisher_btn]
 	stable_buttons = [train_scout_cavalry_btn, train_cavalry_archer_btn]
@@ -128,6 +130,7 @@ func _ready() -> void:
 	# Initial update
 	_update_resources()
 	_update_population()
+	_update_age_label()
 	_update_market_prices()
 	_setup_attack_notification()
 
@@ -165,6 +168,17 @@ func _update_production_progress() -> void:
 		queue_label.text = ""
 		cancel_btn.visible = false
 		return
+
+	# Age research progress (TC only)
+	if selected_building is TownCenter:
+		var tc = selected_building as TownCenter
+		if tc.is_researching_age:
+			train_progress.value = tc.get_age_research_progress() * 100
+			train_progress.visible = true
+			var age_name = GameManager.AGE_NAMES[tc.age_research_target] if tc.age_research_target < GameManager.AGE_NAMES.size() else "?"
+			queue_label.text = age_name
+			cancel_btn.visible = true
+			return
 
 	var queue_size = selected_building.get_queue_size()
 	queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
@@ -210,6 +224,7 @@ func _show_tc_buttons(tc: TownCenter) -> void:
 	action_title.text = "Town Center"
 	selected_building = tc
 	selected_building_type = "tc"
+	_update_advance_age_button()
 
 
 func _show_barracks_buttons(barracks: Barracks) -> void:
@@ -816,6 +831,72 @@ func _on_train_cavalry_archer_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 
+func _on_advance_age_pressed() -> void:
+	if not selected_building is TownCenter:
+		return
+	var tc = selected_building as TownCenter
+	if tc.is_researching_age:
+		_show_error("Already researching!")
+		return
+
+	var current_age = GameManager.get_age(0)
+	if current_age >= GameManager.AGE_IMPERIAL:
+		_show_error("Already at max age!")
+		return
+
+	var target_age = current_age + 1
+	var qualifying = GameManager.get_qualifying_building_count(target_age, 0)
+	if qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+		_show_error("Need %d qualifying buildings (have %d)" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, qualifying])
+		return
+
+	if not GameManager.can_afford_age(target_age, 0):
+		var costs = GameManager.AGE_COSTS[target_age]
+		var cost_parts: Array[String] = []
+		for res in costs:
+			cost_parts.append("%d %s" % [costs[res], res])
+		_show_error("Need %s" % ", ".join(cost_parts))
+		return
+
+	if tc.start_age_research(target_age):
+		var age_name = GameManager.AGE_NAMES[target_age]
+		_show_notification("Researching %s..." % age_name)
+		if _game_logger:
+			_game_logger.log_action("age_research", {"target": age_name})
+
+
+func _update_advance_age_button() -> void:
+	var current_age = GameManager.get_age(0)
+	if current_age >= GameManager.AGE_IMPERIAL:
+		advance_age_btn.text = "Max Age"
+		advance_age_btn.disabled = true
+		return
+
+	var target_age = current_age + 1
+	var age_name = GameManager.AGE_NAMES[target_age]
+	var costs = GameManager.AGE_COSTS[target_age]
+	var cost_parts: Array[String] = []
+	for res in costs:
+		var short = res[0].to_upper()  # "F", "G", etc.
+		cost_parts.append("%d%s" % [costs[res], short])
+
+	advance_age_btn.text = "%s (%s)" % [age_name, ", ".join(cost_parts)]
+	advance_age_btn.disabled = false
+
+
+func _update_age_label() -> void:
+	age_label.text = GameManager.get_age_name(0)
+
+
+func _on_age_changed(team: int, new_age: int) -> void:
+	if team == 0:
+		_update_age_label()
+		_show_notification("Advanced to %s!" % GameManager.AGE_NAMES[new_age])
+		# Update advance age button if TC is selected
+		if selected_building_type == "tc":
+			_update_advance_age_button()
+
+
 func _on_buy_wood_pressed() -> void:
 	if selected_building is Market:
 		var market = selected_building as Market
@@ -887,6 +968,13 @@ func _on_train_trade_cart_pressed() -> void:
 
 func _on_cancel_pressed() -> void:
 	if selected_building and is_instance_valid(selected_building):
+		# Cancel age research first if active (TC only)
+		if selected_building is TownCenter:
+			var tc = selected_building as TownCenter
+			if tc.is_researching_age:
+				tc.cancel_age_research()
+				_show_notification("Age research cancelled")
+				return
 		selected_building.cancel_training()
 
 

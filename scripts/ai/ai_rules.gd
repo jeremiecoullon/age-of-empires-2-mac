@@ -616,6 +616,56 @@ class TrainCavalryArcherRule extends AIRule:
 
 
 # =============================================================================
+# AGE ADVANCEMENT (Phase 4A)
+# =============================================================================
+
+class AdvanceToFeudalAgeRule extends AIRule:
+	## Advance to Feudal Age when economy is established
+	## Requirements: Dark Age, 10+ villagers, 2 qualifying buildings, 500 food
+
+	func _init():
+		rule_name = "advance_to_feudal"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_age() != GameManager.AGE_DARK:
+			return false
+		if gs.get_civilian_population() < 10:
+			return false
+		var target_age = GameManager.AGE_FEUDAL
+		if gs.get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+			return false
+		if not gs.can_advance_age():
+			return false
+		return true
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_age(GameManager.AGE_FEUDAL)
+
+
+class AdvanceToCastleAgeRule extends AIRule:
+	## Advance to Castle Age when Feudal economy is running
+	## Requirements: Feudal Age, 15+ villagers, 2 qualifying Feudal buildings, 800 food + 200 gold
+
+	func _init():
+		rule_name = "advance_to_castle"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_age() != GameManager.AGE_FEUDAL:
+			return false
+		if gs.get_civilian_population() < 15:
+			return false
+		var target_age = GameManager.AGE_CASTLE
+		if gs.get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+			return false
+		if not gs.can_advance_age():
+			return false
+		return true
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_age(GameManager.AGE_CASTLE)
+
+
+# =============================================================================
 # DEFENSE (Phase 3.1C)
 # =============================================================================
 
@@ -730,6 +780,9 @@ static func create_all_rules() -> Array:
 		TrainSkirmisherRule.new(),
 		TrainScoutCavalryRule.new(),
 		TrainCavalryArcherRule.new(),
+		# Age advancement (Phase 4A)
+		AdvanceToFeudalAgeRule.new(),
+		AdvanceToCastleAgeRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)

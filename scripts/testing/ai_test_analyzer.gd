@@ -25,6 +25,8 @@ var milestones: Dictionary = {
 	"reached_15_villagers": null,
 	"first_military_unit": null,
 	"first_attack": null,
+	"reached_feudal_age": null,
+	"reached_castle_age": null,
 }
 
 # Previous state for change detection
@@ -121,6 +123,13 @@ func _check_milestones(game_time: float, state) -> void:
 	if milestones["first_military_unit"] == null and military_count > 0 and _prev_military_count == 0:
 		milestones["first_military_unit"] = game_time
 	_prev_military_count = military_count
+
+	# Age milestones
+	var current_age = GameManager.get_age(AI_TEAM)
+	if milestones["reached_feudal_age"] == null and current_age >= GameManager.AGE_FEUDAL:
+		milestones["reached_feudal_age"] = game_time
+	if milestones["reached_castle_age"] == null and current_age >= GameManager.AGE_CASTLE:
+		milestones["reached_castle_age"] = game_time
 
 	# Attack milestone (set via record_attack())
 	if milestones["first_attack"] == null and attack_issued:

@@ -85,6 +85,32 @@ func refresh() -> void:
 
 
 # =============================================================================
+# CONDITION HELPERS - Age
+# =============================================================================
+
+func get_age() -> int:
+	return GameManager.get_age(AI_TEAM)
+
+
+func can_advance_age() -> bool:
+	return GameManager.can_advance_age(AI_TEAM)
+
+
+func get_qualifying_building_count(target_age: int) -> int:
+	return GameManager.get_qualifying_building_count(target_age, AI_TEAM)
+
+
+func research_age(target_age: int) -> bool:
+	## Start age research at AI Town Center
+	var tc = _get_ai_town_center()
+	if not tc or not tc.is_functional():
+		return false
+	if tc.is_researching_age:
+		return false
+	return tc.start_age_research(target_age)
+
+
+# =============================================================================
 # CONDITION HELPERS - Resources
 # =============================================================================
 
@@ -315,6 +341,8 @@ func get_can_train_reason(unit_type: String) -> String:
 				return "no_town_center"
 			if not tc.is_functional():
 				return "tc_not_functional"
+			if tc.is_researching_age:
+				return "tc_researching_age"
 			if tc.get_queue_size() >= MAX_AI_QUEUE:
 				return "queue_full"
 			if not GameManager.can_afford("food", tc.VILLAGER_COST, AI_TEAM):
@@ -685,8 +713,7 @@ func _do_train(unit_type: String) -> void:
 		"villager":
 			var tc = _get_ai_town_center()
 			if tc and tc.is_functional():
-				tc.train_villager()
-				success = true
+				success = tc.train_villager()
 		"militia":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
