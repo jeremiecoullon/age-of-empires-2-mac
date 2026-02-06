@@ -15,7 +15,7 @@ enum State { IDLE, MOVING, GATHERING, RETURNING, HUNTING, BUILDING, ATTACKING }
 
 @export var carry_capacity: int = 10
 @export var gather_time: float = 1.0  # seconds per resource unit
-@export var attack_damage: int = 3  # Villager attack for hunting
+@export var attack_damage: int = 3  # Villager melee attack (hunting + combat)
 @export var attack_range: float = 25.0
 @export var attack_cooldown: float = 1.5
 @export var build_range: float = 50.0  # Distance to stand from building while constructing
@@ -243,6 +243,7 @@ func command_gather(resource: Node) -> void:  # Accepts ResourceNode or Farm
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
 	target_construction = null
+	attack_target = null
 	target_resource = resource
 	carried_resource_type = resource.get_resource_type()
 	current_state = State.GATHERING
@@ -264,6 +265,7 @@ func command_hunt(animal: Animal) -> void:
 	if target_construction and is_instance_valid(target_construction):
 		target_construction.remove_builder(self)
 	target_construction = null
+	attack_target = null
 	target_animal = animal
 	last_animal_position = animal.global_position
 	target_resource = null
@@ -321,6 +323,7 @@ func command_build(building: Building) -> void:
 	target_construction = building
 	target_resource = null
 	target_animal = null
+	attack_target = null
 	current_state = State.BUILDING
 	building.add_builder(self)
 
