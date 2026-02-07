@@ -27,6 +27,7 @@ const MARKET_SCENE: PackedScene = preload("res://scenes/buildings/market.tscn")
 const ARCHERY_RANGE_SCENE: PackedScene = preload("res://scenes/buildings/archery_range.tscn")
 const STABLE_SCENE: PackedScene = preload("res://scenes/buildings/stable.tscn")
 const BLACKSMITH_SCENE: PackedScene = preload("res://scenes/buildings/blacksmith.tscn")
+const MONASTERY_SCENE: PackedScene = preload("res://scenes/buildings/monastery.tscn")
 
 # Building costs (wood only for MVP)
 const BUILDING_COSTS: Dictionary = {
@@ -39,7 +40,8 @@ const BUILDING_COSTS: Dictionary = {
 	"market": {"wood": 175},
 	"archery_range": {"wood": 175},
 	"stable": {"wood": 175},
-	"blacksmith": {"wood": 150}
+	"blacksmith": {"wood": 150},
+	"monastery": {"wood": 175}
 }
 
 # Building sizes (in pixels)
@@ -53,7 +55,8 @@ const BUILDING_SIZES: Dictionary = {
 	"market": Vector2(96, 96),
 	"archery_range": Vector2(96, 96),
 	"stable": Vector2(96, 96),
-	"blacksmith": Vector2(96, 96)
+	"blacksmith": Vector2(96, 96),
+	"monastery": Vector2(96, 96)
 }
 
 # Reference to controller (for accessing strategic numbers, timers, etc.)
@@ -179,6 +182,12 @@ func get_can_research_reason(tech_id: String) -> String:
 			return "no_town_center"
 		if tc.is_researching_age or tc.is_researching:
 			return "building_busy"
+	elif building_type == "monastery":
+		var mon = _get_ai_monastery()
+		if not mon:
+			return "no_monastery"
+		if mon.is_researching:
+			return "building_busy"
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if not bldg:
@@ -210,6 +219,14 @@ func _get_ai_blacksmith() -> Blacksmith:
 	for bs in scene_tree.get_nodes_in_group("blacksmiths"):
 		if bs.team == AI_TEAM and bs.is_functional():
 			return bs
+	return null
+
+
+func _get_ai_monastery() -> Monastery:
+	## Returns first functional AI monastery, or null
+	for mon in scene_tree.get_nodes_in_group("monasteries"):
+		if mon.team == AI_TEAM and mon.is_functional():
+			return mon
 	return null
 
 
@@ -291,6 +308,8 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "cavalry_archers"
 		"knight":
 			group_name = "knights"
+		"monk":
+			group_name = "monks"
 		"infantry":
 			# Count all infantry: militia + spearmen
 			var count = 0
@@ -345,6 +364,8 @@ func get_building_count(building_type: String) -> int:
 			group_name = "stables"
 		"blacksmith":
 			group_name = "blacksmiths"
+		"monastery":
+			group_name = "monasteries"
 		"town_center":
 			group_name = "town_centers"
 
@@ -547,6 +568,18 @@ func get_can_train_reason(unit_type: String) -> String:
 			if not GameManager.can_afford("food", stable.KNIGHT_FOOD_COST, AI_TEAM):
 				return "insufficient_food"
 			if not GameManager.can_afford("gold", stable.KNIGHT_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
+		"monk":
+			var monastery = _get_ai_monastery()
+			if not monastery:
+				return "no_monastery"
+			if not monastery.is_functional():
+				return "monastery_not_functional"
+			if monastery.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("gold", monastery.MONK_GOLD_COST, AI_TEAM):
 				return "insufficient_gold"
 			return "ok"
 
@@ -880,6 +913,10 @@ func _do_train(unit_type: String) -> void:
 			var stable = _get_ai_building("stable")
 			if stable and stable.is_functional():
 				success = stable.train_knight()
+		"monk":
+			var monastery = _get_ai_monastery()
+			if monastery and monastery.is_functional():
+				success = monastery.train_monk()
 
 	if success:
 		_log_action("train", {"unit": unit_type})
@@ -1014,6 +1051,11 @@ func _do_research(tech_id: String) -> void:
 		if tc and not tc.is_researching_age and not tc.is_researching:
 			if tc.start_research(tech_id):
 				_log_action("research", {"tech": tech_id})
+	elif building_type == "monastery":
+		var mon = _get_ai_monastery()
+		if mon and not mon.is_researching:
+			if mon.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if bldg and not bldg.is_researching:
@@ -1056,6 +1098,8 @@ func _get_ai_building(building_type: String) -> Node:
 			group_name = "lumber_camps"
 		"mining_camp":
 			group_name = "mining_camps"
+		"monastery":
+			group_name = "monasteries"
 
 	for building in scene_tree.get_nodes_in_group(group_name):
 		if building.team == AI_TEAM and not building.is_destroyed:
@@ -1186,6 +1230,8 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return STABLE_SCENE
 		"blacksmith":
 			return BLACKSMITH_SCENE
+		"monastery":
+			return MONASTERY_SCENE
 	return null
 
 

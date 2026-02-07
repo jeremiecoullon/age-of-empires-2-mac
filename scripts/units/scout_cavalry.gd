@@ -13,6 +13,7 @@ enum State { IDLE, MOVING, ATTACKING }
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
+var conversion_resistance: float = 0.5  # Scouts resist conversion (AoE2)
 var aggro_check_timer: float = 0.0
 const AGGRO_CHECK_INTERVAL: float = 0.3
 var original_position: Vector2 = Vector2.ZERO

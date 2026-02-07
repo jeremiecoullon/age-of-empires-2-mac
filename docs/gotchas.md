@@ -429,3 +429,23 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Militia stat fix is a prerequisite for Man-at-Arms**: Militia was 50HP/5atk (MVP placeholder). AoE2 spec is 40HP/4atk. Without fixing this first, Man-at-Arms (45HP/6atk) would be an HP *downgrade*, making the upgrade chain feel broken.
 
 - **Research blocks training in all training buildings**: Barracks, Archery Range, and Stable all check `if is_researching: _process_research(delta); return` in `_process()`. This matches AoE2 behavior where unit upgrades pause training.
+
+---
+
+## Phase 6A: Monastery + Monk + Healing + Conversion
+
+- **Healing accumulator pattern required**: `heal_rate * delta` with `ceil()` gives 1 HP/frame (60 HP/sec at 60fps), not 1 HP/sec. Must use a float accumulator: track fractional HP, only apply when >= 1.0. Same pattern as building repair. Reset accumulator on target change/idle.
+
+- **Conversion `_store_base_stats()` causes stat drift**: After converting a unit, do NOT call `_store_base_stats()` before `apply_tech_bonuses()`. The base stats store the *current* values (which include old team's tech bonuses), so re-storing captures boosted values as the new base. Just call `apply_tech_bonuses()` which recalculates from existing `_base_*` fields.
+
+- **Monks are NOT in "military" group**: Monks join "monks" group only. They don't count for AI attack thresholds, don't get sent with attack waves, and use `stance = NO_ATTACK`. This is correct for Phase 6A but means the AI doesn't actively command monks. Phase 6B adds AI monk behavior.
+
+- **avoidance_enabled must be false in scene files**: Monk scene initially had `avoidance_enabled = true`. Base Unit._ready() sets it false, but the NavigationServer can process avoidance before first _physics_process, causing push-on-spawn. Same bug fixed for all other units — must also be caught for new units.
+
+- **Building conversion state is incomplete**: Converting buildings (via Redemption) changes team and color but doesn't handle training queues (paid by old team), house population cap transfer, or building deselection from old owner. Acceptable for Phase 6A since Redemption requires explicit use; deferred to Phase 6B.
+
+- **Monastery `_process()` needs `is_destroyed` and `is_constructed` guards**: Training/research timers can fire in the 1-frame gap between `_destroy()` and `queue_free()`, or before construction completes. Add both guards at top of `_process()`.
+
+- **Use `preload()` after initial import**: MONASTERY_SCENE and MONK_SCENE initially used `load()` because scenes weren't imported yet. After running `godot --headless --import`, switch to `preload()` as constants. This applies to all new scene references — use `load()` only during initial development, then convert.
+
+- **Illumination multiplier precision**: "+50% faster rejuvenation" means `base / 1.5`, not `base * 0.67`. The difference is 0.2 seconds (41.33 vs 41.54) but `/1.5` is mathematically exact.

@@ -543,6 +543,11 @@ Imperial techs and upgrades deferred to Phase 9.
 
 **Done when:** Monks are viable tactical option. Relic control is strategic goal.
 
+### Sub-phase breakdown
+
+- **6A** (complete): Monastery building, Monk unit, healing mechanic, conversion mechanic, 7 monastery technologies, basic AI (build monastery, train monks), HUD integration
+- **6B**: Relic objects + map spawning, monk relic carrying, relic garrisoning in monastery (+0.5 gold/sec), relic victory condition (all relics for 200s), full AI (collect relics, convert high-value targets, research monastery techs), observability
+
 ---
 
 ## Phase 7: Walls & Basic Defense

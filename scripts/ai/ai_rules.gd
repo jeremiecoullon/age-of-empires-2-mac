@@ -939,6 +939,57 @@ class ResearchUnitUpgradeRule extends AIRule:
 		return ""
 
 
+# =============================================================================
+# BUILDING - MONASTERY (Phase 6A)
+# =============================================================================
+
+class BuildMonasteryRule extends AIRule:
+	var _monastery_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_monastery"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") > 0:
+			_monastery_queued_at = -1.0
+			return false
+
+		if _monastery_queued_at > 0.0 and gs.get_game_time() - _monastery_queued_at > QUEUE_TIMEOUT:
+			_monastery_queued_at = -1.0
+
+		# Build monastery in Castle Age with decent economy
+		return _monastery_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 15 \
+			and gs.can_build("monastery")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("monastery")
+		_monastery_queued_at = gs.get_game_time()
+
+
+# =============================================================================
+# MONK TRAINING (Phase 6A)
+# =============================================================================
+
+class TrainMonkRule extends AIRule:
+	func _init():
+		rule_name = "train_monk"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("monastery") < 1:
+			return false
+		if not gs.can_train("monk"):
+			return false
+		# Limit to 3 monks
+		return gs.get_unit_count("monk") < 3
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("monk")
+
+
 class AttackRule extends AIRule:
 	func _init():
 		rule_name = "attack"
@@ -995,6 +1046,9 @@ static func create_all_rules() -> Array:
 		TrainKnightRule.new(),
 		# Blacksmith (Phase 5A)
 		BuildBlacksmithRule.new(),
+		# Monastery (Phase 6A)
+		BuildMonasteryRule.new(),
+		TrainMonkRule.new(),
 		# Age advancement (Phase 4A)
 		AdvanceToFeudalAgeRule.new(),
 		AdvanceToCastleAgeRule.new(),

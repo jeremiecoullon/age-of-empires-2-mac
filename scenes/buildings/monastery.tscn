@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://cmonastery001"]
+
+[ext_resource type="Script" path="res://scripts/buildings/monastery.gd" id="1_monastery"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/monastery_aoe.png" id="2_texture"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_monastery"]
+size = Vector2(96, 96)
+
+[node name="Monastery" type="StaticBody2D"]
+collision_layer = 2
+collision_mask = 0
+script = ExtResource("1_monastery")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2_texture")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_monastery")

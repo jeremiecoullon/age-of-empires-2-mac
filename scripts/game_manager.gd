@@ -31,7 +31,7 @@ const AGE_QUALIFYING_GROUPS: Array[Array] = [
 	[],  # Dark Age (starting age)
 	["barracks", "mills", "lumber_camps", "mining_camps"],  # For Feudal
 	["archery_ranges", "stables", "markets"],  # For Castle
-	[],  # For Imperial (placeholder - Castle Age buildings not yet implemented)
+	["monasteries"],  # For Imperial - Castle Age qualifying buildings
 ]
 
 const AGE_REQUIRED_QUALIFYING_COUNT: int = 2
@@ -43,6 +43,7 @@ const BUILDING_AGE_REQUIREMENTS: Dictionary = {
 	"stable": AGE_FEUDAL,
 	"market": AGE_FEUDAL,
 	"blacksmith": AGE_FEUDAL,
+	"monastery": AGE_CASTLE,
 }
 
 const UNIT_AGE_REQUIREMENTS: Dictionary = {
@@ -53,6 +54,7 @@ const UNIT_AGE_REQUIREMENTS: Dictionary = {
 	"trade_cart": AGE_FEUDAL,
 	"cavalry_archer": AGE_CASTLE,
 	"knight": AGE_CASTLE,
+	"monk": AGE_CASTLE,
 }
 
 # Age state per player
@@ -195,6 +197,49 @@ const TECHNOLOGIES: Dictionary = {
 		"type": "unit_upgrade", "from_group": "scout_cavalry", "to_group": "light_cavalry",
 		"to_name": "Light Cavalry",
 		"new_stats": {"max_hp": 60, "attack_damage": 7, "melee_armor": 0, "pierce_armor": 2}
+	},
+	# ===== MONASTERY TECHNOLOGIES =====
+	"fervor": {
+		"name": "Fervor", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 140}, "research_time": 50.0,
+		"effects": {"monk_speed": 15},
+		"requires": ""
+	},
+	"sanctity": {
+		"name": "Sanctity", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 120}, "research_time": 60.0,
+		"effects": {"monk_hp": 15},
+		"requires": ""
+	},
+	"redemption": {
+		"name": "Redemption", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 475}, "research_time": 50.0,
+		"effects": {"redemption": 1},
+		"requires": ""
+	},
+	"atonement": {
+		"name": "Atonement", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 325}, "research_time": 40.0,
+		"effects": {"atonement": 1},
+		"requires": ""
+	},
+	"illumination": {
+		"name": "Illumination", "age": AGE_IMPERIAL, "building": "monastery",
+		"cost": {"gold": 120}, "research_time": 65.0,
+		"effects": {"illumination": 1},
+		"requires": ""
+	},
+	"faith": {
+		"name": "Faith", "age": AGE_IMPERIAL, "building": "monastery",
+		"cost": {"food": 750, "gold": 1000}, "research_time": 60.0,
+		"effects": {"faith": 1},
+		"requires": ""
+	},
+	"block_printing": {
+		"name": "Block Printing", "age": AGE_IMPERIAL, "building": "monastery",
+		"cost": {"gold": 200}, "research_time": 55.0,
+		"effects": {"monk_range": 96},
+		"requires": ""
 	},
 }
 

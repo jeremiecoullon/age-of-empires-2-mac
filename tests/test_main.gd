@@ -32,6 +32,7 @@ const TestAgeAdvancementScript = preload("res://tests/scenarios/test_age_advance
 const TestAgeGatingScript = preload("res://tests/scenarios/test_age_gating.gd")
 const TestTechResearchScript = preload("res://tests/scenarios/test_tech_research.gd")
 const TestUnitUpgradesScript = preload("res://tests/scenarios/test_unit_upgrades.gd")
+const TestMonasteryScript = preload("res://tests/scenarios/test_monastery.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -165,6 +166,11 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING UNIT UPGRADE TESTS ===\n")
 	var unit_upgrade_tests = TestUnitUpgradesScript.new(test_runner)
 	await test_runner.run_all_tests(unit_upgrade_tests.get_all_tests())
+
+	# Monastery + Monk tests (Phase 6A)
+	print("\n=== RUNNING MONASTERY TESTS ===\n")
+	var monastery_tests = TestMonasteryScript.new(test_runner)
+	await test_runner.run_all_tests(monastery_tests.get_all_tests())
 
 	# Bugfix regression tests
 	print("\n=== RUNNING BUGFIX TESTS ===\n")

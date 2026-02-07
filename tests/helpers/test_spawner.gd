@@ -19,6 +19,7 @@ const SPEARMAN_SCENE = preload("res://scenes/units/spearman.tscn")
 const SKIRMISHER_SCENE = preload("res://scenes/units/skirmisher.tscn")
 const CAVALRY_ARCHER_SCENE = preload("res://scenes/units/cavalry_archer.tscn")
 const KNIGHT_SCENE = preload("res://scenes/units/knight.tscn")
+const MONK_SCENE = preload("res://scenes/units/monk.tscn")
 
 # Scene paths - Buildings
 const TOWN_CENTER_SCENE = preload("res://scenes/buildings/town_center.tscn")
@@ -32,6 +33,7 @@ const FARM_SCENE = preload("res://scenes/buildings/farm.tscn")
 const ARCHERY_RANGE_SCENE = preload("res://scenes/buildings/archery_range.tscn")
 const STABLE_SCENE = preload("res://scenes/buildings/stable.tscn")
 const BLACKSMITH_SCENE = preload("res://scenes/buildings/blacksmith.tscn")
+const MONASTERY_SCENE = preload("res://scenes/buildings/monastery.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -241,6 +243,24 @@ func spawn_blacksmith(position: Vector2, team: int = 0) -> Node:
 	buildings_container.add_child(blacksmith)
 	spawned_entities.append(blacksmith)
 	return blacksmith
+
+
+func spawn_monastery(position: Vector2, team: int = 0) -> Node:
+	var monastery = MONASTERY_SCENE.instantiate()
+	monastery.global_position = position
+	monastery.team = team
+	buildings_container.add_child(monastery)
+	spawned_entities.append(monastery)
+	return monastery
+
+
+func spawn_monk(position: Vector2, team: int = 0) -> Node:
+	var monk = MONK_SCENE.instantiate()
+	monk.global_position = position
+	monk.team = team
+	units_container.add_child(monk)
+	spawned_entities.append(monk)
+	return monk
 
 
 func spawn_tree(position: Vector2, amount: int = 100) -> Node:

@@ -12,9 +12,10 @@ const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
 const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
+const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -79,6 +80,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_archery_range_panel()
 		hud.hide_stable_panel()
 		hud.hide_blacksmith_panel()
+		hud.hide_monastery_panel()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -95,6 +97,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_archery_range_panel()
 		hud.hide_stable_panel()
 		hud.hide_blacksmith_panel()
+		hud.hide_monastery_panel()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -113,6 +116,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Blacksmith:
 			hud.show_blacksmith_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is Monastery:
+			hud.show_monastery_panel(clicked_building)
+			hud.show_info(clicked_building)
 		else:
 			hud.show_info(clicked_building)
 		return
@@ -123,6 +129,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	hud.hide_archery_range_panel()
 	hud.hide_stable_panel()
 	hud.hide_blacksmith_panel()
+	hud.hide_monastery_panel()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -204,12 +211,27 @@ func _issue_command(world_pos: Vector2) -> void:
 	# Exclude animals — they're handled separately below via command_hunt
 	var target_unit = _get_unit_at_position(world_pos)
 	if target_unit and target_unit.team != 0 and not target_unit.is_in_group("animals"):
+		# Mixed group: monks convert, military attacks
 		for unit in GameManager.selected_units:
-			if unit.has_method("command_attack"):
+			if unit is Monk:
+				unit.command_convert(target_unit)
+			elif unit.has_method("command_attack"):
 				unit.command_attack(target_unit)
 		if _game_logger:
 			_game_logger.log_action("attack", {"target": "unit"})
 		return
+
+	# Check if clicking on a friendly wounded unit (monk heal)
+	if target_unit and target_unit.team == 0 and target_unit.current_hp < target_unit.max_hp:
+		var has_monks = false
+		for unit in GameManager.selected_units:
+			if unit is Monk:
+				unit.command_heal(target_unit)
+				has_monks = true
+		if has_monks:
+			if _game_logger:
+				_game_logger.log_action("heal", {"target": "unit"})
+			return
 
 	# Check if clicking on a building
 	var target_building = _get_building_at_position(world_pos)
@@ -405,6 +427,17 @@ func start_stable_placement() -> void:
 	current_building_type = BuildingType.STABLE
 	GameManager.start_building_placement(load(STABLE_SCENE_PATH), building_ghost)
 
+func start_monastery_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.7, 0.5, 0.8, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.MONASTERY
+	GameManager.start_building_placement(load(MONASTERY_SCENE_PATH), building_ghost)
+
 func start_blacksmith_placement() -> void:
 	if building_ghost:
 		building_ghost.queue_free()
@@ -516,6 +549,8 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.STABLE:
 			return Vector2(96, 96)
 		BuildingType.BLACKSMITH:
+			return Vector2(96, 96)
+		BuildingType.MONASTERY:
 			return Vector2(96, 96)
 		_:
 			return Vector2(64, 64)

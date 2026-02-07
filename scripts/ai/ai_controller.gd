@@ -381,6 +381,25 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if game_state.get_military_population() < 2:
 				return "need_2_military_have_%d" % game_state.get_military_population()
 			return game_state.get_can_build_reason("blacksmith")
+		"build_monastery":
+			if game_state.get_building_count("monastery") > 0:
+				return "already_have_monastery"
+			var monq = rule.get("_monastery_queued_at") if rule else null
+			if monq is float and monq > 0.0:
+				return "already_queued"
+			var mon_pop = game_state.get_civilian_population()
+			if mon_pop < 15:
+				return "need_15_villagers_have_%d" % mon_pop
+			return game_state.get_can_build_reason("monastery")
+		"train_monk":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("monastery") < 1:
+				return "no_monastery"
+			var monk_count = game_state.get_unit_count("monk")
+			if monk_count >= 3:
+				return "monk_limit_%d" % monk_count
+			return game_state.get_can_train_reason("monk")
 		"research_blacksmith_tech":
 			if game_state.get_building_count("blacksmith") == 0:
 				return "no_blacksmith"
@@ -436,8 +455,8 @@ func _get_rule_blockers() -> Dictionary:
 	# Check key economy/military rules
 	var key_rules = [
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
-		"build_mill", "build_lumber_camp",
-		"train_militia", "train_archer", "train_scout_cavalry", "train_knight",
+		"build_monastery", "build_mill", "build_lumber_camp",
+		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
 		"advance_to_feudal", "advance_to_castle",
 		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
 		"defend_base", "attack"
@@ -609,6 +628,7 @@ func _print_debug_state() -> void:
 	var scout_count = game_state.get_unit_count("scout_cavalry")
 	var cav_archer_count = game_state.get_unit_count("cavalry_archer")
 	var knight_count = game_state.get_unit_count("knight")
+	var monk_count = game_state.get_unit_count("monk")
 
 	# Get building counts
 	var tc_count = game_state.get_building_count("town_center")
@@ -622,6 +642,7 @@ func _print_debug_state() -> void:
 	var mining_camp_count = game_state.get_building_count("mining_camp")
 	var market_count = game_state.get_building_count("market")
 	var blacksmith_count = game_state.get_building_count("blacksmith")
+	var monastery_count = game_state.get_building_count("monastery")
 
 	# Format timers as dict
 	var timers_remaining: Dictionary = {}
@@ -680,6 +701,7 @@ func _print_debug_state() -> void:
 			"scout": scout_count,
 			"cav_archer": cav_archer_count,
 			"knight": knight_count,
+			"monk": monk_count,
 		},
 		"buildings": {
 			"town_center": tc_count,
@@ -693,6 +715,7 @@ func _print_debug_state() -> void:
 			"mining_camp": mining_camp_count,
 			"market": market_count,
 			"blacksmith": blacksmith_count,
+			"monastery": monastery_count,
 		},
 		"tech": {
 			"researched_count": game_state._count_researched_techs(),
@@ -743,6 +766,9 @@ func _get_current_research_name() -> String:
 	var tc = game_state._get_ai_town_center()
 	if tc and tc.is_researching:
 		return GameManager.TECHNOLOGIES.get(tc.current_research_id, {}).get("name", tc.current_research_id)
+	var mon = game_state._get_ai_monastery()
+	if mon and mon.is_researching:
+		return GameManager.TECHNOLOGIES.get(mon.current_research_id, {}).get("name", mon.current_research_id)
 	# Check training buildings for unit upgrade research
 	for building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = game_state._get_ai_building(building_type)
