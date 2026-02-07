@@ -523,3 +523,19 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **preload() for wall/gate scenes**: Converted from `load()` to `preload()` constants (`PALISADE_WALL_SCENE`, `STONE_WALL_SCENE`, `GATE_SCENE`) to avoid file I/O during gameplay. The rest of main.gd's building scenes still use `load()` (pre-existing tech debt).
 
 - **AI builds individual wall segments, not lines**: The AI's `BuildPalisadeWallRule` places one wall segment at a time using the expanding-ring placement system. No drag logic needed for AI — it just places segments near the base each tick cycle.
+
+---
+
+## Phase 8A: University + Building Upgrades
+
+- **Building subclass `_ready()` order matters**: All properties used by the base class `_ready()` (max_hp, melee_armor, pierce_armor, sight_range) MUST be set BEFORE calling `super._ready()`. The base class stores these as `_base_*` fields for tech bonus calculations. If set after, the base values will be 0 and tech bonuses will calculate wrong. Groups (`add_to_group()`) should go AFTER `super._ready()` since the base class also adds groups.
+
+- **Building upgrade system must update `_base_*` fields**: When `_apply_building_upgrade()` in GameManager changes a building's stats at runtime (e.g. Guard Tower upgrade), it must also update `_base_max_hp`, `_base_melee_armor`, `_base_pierce_armor` so that `apply_building_tech_bonuses()` recalculates from the upgraded base. Without this, Masonry bonuses would revert the upgrade stats. Always call `apply_building_tech_bonuses()` after applying the upgrade.
+
+- **Tower attack must be a var, not const**: `tower_base_attack` in watch_tower.gd was originally `const TOWER_BASE_ATTACK`. Since the building upgrade system uses `set()` to apply new stats, const values can't be changed at runtime. Changed to `var tower_base_attack` so Guard Tower upgrade can increase it from 5 to 6.
+
+- **`_apply_researched_building_upgrades()` vs `_apply_building_upgrade()`**: Two paths for building upgrades: (1) `_apply_researched_building_upgrades()` runs in `_ready()` for buildings placed after an upgrade was researched, (2) `_apply_building_upgrade()` runs at research completion for existing buildings. Both must maintain the same invariants (update base stats, swap groups, set name). Keep them in sync.
+
+- **Masonry `building_los` effect**: The LOS bonus (+3 tiles = +96px) must be applied in `apply_building_tech_bonuses()` using `_base_sight_range`. Easy to forget since the other Masonry effects (HP%, armor) were the obvious ones.
+
+- **University follows Blacksmith pattern exactly**: Research-only building with `_process_research()` in `_process()`, `cancel_research()` in `_destroy()`, and `get_available_techs()` for HUD/AI queries. No training, no garrison.

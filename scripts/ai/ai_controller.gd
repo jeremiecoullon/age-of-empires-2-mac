@@ -427,6 +427,25 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if mon and mon.is_researching:
 				return "monastery_busy"
 			return "all_techs_researched"
+		"build_university":
+			if game_state.get_building_count("university") > 0:
+				return "already_have_university"
+			var uniq = rule.get("_university_queued_at") if rule else null
+			if uniq is float and uniq > 0.0:
+				return "already_queued"
+			var uni_pop = game_state.get_civilian_population()
+			if uni_pop < 15:
+				return "need_15_villagers_have_%d" % uni_pop
+			return game_state.get_can_build_reason("university")
+		"research_university_tech":
+			if game_state.get_building_count("university") == 0:
+				return "no_university"
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			var uni = game_state._get_ai_university()
+			if uni and uni.is_researching:
+				return "university_busy"
+			return "no_available_techs"
 		"research_blacksmith_tech":
 			if game_state.get_building_count("blacksmith") == 0:
 				return "no_blacksmith"
@@ -511,10 +530,10 @@ func _get_rule_blockers() -> Dictionary:
 	# Check key economy/military rules
 	var key_rules = [
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
-		"build_monastery", "build_mill", "build_lumber_camp",
+		"build_monastery", "build_university", "build_mill", "build_lumber_camp",
 		"build_outpost", "build_watch_tower", "build_palisade_wall",
 		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
-		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech",
+		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech", "research_university_tech",
 		"garrison_under_attack", "ungarrison_when_safe",
 		"advance_to_feudal", "advance_to_castle",
 		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
@@ -702,6 +721,7 @@ func _print_debug_state() -> void:
 	var market_count = game_state.get_building_count("market")
 	var blacksmith_count = game_state.get_building_count("blacksmith")
 	var monastery_count = game_state.get_building_count("monastery")
+	var university_count = game_state.get_building_count("university")
 	var outpost_count = game_state.get_building_count("outpost")
 	var watch_tower_count = game_state.get_building_count("watch_tower")
 	var palisade_wall_count = game_state.get_building_count("palisade_wall")
@@ -780,6 +800,7 @@ func _print_debug_state() -> void:
 			"market": market_count,
 			"blacksmith": blacksmith_count,
 			"monastery": monastery_count,
+			"university": university_count,
 			"outpost": outpost_count,
 			"watch_tower": watch_tower_count,
 			"palisade_wall": palisade_wall_count,
@@ -838,6 +859,9 @@ func _get_current_research_name() -> String:
 	var mon = game_state._get_ai_monastery()
 	if mon and mon.is_researching:
 		return GameManager.TECHNOLOGIES.get(mon.current_research_id, {}).get("name", mon.current_research_id)
+	var uni = game_state._get_ai_university()
+	if uni and uni.is_researching:
+		return GameManager.TECHNOLOGIES.get(uni.current_research_id, {}).get("name", uni.current_research_id)
 	# Check training buildings for unit upgrade research
 	for building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = game_state._get_ai_building(building_type)

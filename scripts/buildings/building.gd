@@ -24,6 +24,12 @@ var current_hp: int
 var is_constructed: bool = true  # False while under construction
 var is_destroyed: bool = false
 
+# Base stats for tech bonus calculations (stored before bonuses applied)
+var _base_max_hp: int = 0
+var _base_melee_armor: int = 0
+var _base_pierce_armor: int = 0
+var _base_sight_range: float = 0.0
+
 # Construction system
 var construction_progress: float = 0.0  # 0.0 to 1.0
 var builders: Array[Node] = []  # Villagers currently constructing this building
@@ -37,6 +43,15 @@ signal construction_completed  # Emitted when building finishes construction
 
 func _ready() -> void:
 	add_to_group("buildings")
+	# Store base stats before any tech bonuses
+	_base_max_hp = max_hp
+	_base_melee_armor = melee_armor
+	_base_pierce_armor = pierce_armor
+	_base_sight_range = sight_range
+	# Apply any building upgrades that were researched before this building was placed
+	_apply_researched_building_upgrades()
+	# Apply Masonry/Architecture bonuses
+	apply_building_tech_bonuses()
 	if is_constructed:
 		current_hp = max_hp
 	else:
@@ -46,6 +61,8 @@ func _ready() -> void:
 	call_deferred("_apply_team_color")
 	# Connect to attack notification system
 	damaged.connect(_on_damaged_for_notification)
+	# Connect to tech_researched signal for live bonus updates
+	GameManager.tech_researched.connect(_on_tech_researched)
 
 func _apply_team_color() -> void:
 	if has_node("Sprite2D"):
@@ -88,6 +105,63 @@ func _destroy() -> void:
 func _on_damaged_for_notification(amount: int, attacker: Node2D) -> void:
 	GameManager.notify_building_damaged(self, amount, attacker)
 
+# ===== BUILDING TECH BONUSES =====
+
+func _on_tech_researched(tech_team: int, tech_id: String) -> void:
+	if tech_team != team:
+		return
+	apply_building_tech_bonuses()
+
+func apply_building_tech_bonuses() -> void:
+	## Recalculate stats from base + tech bonuses (Masonry, etc.)
+	var hp_percent_bonus = GameManager.get_tech_bonus("building_hp_percent", team)
+	var armor_melee_bonus = GameManager.get_tech_bonus("building_melee_armor", team)
+	var armor_pierce_bonus = GameManager.get_tech_bonus("building_pierce_armor", team)
+	var los_bonus = GameManager.get_tech_bonus("building_los", team)
+
+	var old_max_hp = max_hp
+	max_hp = _base_max_hp + int(_base_max_hp * hp_percent_bonus / 100.0)
+	melee_armor = _base_melee_armor + armor_melee_bonus
+	pierce_armor = _base_pierce_armor + armor_pierce_bonus
+	sight_range = _base_sight_range + los_bonus * 32.0  # 32px per tile
+
+	# Scale current HP if max changed and building is constructed
+	if is_constructed and max_hp > old_max_hp:
+		current_hp += max_hp - old_max_hp
+
+func _apply_researched_building_upgrades() -> void:
+	## Check if any building_upgrade techs apply to this building.
+	## Called in _ready() so buildings placed after an upgrade auto-apply.
+	for tech_id in GameManager.TECHNOLOGIES:
+		var tech = GameManager.TECHNOLOGIES[tech_id]
+		if tech.get("type", "") != "building_upgrade":
+			continue
+		if not GameManager.has_tech(tech_id, team):
+			continue
+		# Check if this building is in the from_group
+		if not is_in_group(tech["from_group"]):
+			continue
+		# Apply the upgrade
+		var new_stats = tech["new_stats"]
+		if "max_hp" in new_stats:
+			max_hp = new_stats["max_hp"]
+			_base_max_hp = max_hp
+		for stat_key in new_stats:
+			if stat_key == "max_hp":
+				continue
+			set(stat_key, new_stats[stat_key])
+			# Update base stats if they are armor
+			if stat_key == "melee_armor":
+				_base_melee_armor = new_stats[stat_key]
+			elif stat_key == "pierce_armor":
+				_base_pierce_armor = new_stats[stat_key]
+		# Swap groups
+		remove_from_group(tech["from_group"])
+		add_to_group(tech["to_group"])
+		building_name = tech["to_name"]
+		break  # Only one upgrade applies
+
+
 # ===== CONSTRUCTION SYSTEM =====
 
 ## Start building as under construction (called during placement)
@@ -126,6 +200,10 @@ func progress_construction(delta: float) -> bool:
 	var speed_mult = 1.0
 	for i in range(1, builder_count):
 		speed_mult += 0.5 / i  # Diminishing returns
+
+	# Treadmill Crane: +20% build speed
+	if GameManager.has_tech("treadmill_crane", team):
+		speed_mult *= 1.2
 
 	var progress_rate = speed_mult / build_time
 	construction_progress += progress_rate * delta

@@ -307,6 +307,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(100, 25)
 text = "Monastery (175W)"
 
+[node name="BuildUniversityButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "University (200W)"
+
 [node name="BuildOutpostButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
 layout_mode = 2
@@ -587,6 +593,7 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton" to="." method="_on_build_stable_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildBlacksmithButton" to="." method="_on_build_blacksmith_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMonasteryButton" to="." method="_on_build_monastery_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildUniversityButton" to="." method="_on_build_university_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildOutpostButton" to="." method="_on_build_outpost_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildWatchTowerButton" to="." method="_on_build_watch_tower_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildPalisadeWallButton" to="." method="_on_build_palisade_wall_pressed"]

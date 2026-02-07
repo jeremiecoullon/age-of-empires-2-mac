@@ -28,6 +28,7 @@ const ARCHERY_RANGE_SCENE: PackedScene = preload("res://scenes/buildings/archery
 const STABLE_SCENE: PackedScene = preload("res://scenes/buildings/stable.tscn")
 const BLACKSMITH_SCENE: PackedScene = preload("res://scenes/buildings/blacksmith.tscn")
 const MONASTERY_SCENE: PackedScene = preload("res://scenes/buildings/monastery.tscn")
+const UNIVERSITY_SCENE: PackedScene = preload("res://scenes/buildings/university.tscn")
 const OUTPOST_SCENE: PackedScene = preload("res://scenes/buildings/outpost.tscn")
 const WATCH_TOWER_SCENE: PackedScene = preload("res://scenes/buildings/watch_tower.tscn")
 const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
@@ -47,6 +48,7 @@ const BUILDING_COSTS: Dictionary = {
 	"stable": {"wood": 175},
 	"blacksmith": {"wood": 150},
 	"monastery": {"wood": 175},
+	"university": {"wood": 200},
 	"outpost": {"wood": 25, "stone": 25},
 	"watch_tower": {"wood": 25, "stone": 125},
 	"palisade_wall": {"wood": 2},
@@ -67,6 +69,7 @@ const BUILDING_SIZES: Dictionary = {
 	"stable": Vector2(96, 96),
 	"blacksmith": Vector2(96, 96),
 	"monastery": Vector2(96, 96),
+	"university": Vector2(96, 96),
 	"outpost": Vector2(32, 32),
 	"watch_tower": Vector2(32, 32),
 	"palisade_wall": Vector2(32, 32),
@@ -203,6 +206,12 @@ func get_can_research_reason(tech_id: String) -> String:
 			return "no_monastery"
 		if mon.is_researching:
 			return "building_busy"
+	elif building_type == "university":
+		var uni = _get_ai_university()
+		if not uni:
+			return "no_university"
+		if uni.is_researching:
+			return "building_busy"
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if not bldg:
@@ -242,6 +251,14 @@ func _get_ai_monastery() -> Monastery:
 	for mon in scene_tree.get_nodes_in_group("monasteries"):
 		if mon.team == AI_TEAM and mon.is_functional():
 			return mon
+	return null
+
+
+func _get_ai_university() -> University:
+	## Returns first functional AI university, or null
+	for uni in scene_tree.get_nodes_in_group("universities"):
+		if uni.team == AI_TEAM and uni.is_functional():
+			return uni
 	return null
 
 
@@ -381,6 +398,8 @@ func get_building_count(building_type: String) -> int:
 			group_name = "blacksmiths"
 		"monastery":
 			group_name = "monasteries"
+		"university":
+			group_name = "universities"
 		"outpost":
 			group_name = "outposts"
 		"watch_tower":
@@ -1081,6 +1100,11 @@ func _do_research(tech_id: String) -> void:
 		if mon and not mon.is_researching:
 			if mon.start_research(tech_id):
 				_log_action("research", {"tech": tech_id})
+	elif building_type == "university":
+		var uni = _get_ai_university()
+		if uni and not uni.is_researching:
+			if uni.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if bldg and not bldg.is_researching:
@@ -1125,6 +1149,8 @@ func _get_ai_building(building_type: String) -> Node:
 			group_name = "mining_camps"
 		"monastery":
 			group_name = "monasteries"
+		"university":
+			group_name = "universities"
 		"outpost":
 			group_name = "outposts"
 		"watch_tower":
@@ -1267,6 +1293,8 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return BLACKSMITH_SCENE
 		"monastery":
 			return MONASTERY_SCENE
+		"university":
+			return UNIVERSITY_SCENE
 		"outpost":
 			return OUTPOST_SCENE
 		"watch_tower":

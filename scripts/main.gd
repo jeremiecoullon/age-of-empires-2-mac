@@ -13,6 +13,7 @@ const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
 const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
+const UNIVERSITY_SCENE_PATH = "res://scenes/buildings/university.tscn"
 const OUTPOST_SCENE_PATH = "res://scenes/buildings/outpost.tscn"
 const WATCH_TOWER_SCENE_PATH = "res://scenes/buildings/watch_tower.tscn"
 const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
@@ -21,7 +22,7 @@ const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
 const RELIC_SCENE: PackedScene = preload("res://scenes/objects/relic.tscn")
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, OUTPOST, WATCH_TOWER, PALISADE_WALL, STONE_WALL, GATE }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, UNIVERSITY, OUTPOST, WATCH_TOWER, PALISADE_WALL, STONE_WALL, GATE }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -159,15 +160,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	var clicked_unit = _get_unit_at_position(world_pos)
 	if clicked_unit:
 		# Unit found - skip building check, let drag/click selection handle it
-		hud.hide_tc_panel()
-		hud.hide_barracks_panel()
-		hud.hide_market_panel()
-		hud.hide_archery_range_panel()
-		hud.hide_stable_panel()
-		hud.hide_blacksmith_panel()
-		hud.hide_monastery_panel()
-		hud.hide_garrison_panel()
-		hud.hide_gate_panel()
+		hud.hide_all_panels()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -178,15 +171,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	if clicked_building:
 		GameManager.clear_selection()
 		hud.hide_info()
-		hud.hide_tc_panel()
-		hud.hide_barracks_panel()
-		hud.hide_market_panel()
-		hud.hide_archery_range_panel()
-		hud.hide_stable_panel()
-		hud.hide_blacksmith_panel()
-		hud.hide_monastery_panel()
-		hud.hide_garrison_panel()
-		hud.hide_gate_panel()
+		hud.hide_all_panels()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -208,6 +193,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Monastery:
 			hud.show_monastery_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is University:
+			hud.show_university_panel(clicked_building)
+			hud.show_info(clicked_building)
 		elif clicked_building is Gate:
 			hud.show_gate_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -218,15 +206,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 			hud.show_info(clicked_building)
 		return
 
-	hud.hide_tc_panel()
-	hud.hide_barracks_panel()
-	hud.hide_market_panel()
-	hud.hide_archery_range_panel()
-	hud.hide_stable_panel()
-	hud.hide_blacksmith_panel()
-	hud.hide_monastery_panel()
-	hud.hide_garrison_panel()
-	hud.hide_gate_panel()
+	hud.hide_all_panels()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -571,6 +551,17 @@ func start_monastery_placement() -> void:
 
 	current_building_type = BuildingType.MONASTERY
 	GameManager.start_building_placement(load(MONASTERY_SCENE_PATH), building_ghost)
+
+func start_university_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.6, 0.5, 0.7, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.UNIVERSITY
+	GameManager.start_building_placement(load(UNIVERSITY_SCENE_PATH), building_ghost)
 
 func start_outpost_placement() -> void:
 	if building_ghost:
@@ -932,6 +923,8 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.BLACKSMITH:
 			return Vector2(96, 96)
 		BuildingType.MONASTERY:
+			return Vector2(96, 96)
+		BuildingType.UNIVERSITY:
 			return Vector2(96, 96)
 		BuildingType.OUTPOST:
 			return Vector2(32, 32)

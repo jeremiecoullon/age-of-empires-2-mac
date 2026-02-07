@@ -34,6 +34,9 @@ const ARCHERY_RANGE_SCENE = preload("res://scenes/buildings/archery_range.tscn")
 const STABLE_SCENE = preload("res://scenes/buildings/stable.tscn")
 const BLACKSMITH_SCENE = preload("res://scenes/buildings/blacksmith.tscn")
 const MONASTERY_SCENE = preload("res://scenes/buildings/monastery.tscn")
+const UNIVERSITY_SCENE = preload("res://scenes/buildings/university.tscn")
+const WATCH_TOWER_SCENE = preload("res://scenes/buildings/watch_tower.tscn")
+const STONE_WALL_SCENE = preload("res://scenes/buildings/stone_wall.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -252,6 +255,33 @@ func spawn_monastery(position: Vector2, team: int = 0) -> Node:
 	buildings_container.add_child(monastery)
 	spawned_entities.append(monastery)
 	return monastery
+
+
+func spawn_university(position: Vector2, team: int = 0) -> Node:
+	var university = UNIVERSITY_SCENE.instantiate()
+	university.global_position = position
+	university.team = team
+	buildings_container.add_child(university)
+	spawned_entities.append(university)
+	return university
+
+
+func spawn_watch_tower(position: Vector2, team: int = 0) -> Node:
+	var tower = WATCH_TOWER_SCENE.instantiate()
+	tower.global_position = position
+	tower.team = team
+	buildings_container.add_child(tower)
+	spawned_entities.append(tower)
+	return tower
+
+
+func spawn_stone_wall(position: Vector2, team: int = 0) -> Node:
+	var wall = STONE_WALL_SCENE.instantiate()
+	wall.global_position = position
+	wall.team = team
+	buildings_container.add_child(wall)
+	spawned_entities.append(wall)
+	return wall
 
 
 func spawn_monk(position: Vector2, team: int = 0) -> Node:

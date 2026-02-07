@@ -31,7 +31,7 @@ const AGE_QUALIFYING_GROUPS: Array[Array] = [
 	[],  # Dark Age (starting age)
 	["barracks", "mills", "lumber_camps", "mining_camps"],  # For Feudal
 	["archery_ranges", "stables", "markets"],  # For Castle
-	["monasteries"],  # For Imperial - Castle Age qualifying buildings
+	["monasteries", "universities"],  # For Imperial - Castle Age qualifying buildings
 ]
 
 const AGE_REQUIRED_QUALIFYING_COUNT: int = 2
@@ -47,6 +47,7 @@ const BUILDING_AGE_REQUIREMENTS: Dictionary = {
 	"stone_wall": AGE_FEUDAL,
 	"gate": AGE_FEUDAL,
 	"monastery": AGE_CASTLE,
+	"university": AGE_CASTLE,
 }
 
 const UNIT_AGE_REQUIREMENTS: Dictionary = {
@@ -244,6 +245,48 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"monk_range": 96},
 		"requires": ""
 	},
+	# ===== UNIVERSITY TECHNOLOGIES =====
+	"masonry": {
+		"name": "Masonry", "age": AGE_CASTLE, "building": "university",
+		"cost": {"wood": 175, "stone": 150}, "research_time": 50.0,
+		"effects": {"building_hp_percent": 10, "building_melee_armor": 1, "building_pierce_armor": 1, "building_los": 3},
+		"requires": ""
+	},
+	"murder_holes": {
+		"name": "Murder Holes", "age": AGE_CASTLE, "building": "university",
+		"cost": {"food": 200, "stone": 200}, "research_time": 60.0,
+		"effects": {"murder_holes": 1},
+		"requires": ""
+	},
+	"treadmill_crane": {
+		"name": "Treadmill Crane", "age": AGE_CASTLE, "building": "university",
+		"cost": {"wood": 200, "stone": 300}, "research_time": 50.0,
+		"effects": {"treadmill_crane": 1},
+		"requires": ""
+	},
+	"ballistics": {
+		"name": "Ballistics", "age": AGE_CASTLE, "building": "university",
+		"cost": {"wood": 300, "gold": 175}, "research_time": 60.0,
+		"effects": {"ballistics": 1},
+		"requires": ""
+	},
+	# ===== BUILDING UPGRADES (University) =====
+	"guard_tower": {
+		"name": "Guard Tower", "age": AGE_CASTLE, "building": "university",
+		"cost": {"food": 100, "wood": 250}, "research_time": 30.0,
+		"effects": {}, "requires": "",
+		"type": "building_upgrade", "from_group": "watch_towers", "to_group": "guard_towers",
+		"to_name": "Guard Tower",
+		"new_stats": {"max_hp": 1500, "pierce_armor": 9, "tower_base_attack": 6}
+	},
+	"fortified_wall": {
+		"name": "Fortified Wall", "age": AGE_CASTLE, "building": "university",
+		"cost": {"food": 200, "stone": 100}, "research_time": 50.0,
+		"effects": {}, "requires": "",
+		"type": "building_upgrade", "from_group": "stone_walls", "to_group": "fortified_walls",
+		"to_name": "Fortified Wall",
+		"new_stats": {"max_hp": 3000, "melee_armor": 12, "pierce_armor": 12}
+	},
 }
 
 # Per-team technology state
@@ -305,6 +348,9 @@ func complete_tech_research(tech_id: String, team: int = 0) -> void:
 	# Apply unit upgrade if this is a unit_upgrade tech
 	if tech_id in TECHNOLOGIES and TECHNOLOGIES[tech_id].get("type", "") == "unit_upgrade":
 		_apply_unit_upgrade(tech_id, team)
+	# Apply building upgrade if this is a building_upgrade tech
+	if tech_id in TECHNOLOGIES and TECHNOLOGIES[tech_id].get("type", "") == "building_upgrade":
+		_apply_building_upgrade(tech_id, team)
 	tech_researched.emit(team, tech_id)
 
 func _apply_unit_upgrade(tech_id: String, team_id: int) -> void:
@@ -338,6 +384,45 @@ func _apply_unit_upgrade(tech_id: String, team_id: int) -> void:
 		# Re-store base stats and reapply tech bonuses
 		unit._store_base_stats()
 		unit.apply_tech_bonuses()
+
+func _apply_building_upgrade(tech_id: String, team_id: int) -> void:
+	var tech = TECHNOLOGIES[tech_id]
+	var from_group: String = tech["from_group"]
+	var to_group: String = tech["to_group"]
+	var to_name: String = tech["to_name"]
+	var new_stats: Dictionary = tech["new_stats"]
+
+	for building in get_tree().get_nodes_in_group(from_group):
+		if building.team != team_id:
+			continue
+		# Apply new stats with HP delta scaling
+		if "max_hp" in new_stats:
+			var old_max = building.max_hp
+			building.max_hp = new_stats["max_hp"]
+			building._base_max_hp = new_stats["max_hp"]
+			if building.is_constructed:
+				# Scale current HP up by the delta
+				var hp_delta = building.max_hp - old_max
+				if hp_delta > 0:
+					building.current_hp += hp_delta
+				else:
+					building.current_hp = min(building.current_hp, building.max_hp)
+		for stat_key in new_stats:
+			if stat_key == "max_hp":
+				continue
+			building.set(stat_key, new_stats[stat_key])
+			# Update base stats for armor so tech bonuses recalculate correctly
+			if stat_key == "melee_armor":
+				building._base_melee_armor = new_stats[stat_key]
+			elif stat_key == "pierce_armor":
+				building._base_pierce_armor = new_stats[stat_key]
+		# Swap groups
+		building.remove_from_group(from_group)
+		building.add_to_group(to_group)
+		# Update display name
+		building.building_name = to_name
+		# Reapply tech bonuses from updated base values
+		building.apply_building_tech_bonuses()
 
 func get_tech_bonus(bonus_key: String, team: int = 0) -> int:
 	var bonuses = player_tech_bonuses if team == 0 else ai_tech_bonuses

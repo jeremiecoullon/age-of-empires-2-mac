@@ -1113,6 +1113,65 @@ class ResearchMonasteryTechRule extends AIRule:
 
 
 # =============================================================================
+# UNIVERSITY (Phase 8A)
+# =============================================================================
+
+class BuildUniversityRule extends AIRule:
+	var _university_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_university"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("university") > 0:
+			_university_queued_at = -1.0
+			return false
+
+		if _university_queued_at > 0.0 and gs.get_game_time() - _university_queued_at > QUEUE_TIMEOUT:
+			_university_queued_at = -1.0
+
+		# Build university in Castle Age with decent economy
+		return _university_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 15 \
+			and gs.can_build("university")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("university")
+		_university_queued_at = gs.get_game_time()
+
+
+class ResearchUniversityTechRule extends AIRule:
+	## Research university techs in priority order
+	func _init():
+		rule_name = "research_university_tech"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("university") == 0:
+			return false
+		if gs.should_save_for_age():
+			return false
+		var uni = gs._get_ai_university()
+		if not uni or uni.is_researching:
+			return false
+		return _get_best_tech(gs) != ""
+
+	func actions(gs: AIGameState) -> void:
+		var tech_id = _get_best_tech(gs)
+		if tech_id != "":
+			gs.research_tech(tech_id)
+
+	func _get_best_tech(gs: AIGameState) -> String:
+		# Priority: Masonry > Murder Holes > Guard Tower > Ballistics > Treadmill Crane > Fortified Wall
+		var tech_priority = ["masonry", "murder_holes", "guard_tower", "ballistics",
+							 "treadmill_crane", "fortified_wall"]
+		for tech_id in tech_priority:
+			if gs.can_research(tech_id):
+				return tech_id
+		return ""
+
+
+# =============================================================================
 # DEFENSIVE BUILDINGS (Phase 7A)
 # =============================================================================
 
@@ -1294,6 +1353,9 @@ static func create_all_rules() -> Array:
 		GarrisonRelicRule.new(),
 		ConvertHighValueTargetRule.new(),
 		ResearchMonasteryTechRule.new(),
+		# University (Phase 8A)
+		BuildUniversityRule.new(),
+		ResearchUniversityTechRule.new(),
 		# Age advancement (Phase 4A)
 		AdvanceToFeudalAgeRule.new(),
 		AdvanceToCastleAgeRule.new(),

@@ -37,6 +37,7 @@ var milestones: Dictionary = {
 	"first_relic_collected": null,
 	"first_relic_garrisoned": null,
 	"first_conversion": null,
+	"first_university": null,
 	"first_outpost": null,
 	"first_watch_tower": null,
 	"first_palisade_wall": null,
@@ -200,6 +201,14 @@ func _check_milestones(game_time: float, state) -> void:
 		if mon_count > 0 and prev_mon_count == 0:
 			milestones["first_monastery"] = game_time
 	_prev_building_counts["monastery"] = state.get_building_count("monastery")
+
+	# University milestone
+	if milestones["first_university"] == null:
+		var uni_count = state.get_building_count("university")
+		var prev_uni_count = _prev_building_counts.get("university", 0)
+		if uni_count > 0 and prev_uni_count == 0:
+			milestones["first_university"] = game_time
+	_prev_building_counts["university"] = state.get_building_count("university")
 
 	# Monk milestone
 	if milestones["first_monk"] == null:
