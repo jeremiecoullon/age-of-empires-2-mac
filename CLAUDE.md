@@ -57,7 +57,7 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
    - Will the current structure make Phase N+1 harder than it needs to be?
 4. **Decide:** If refactor needed → include it in the plan before features.
 
-**Then write the execution plan** to both the plan file AND `docs/plans/phase-{X}-plan.md` (identical content in both). This ensures the comprehensive plan survives into the build phase without information loss. The plan should contain:
+**Then write the execution plan** to both the plan file AND `docs/plans/phase-{X}-plan.md` (identical content in both). This ensures the comprehensive plan survives into the build phase without information loss. (Note: plan files in `docs/plans/` exist from phase 4b onward — earlier phases predate this workflow.) The plan should contain:
 
 1. **Refactoring identified** — what (if anything) needs refactoring first
 2. **Ordered feature list** — specific files to create/modify, in implementation order

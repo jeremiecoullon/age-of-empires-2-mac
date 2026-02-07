@@ -99,10 +99,6 @@ These may be reconsidered if core gameplay reaches completion.
 - [x] Victory/Defeat overlay with restart button
 - [x] Team colors: Player = Blue, AI = Red
 
-> **Note:** MVP values differ from AoE2 spec for simplicity. See `docs/spec_mismatches.md` for details. Key differences:
-> - Militia: MVP uses 60F+20W, 50 HP, 5 attack. Spec: 60F+20G, 40 HP, 4 attack
-> - Buildings use placeholder HP values. Spec: TC=2400, Barracks=1200, House=900
-> - These will be corrected as we move past MVP.
 
 **Done when:** Player can defeat AI opponent by destroying their Town Center.
 
