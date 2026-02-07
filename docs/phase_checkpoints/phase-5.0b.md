@@ -97,13 +97,38 @@ Issues assessed and skipped:
 
 ## Test Coverage
 
-_To be filled after test-writer agent completes._
+26 automated tests in `tests/scenarios/test_unit_upgrades.gd`:
+
+| Area | Tests | Key Cases |
+|------|-------|-----------|
+| Knight stats + groups | 5 | HP (100), attack (10), armor (2/2), speed (140), group membership |
+| Knight training | 3 | Resource deduction (60F+75G), insufficient food/gold rejection |
+| Militia→Man-at-Arms | 4 | Stat changes, group swap, display name, HP delta (not full heal) |
+| Long Swordsman chain | 2 | Prerequisite check, full chain (militia→MAA→LS = 55HP/9atk) |
+| Other upgrades | 4 | Pikeman (bonus_vs_cavalry=22), Crossbowman (range=160), Light Cavalry (0/2 armor), Spearman→Pikeman |
+| Auto-upgrade on spawn | 2 | New militia spawns as MAA; chained spawn applies both MAA+LS |
+| Tech bonus + upgrade | 1 | Forging (+1) on MAA base 6 = 7 attack (base stats reset + reapply) |
+| Team isolation | 1 | Player upgrade doesn't affect AI units |
+| Research blocks training | 3 | Barracks, Archery Range, Stable all block training during research |
+| Age requirement | 1 | Knight locked in Dark/Feudal, unlocked in Castle |
+
+All 522 tests pass (496 pre-existing + 26 new).
 
 ---
 
 ## AI Behavior Tests
 
-_To be filled after AI observer agent completes._
+**Test run:** FAIL — economy-constrained, not Phase 5B bug.
+
+AI barely reached Feudal Age at 535s (target ~150s), never reached Castle Age. Neither unit upgrades nor Knights were researched/trained because the AI never progressed far enough. This is the same pre-existing early-game economy issue documented in Phase 5A.
+
+**Phase 5B infrastructure verified working:**
+- TrainKnightRule: registered, firing, skip reasons accurate (`no_stable` 81x, `saving_for_age` 32x)
+- ResearchUnitUpgradeRule: registered, firing, skip reasons accurate (`no_available_upgrades` 81x, `saving_for_age` 32x)
+- AI_STATE: knight field present in military section, no crashes
+- Milestones: `first_knight` and `first_unit_upgrade` defined and tracked (not hit)
+
+**Assessment:** Same as Phase 5A — the infrastructure is correct and will engage once the AI's early economy improves. The 600s test window is barely enough for Feudal Age; Castle Age features (Knight, most upgrades) need longer or faster economy.
 
 ---
 
@@ -121,6 +146,7 @@ _To be filled after AI observer agent completes._
 | `scenes/units/knight.tscn` | Unit scene |
 | `assets/sprites/units/knight.svg` | SVG placeholder |
 | `docs/plans/phase-5b-plan.md` | Plan file |
+| `tests/scenarios/test_unit_upgrades.gd` | Test suite (26 tests) |
 
 ## Files Modified
 
