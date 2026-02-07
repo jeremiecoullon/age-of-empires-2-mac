@@ -24,6 +24,17 @@ signal queue_changed(queue_size: int)  # Emitted when queue changes
 signal age_research_started(target_age: int)
 signal age_research_completed(new_age: int)
 
+## Town Bell
+var bell_active: bool = false
+var _bell_garrisoned: Array = []  # Tracks villagers garrisoned by bell (not manually)
+
+## TC attack properties
+const TC_BASE_ATTACK: int = 5
+const TC_ATTACK_RANGE: float = 192.0  # 6 tiles
+const TC_ATTACK_COOLDOWN: float = 2.0
+const TC_MIN_RANGE: float = 0.0  # TC has no minimum range
+var _attack_cooldown_timer: float = 0.0
+
 func _ready() -> void:
 	max_hp = 500  # Set before super._ready() so it uses correct max
 	super._ready()
@@ -32,12 +43,15 @@ func _ready() -> void:
 	size = Vector2i(3, 3)
 	build_time = 150.0  # TCs take a long time to build
 	sight_range = 256.0  # Town Centers have large LOS (~8 tiles)
+	garrison_capacity = 15
+	garrison_adds_arrows = true
 	accepts_resources.assign(["wood", "food", "gold", "stone"])
 
 func _destroy() -> void:
 	if is_destroyed:
 		return
 	is_destroyed = true
+	ungarrison_all()
 	if is_researching_age:
 		cancel_age_research()
 	if is_researching:
@@ -53,6 +67,10 @@ func _check_victory_deferred() -> void:
 func _process(delta: float) -> void:
 	if is_destroyed:
 		return
+	# TC attack - fires regardless of training/research
+	if is_functional():
+		_process_tc_attack(delta)
+		_process_garrison_healing(delta)
 	# Priority: age research > tech research (Loom) > training
 	if is_researching_age:
 		age_research_timer += delta
@@ -232,3 +250,95 @@ func _complete_research() -> void:
 	# Resume training if queue was waiting
 	if not training_queue.is_empty() and not is_training:
 		_start_next_training()
+
+# ===== TC ATTACK =====
+
+func _process_tc_attack(delta: float) -> void:
+	_attack_cooldown_timer -= delta
+	if _attack_cooldown_timer > 0:
+		return
+
+	# Find nearest enemy in range
+	var attack_range = TC_ATTACK_RANGE + GameManager.get_tech_bonus("archer_range", team) * 32.0
+	var target = _find_attack_target(attack_range)
+	if not target:
+		_attack_cooldown_timer = 0.5  # Don't scan every frame when idle
+		return
+
+	# Fire arrow
+	var attack_damage = TC_BASE_ATTACK + GameManager.get_tech_bonus("archer_attack", team) + get_garrison_arrow_bonus()
+	target.take_damage(attack_damage, "pierce", 0, self)
+	_attack_cooldown_timer = TC_ATTACK_COOLDOWN
+
+func _find_attack_target(attack_range: float) -> Node:
+	## Find nearest enemy unit or building in range
+	var nearest: Node = null
+	var nearest_dist: float = attack_range
+
+	for unit in get_tree().get_nodes_in_group("units"):
+		if unit.team == team or unit.is_dead:
+			continue
+		if unit is Animal:
+			continue
+		var dist = global_position.distance_to(unit.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = unit
+
+	# Also check enemy buildings (e.g., rams in future)
+	for building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == team or building.is_destroyed:
+			continue
+		var dist = global_position.distance_to(building.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = building
+
+	return nearest
+
+# ===== TOWN BELL =====
+
+func ring_town_bell() -> void:
+	if bell_active:
+		return
+	bell_active = true
+	_bell_garrisoned.clear()
+
+	# Find all player villagers and garrison them in nearest building with capacity
+	var villagers = get_tree().get_nodes_in_group("units").filter(
+		func(u): return u is Villager and u.team == team and not u.is_dead and not u.is_garrisoned()
+	)
+
+	# Collect all garrisonable buildings for this team
+	var garrison_buildings: Array = []
+	for b in get_tree().get_nodes_in_group("buildings"):
+		if b.team == team and b.garrison_capacity > 0 and b.is_functional() and not b.is_destroyed:
+			garrison_buildings.append(b)
+
+	for villager in villagers:
+		# Find nearest building with capacity
+		var best_building: Building = null
+		var best_dist: float = INF
+		for b in garrison_buildings:
+			if b.get_garrisoned_count() >= b.garrison_capacity:
+				continue
+			var dist = villager.global_position.distance_to(b.global_position)
+			if dist < best_dist:
+				best_dist = dist
+				best_building = b
+		if best_building and best_building.can_garrison(villager):
+			best_building.garrison_unit(villager)
+			_bell_garrisoned.append(villager)
+
+func ring_all_clear() -> void:
+	if not bell_active:
+		return
+	bell_active = false
+
+	# Ungarrison only bell-garrisoned villagers (not manually garrisoned ones)
+	for villager in _bell_garrisoned:
+		if is_instance_valid(villager) and villager.is_garrisoned():
+			var building = villager.garrisoned_in
+			if is_instance_valid(building):
+				building.ungarrison_unit(villager)
+	_bell_garrisoned.clear()

@@ -13,6 +13,7 @@ static func capture(scene_tree: SceneTree, team: int) -> Dictionary:
 		"military": _capture_military(scene_tree, team),
 		"monks": _capture_monks(scene_tree, team),
 		"buildings": _capture_buildings(scene_tree, team),
+		"garrison": _capture_garrison(scene_tree, team),
 		"technologies": _capture_technologies(team),
 		"relics": _capture_relics(scene_tree, team),
 	}
@@ -145,6 +146,8 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"market": 0,
 		"blacksmith": 0,
 		"monastery": 0,
+		"outpost": 0,
+		"watch_tower": 0,
 	}
 
 	# Map group names to result keys
@@ -161,6 +164,8 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"markets": "market",
 		"blacksmiths": "blacksmith",
 		"monasteries": "monastery",
+		"outposts": "outpost",
+		"watch_towers": "watch_tower",
 	}
 
 	for group_name in groups:
@@ -170,6 +175,19 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 				result[key] += 1
 
 	return result
+
+
+static func _capture_garrison(scene_tree: SceneTree, team: int) -> Dictionary:
+	var total_garrisoned = 0
+	var buildings_with_garrison = 0
+	for building in scene_tree.get_nodes_in_group("buildings"):
+		if building.team == team and building.garrisoned_units.size() > 0:
+			total_garrisoned += building.garrisoned_units.size()
+			buildings_with_garrison += 1
+	return {
+		"total_garrisoned": total_garrisoned,
+		"buildings_with_garrison": buildings_with_garrison,
+	}
 
 
 static func _capture_monks(scene_tree: SceneTree, team: int) -> Dictionary:

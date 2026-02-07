@@ -9,6 +9,8 @@ const CONSTRUCTION_COLOR_MULT = Color(0.6, 0.6, 0.6, 0.8)  # Dim during construc
 @export var size: Vector2i = Vector2i(2, 2)  # in tiles
 @export var wood_cost: int = 0
 @export var food_cost: int = 0
+@export var stone_cost: int = 0
+@export var gold_cost: int = 0
 @export var team: int = 0  # 0 = player, 1 = AI
 @export var max_hp: int = 200
 @export var melee_armor: int = 0  # Reduces melee damage (most buildings have 0)
@@ -70,6 +72,7 @@ func take_damage(amount: int, attack_type: String = "melee", bonus_damage: int =
 	var final_damage = base_damage + bonus_damage
 	current_hp -= final_damage
 	damaged.emit(final_damage, attacker)
+	_check_garrison_ejection()
 	if current_hp <= 0:
 		_destroy()
 
@@ -77,6 +80,7 @@ func _destroy() -> void:
 	if is_destroyed:
 		return
 	is_destroyed = true
+	ungarrison_all()
 	destroyed.emit()
 	queue_free()
 
@@ -237,13 +241,17 @@ func start_repair() -> void:
 	_repair_cost_accumulator = 0.0
 
 ## Get the total resource cost for a full repair (50% of original build cost).
-## Returns {"wood": int, "food": int} — only non-zero entries.
+## Returns {"wood": int, "food": int, ...} — only non-zero entries.
 func get_full_repair_cost() -> Dictionary:
 	var cost := {}
 	if wood_cost > 0:
 		cost["wood"] = max(1, int(wood_cost * 0.5))
 	if food_cost > 0:
 		cost["food"] = max(1, int(food_cost * 0.5))
+	if stone_cost > 0:
+		cost["stone"] = max(1, int(stone_cost * 0.5))
+	if gold_cost > 0:
+		cost["gold"] = max(1, int(gold_cost * 0.5))
 	return cost
 
 ## Progress repair by delta time. Returns true if repair is complete.
@@ -273,7 +281,7 @@ func progress_repair(delta: float) -> bool:
 
 	# Calculate resource cost for this tick's HP
 	# Full repair (max_hp HP) costs 50% of build cost → per-HP cost = 0.5 * cost / max_hp
-	var total_build_cost = wood_cost + food_cost
+	var total_build_cost = wood_cost + food_cost + stone_cost + gold_cost
 	if total_build_cost == 0:
 		# Free building — just heal
 		current_hp = min(current_hp + int(ceil(hp_this_tick)), max_hp)
@@ -285,14 +293,150 @@ func progress_repair(delta: float) -> bool:
 	# Deduct whole-unit costs when accumulator >= 1
 	if _repair_cost_accumulator >= 1.0:
 		var cost_to_deduct = int(_repair_cost_accumulator)
-		# Determine which resource(s) to charge — prioritize wood then food
-		var resource_type = "wood" if wood_cost > 0 else "food"
-		if not GameManager.can_afford(resource_type, cost_to_deduct, team):
-			# Can't afford — pause repair
-			_repair_cost_accumulator -= cost_per_hp * hp_this_tick  # Undo accumulation
-			return false
-		GameManager.spend_resource(resource_type, cost_to_deduct, team)
+		# Charge proportionally from each resource used in construction
+		var cost_types: Array[Array] = []  # [resource_type, build_cost] pairs
+		if wood_cost > 0: cost_types.append(["wood", wood_cost])
+		if food_cost > 0: cost_types.append(["food", food_cost])
+		if stone_cost > 0: cost_types.append(["stone", stone_cost])
+		if gold_cost > 0: cost_types.append(["gold", gold_cost])
+		# Check affordability for all resource types
+		for entry in cost_types:
+			var res_type: String = entry[0]
+			var res_share = int(ceil(cost_to_deduct * float(entry[1]) / total_build_cost))
+			if res_share > 0 and not GameManager.can_afford(res_type, res_share, team):
+				_repair_cost_accumulator -= cost_per_hp * hp_this_tick
+				return false
+		# Spend from each resource type proportionally
+		for entry in cost_types:
+			var res_type: String = entry[0]
+			var res_share = int(ceil(cost_to_deduct * float(entry[1]) / total_build_cost))
+			if res_share > 0:
+				GameManager.spend_resource(res_type, res_share, team)
 		_repair_cost_accumulator -= cost_to_deduct
 
 	current_hp = min(current_hp + int(ceil(hp_this_tick)), max_hp)
 	return current_hp >= max_hp
+
+# ===== GARRISON SYSTEM =====
+
+@export var garrison_capacity: int = 0  # 0 = no garrison
+@export var garrison_adds_arrows: bool = false  # TC/towers add arrows per garrisoned unit
+
+var garrisoned_units: Array = []
+var _garrison_heal_accumulator: float = 0.0
+const GARRISON_HEAL_RATE: float = 1.0  # HP/sec per unit
+const GARRISON_EJECT_HP_PERCENT: float = 0.20  # Eject at 20% HP
+
+## Check if a unit can garrison in this building
+func can_garrison(unit: Node) -> bool:
+	if garrison_capacity <= 0:
+		return false
+	if not is_functional():
+		return false
+	if unit.team != team:
+		return false
+	if garrisoned_units.size() >= garrison_capacity:
+		return false
+	if unit.is_dead:
+		return false
+	if unit.is_garrisoned():
+		return false
+	# Only foot units can garrison (no cavalry, no trade carts)
+	if unit.is_in_group("cavalry"):
+		return false
+	return true
+
+## Garrison a unit inside this building. Returns true if successful.
+func garrison_unit(unit: Node) -> bool:
+	if not can_garrison(unit):
+		return false
+	garrisoned_units.append(unit)
+	unit.garrisoned_in = self
+	# Stop and deselect the unit before disabling processing
+	unit._stop_and_stay()
+	if unit.is_selected:
+		GameManager.deselect_unit(unit)
+	# Hide and disable the unit
+	unit.visible = false
+	unit.process_mode = Node.PROCESS_MODE_DISABLED
+	# Disable collision
+	var collision = unit.get_node_or_null("CollisionShape2D")
+	if collision:
+		collision.set_deferred("disabled", true)
+	return true
+
+## Ungarrison a specific unit from this building
+func ungarrison_unit(unit: Node) -> void:
+	if unit not in garrisoned_units:
+		return
+	garrisoned_units.erase(unit)
+	unit.garrisoned_in = null
+	# Re-enable the unit
+	unit.visible = true
+	unit.process_mode = Node.PROCESS_MODE_INHERIT
+	# Re-enable collision
+	var collision = unit.get_node_or_null("CollisionShape2D")
+	if collision:
+		collision.set_deferred("disabled", false)
+	# Position outside building
+	var offset = _get_eject_offset(garrisoned_units.size())
+	unit.global_position = global_position + offset
+
+## Ungarrison all units
+func ungarrison_all() -> void:
+	var units_to_eject = garrisoned_units.duplicate()
+	for i in range(units_to_eject.size()):
+		var unit = units_to_eject[i]
+		if is_instance_valid(unit):
+			garrisoned_units.erase(unit)
+			unit.garrisoned_in = null
+			unit.visible = true
+			unit.process_mode = Node.PROCESS_MODE_INHERIT
+			var collision = unit.get_node_or_null("CollisionShape2D")
+			if collision:
+				collision.set_deferred("disabled", false)
+			var offset = _get_eject_offset(i)
+			unit.global_position = global_position + offset
+	garrisoned_units.clear()
+
+func get_garrisoned_count() -> int:
+	# Clean up invalid refs
+	garrisoned_units.assign(garrisoned_units.filter(func(u): return is_instance_valid(u) and not u.is_dead))
+	return garrisoned_units.size()
+
+## Get bonus arrows from garrisoned units (ranged units + villagers)
+func get_garrison_arrow_bonus() -> int:
+	if not garrison_adds_arrows:
+		return 0
+	var bonus = 0
+	for unit in garrisoned_units:
+		if is_instance_valid(unit):
+			if unit.is_in_group("archers") or unit.is_in_group("villagers"):
+				bonus += 1
+	return bonus
+
+## Heal garrisoned units. Call from _process(delta).
+func _process_garrison_healing(delta: float) -> void:
+	if garrisoned_units.is_empty():
+		return
+	_garrison_heal_accumulator += GARRISON_HEAL_RATE * delta
+	if _garrison_heal_accumulator >= 1.0:
+		var heal_amount = int(_garrison_heal_accumulator)
+		_garrison_heal_accumulator -= heal_amount
+		for unit in garrisoned_units:
+			if is_instance_valid(unit) and unit.current_hp < unit.max_hp:
+				unit.current_hp = min(unit.current_hp + heal_amount, unit.max_hp)
+
+## Check if building HP is low enough to eject garrisoned units.
+## Called from take_damage().
+func _check_garrison_ejection() -> void:
+	if garrisoned_units.is_empty():
+		return
+	if current_hp <= int(max_hp * GARRISON_EJECT_HP_PERCENT):
+		ungarrison_all()
+
+## Get eject position offset (ring around building)
+func _get_eject_offset(index: int) -> Vector2:
+	var angle = (index * TAU / max(8, garrisoned_units.size() + 1))
+	var radius = max(size.x, size.y) * 16.0 + 20.0  # Just outside building
+	return Vector2(cos(angle) * radius, sin(angle) * radius)

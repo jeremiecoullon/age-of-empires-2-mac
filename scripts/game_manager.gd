@@ -43,6 +43,7 @@ const BUILDING_AGE_REQUIREMENTS: Dictionary = {
 	"stable": AGE_FEUDAL,
 	"market": AGE_FEUDAL,
 	"blacksmith": AGE_FEUDAL,
+	"watch_tower": AGE_FEUDAL,
 	"monastery": AGE_CASTLE,
 }
 

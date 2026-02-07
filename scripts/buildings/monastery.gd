@@ -34,12 +34,15 @@ func _ready() -> void:
 	size = Vector2i(3, 3)
 	wood_cost = 175  # AoE2 spec
 	build_time = 40.0
+	garrison_capacity = 10
 
 func _process(delta: float) -> void:
 	if is_destroyed:
 		return
 	if not is_constructed:
 		return
+	# Garrison healing (runs even during research/training)
+	_process_garrison_healing(delta)
 	# Relic gold generation (runs even during research/training)
 	if garrisoned_relics.size() > 0:
 		_gold_accumulator += RELIC_GOLD_RATE * garrisoned_relics.size() * delta

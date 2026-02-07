@@ -28,8 +28,10 @@ const ARCHERY_RANGE_SCENE: PackedScene = preload("res://scenes/buildings/archery
 const STABLE_SCENE: PackedScene = preload("res://scenes/buildings/stable.tscn")
 const BLACKSMITH_SCENE: PackedScene = preload("res://scenes/buildings/blacksmith.tscn")
 const MONASTERY_SCENE: PackedScene = preload("res://scenes/buildings/monastery.tscn")
+const OUTPOST_SCENE: PackedScene = preload("res://scenes/buildings/outpost.tscn")
+const WATCH_TOWER_SCENE: PackedScene = preload("res://scenes/buildings/watch_tower.tscn")
 
-# Building costs (wood only for MVP)
+# Building costs
 const BUILDING_COSTS: Dictionary = {
 	"house": {"wood": 25},
 	"barracks": {"wood": 100},
@@ -41,7 +43,9 @@ const BUILDING_COSTS: Dictionary = {
 	"archery_range": {"wood": 175},
 	"stable": {"wood": 175},
 	"blacksmith": {"wood": 150},
-	"monastery": {"wood": 175}
+	"monastery": {"wood": 175},
+	"outpost": {"wood": 25, "stone": 25},
+	"watch_tower": {"wood": 25, "stone": 125}
 }
 
 # Building sizes (in pixels)
@@ -56,7 +60,9 @@ const BUILDING_SIZES: Dictionary = {
 	"archery_range": Vector2(96, 96),
 	"stable": Vector2(96, 96),
 	"blacksmith": Vector2(96, 96),
-	"monastery": Vector2(96, 96)
+	"monastery": Vector2(96, 96),
+	"outpost": Vector2(32, 32),
+	"watch_tower": Vector2(32, 32)
 }
 
 # Reference to controller (for accessing strategic numbers, timers, etc.)
@@ -366,6 +372,10 @@ func get_building_count(building_type: String) -> int:
 			group_name = "blacksmiths"
 		"monastery":
 			group_name = "monasteries"
+		"outpost":
+			group_name = "outposts"
+		"watch_tower":
+			group_name = "watch_towers"
 		"town_center":
 			group_name = "town_centers"
 
@@ -1100,6 +1110,10 @@ func _get_ai_building(building_type: String) -> Node:
 			group_name = "mining_camps"
 		"monastery":
 			group_name = "monasteries"
+		"outpost":
+			group_name = "outposts"
+		"watch_tower":
+			group_name = "watch_towers"
 
 	for building in scene_tree.get_nodes_in_group(group_name):
 		if building.team == AI_TEAM and not building.is_destroyed:
@@ -1232,6 +1246,10 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return BLACKSMITH_SCENE
 		"monastery":
 			return MONASTERY_SCENE
+		"outpost":
+			return OUTPOST_SCENE
+		"watch_tower":
+			return WATCH_TOWER_SCENE
 	return null
 
 
@@ -2121,3 +2139,57 @@ func command_monk_convert(monk: Node, target: Node) -> void:
 	if is_instance_valid(monk) and is_instance_valid(target):
 		monk.command_convert(target)
 		_log_action("monk_convert", {})
+
+
+# =============================================================================
+# GARRISON HELPERS (Phase 7A)
+# =============================================================================
+
+func get_nearest_garrison_building(from_pos: Vector2) -> Building:
+	## Returns nearest AI building with garrison capacity that isn't full
+	var nearest: Building = null
+	var nearest_dist: float = INF
+
+	for building in scene_tree.get_nodes_in_group("buildings"):
+		if building.team != AI_TEAM or building.is_destroyed:
+			continue
+		if building.garrison_capacity <= 0 or not building.is_functional():
+			continue
+		if building.get_garrisoned_count() >= building.garrison_capacity:
+			continue
+		var dist = from_pos.distance_to(building.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = building
+	return nearest
+
+
+func garrison_villagers_under_attack() -> int:
+	## Garrison AI villagers that are near enemy threats into nearby buildings.
+	## Returns the number of villagers garrisoned.
+	const THREAT_DISTANCE: float = 250.0
+	var garrisoned_count: int = 0
+
+	for villager in scene_tree.get_nodes_in_group("villagers"):
+		if villager.team != AI_TEAM or villager.is_dead or villager.is_garrisoned():
+			continue
+
+		# Check if this villager is near an enemy threat
+		var is_threatened = false
+		for unit in scene_tree.get_nodes_in_group("military"):
+			if unit.team == AI_TEAM or unit.is_dead:
+				continue
+			if villager.global_position.distance_to(unit.global_position) < THREAT_DISTANCE:
+				is_threatened = true
+				break
+
+		if not is_threatened:
+			continue
+
+		# Find nearest building with garrison capacity
+		var building = get_nearest_garrison_building(villager.global_position)
+		if building and building.can_garrison(villager):
+			building.garrison_unit(villager)
+			garrisoned_count += 1
+
+	return garrisoned_count

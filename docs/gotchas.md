@@ -477,3 +477,27 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **`first_conversion` milestone has no tracking code**: The milestone is defined in the milestones dict but lacks a check in `_check_milestones()`. Conversion tracking would require signals or scanning all military units for team changes, which is complex. Left as `null` for now — the relic milestones are more important for 6B.
 
 - **Relic spawning separation**: Relics spawn at semi-random positions in the mid-map area (400-1400 range), with 300px minimum separation between relics, and distance checks against buildings and resources. This prevents relics from spawning inside bases or on top of resources.
+
+---
+
+## Phase 7A: Garrison System + Outpost + Watch Tower + Town Bell
+
+- **Garrison hides units, doesn't reparent**: `garrison_unit()` sets `visible = false`, `process_mode = PROCESS_MODE_DISABLED`, disables collision shape. Simpler than removing from scene tree and avoids group membership issues. Garrisoned units stay in the scene tree but are invisible and non-processing.
+
+- **`_stop_and_stay()` must be called BEFORE disabling process_mode**: If you disable processing first and then call `_stop_and_stay()`, property assignments still work (they're direct), but if `_stop_and_stay()` ever needs to emit signals or use deferred calls, it would fail silently. Always stop the unit while it's still active.
+
+- **Training buildings need explicit `_process_garrison_healing()` calls**: Barracks, Archery Range, Stable, and Monastery all have `garrison_capacity = 10` but their `_process()` methods don't automatically get garrison healing from the base Building class. Each must call `_process_garrison_healing(delta)` explicitly. TC and Watch Tower already do this. Healing should run regardless of training/research state.
+
+- **TC/tower idle target scanning must be throttled**: When no enemies are in range, `_find_attack_target()` scans all units in the scene every frame. Set `_attack_cooldown_timer = 0.5` when no target is found, so idle buildings only scan twice per second instead of 60 times.
+
+- **Town Bell instantly garrisons villagers (simplified)**: AoE2 makes villagers walk to the nearest building; our implementation instantly teleports them inside. AoE2 also restores villager state on "All Clear" (back to what they were doing before); our implementation ungarrisons them idle. Both are acceptable simplifications — full behavior deferred to Phase 10 polish.
+
+- **`_bell_garrisoned` tracks which villagers the bell garrisoned**: So "All Clear" only releases bell-garrisoned villagers, not manually garrisoned ones. This is critical — without it, a player who manually garrisons archers in a TC would lose them when clicking All Clear.
+
+- **AI needs UngarrisonWhenSafeRule**: The `GarrisonUnderAttackRule` garrisons villagers but nothing releases them when the threat passes. Without `UngarrisonWhenSafeRule`, garrisoned AI villagers would stay inside forever, permanently removing them from the economy. The only other exits are building destruction or 20% HP ejection.
+
+- **AI stone gathering must be enabled for defensive buildings**: The `AdjustGathererPercentagesRule` initially had no Phase 2 transition. Stone gathering stayed at 0% forever, blocking outpost (25S) and watch tower (125S) construction. Added Phase 2 transition: 10% stone, triggered when Feudal Age + barracks.
+
+- **Watch Tower attack doesn't target enemy buildings (TC does)**: TC's `_find_attack_target()` scans both units and buildings; Watch Tower only scans units. Minor inconsistency — towers won't shoot at enemy buildings within range. Will be fixed when extracting shared attack logic to base class (Phase 8, when Guard Tower/Keep need it too).
+
+- **Multi-resource building costs**: `_place_building()` in main.gd now handles wood/food/stone/gold costs. The building is instantiated to read its cost properties, then all resources are checked before any are spent (all-or-nothing). Same pattern used in repair cost calculation.

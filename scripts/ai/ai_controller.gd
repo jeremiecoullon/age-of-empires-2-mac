@@ -447,6 +447,27 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if tc.is_researching_age or tc.is_researching or tc.is_training:
 				return "tc_busy"
 			return game_state.get_can_research_reason("loom")
+		"build_outpost":
+			if game_state.get_building_count("outpost") > 0:
+				return "already_have_outpost"
+			var op = game_state.get_civilian_population()
+			if op < 8:
+				return "need_8_villagers_have_%d" % op
+			return game_state.get_can_build_reason("outpost")
+		"build_watch_tower":
+			if game_state.get_building_count("watch_tower") >= 2:
+				return "have_enough_towers"
+			if game_state.get_building_count("barracks") < 1:
+				return "need_barracks_first"
+			if game_state.get_resource("stone") < 125:
+				return "need_125_stone_have_%d" % game_state.get_resource("stone")
+			return game_state.get_can_build_reason("watch_tower")
+		"garrison_under_attack":
+			if not game_state.is_under_attack():
+				return "not_under_attack"
+		"ungarrison_when_safe":
+			if game_state.is_under_attack():
+				return "under_attack"
 		"attack":
 			var min_military = game_state.get_sn("sn_minimum_attack_group_size")
 			var current_military = game_state.get_military_population()
@@ -483,8 +504,10 @@ func _get_rule_blockers() -> Dictionary:
 	var key_rules = [
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
 		"build_monastery", "build_mill", "build_lumber_camp",
+		"build_outpost", "build_watch_tower",
 		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
 		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech",
+		"garrison_under_attack", "ungarrison_when_safe",
 		"advance_to_feudal", "advance_to_castle",
 		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
 		"defend_base", "attack"
@@ -671,6 +694,8 @@ func _print_debug_state() -> void:
 	var market_count = game_state.get_building_count("market")
 	var blacksmith_count = game_state.get_building_count("blacksmith")
 	var monastery_count = game_state.get_building_count("monastery")
+	var outpost_count = game_state.get_building_count("outpost")
+	var watch_tower_count = game_state.get_building_count("watch_tower")
 
 	# Format timers as dict
 	var timers_remaining: Dictionary = {}
@@ -744,6 +769,8 @@ func _print_debug_state() -> void:
 			"market": market_count,
 			"blacksmith": blacksmith_count,
 			"monastery": monastery_count,
+			"outpost": outpost_count,
+			"watch_tower": watch_tower_count,
 		},
 		"tech": {
 			"researched_count": game_state._count_researched_techs(),

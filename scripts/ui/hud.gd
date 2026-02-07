@@ -34,6 +34,12 @@ extends CanvasLayer
 @onready var build_stable_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton
 @onready var build_blacksmith_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildBlacksmithButton
 @onready var build_monastery_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMonasteryButton
+@onready var build_outpost_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildOutpostButton
+@onready var build_watch_tower_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildWatchTowerButton
+
+# Garrison buttons
+@onready var ungarrison_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/UngarrisonButton
+@onready var town_bell_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TownBellButton
 
 # Train buttons
 @onready var train_villager_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton
@@ -137,7 +143,7 @@ func _ready() -> void:
 	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
 					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
 					 build_archery_range_btn, build_stable_btn, build_blacksmith_btn,
-					 build_monastery_btn]
+					 build_monastery_btn, build_outpost_btn, build_watch_tower_btn]
 	monastery_buttons = [train_monk_btn]
 	tc_buttons = [train_villager_btn, advance_age_btn, loom_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
@@ -294,6 +300,8 @@ func _hide_all_action_buttons() -> void:
 		if is_instance_valid(btn):
 			btn.queue_free()
 	stable_upgrade_buttons.clear()
+	ungarrison_btn.visible = false
+	town_bell_btn.visible = false
 	cancel_btn.visible = false
 	train_progress.visible = false
 	queue_label.text = ""
@@ -317,6 +325,12 @@ func _show_tc_buttons(tc: TownCenter) -> void:
 	selected_building_type = "tc"
 	_update_advance_age_button()
 	_update_loom_button()
+	# Show garrison/bell buttons
+	if tc.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % tc.get_garrisoned_count()
+	town_bell_btn.visible = true
+	town_bell_btn.text = "All Clear" if tc.bell_active else "Town Bell"
 
 
 func _show_barracks_buttons(barracks: Barracks) -> void:
@@ -329,6 +343,9 @@ func _show_barracks_buttons(barracks: Barracks) -> void:
 	_update_barracks_button_states()
 	_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "pikeman"], barracks_upgrade_buttons)
 	cancel_btn.visible = barracks.is_researching or barracks.get_queue_size() > 0
+	if barracks.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % barracks.get_garrisoned_count()
 
 
 func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
@@ -341,6 +358,9 @@ func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
 	_update_archery_range_button_states()
 	_create_upgrade_buttons("archery_range", ["crossbowman", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
 	cancel_btn.visible = archery_range.is_researching or archery_range.get_queue_size() > 0
+	if archery_range.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % archery_range.get_garrisoned_count()
 
 
 func _show_stable_buttons(stable: Stable) -> void:
@@ -353,6 +373,9 @@ func _show_stable_buttons(stable: Stable) -> void:
 	_update_stable_button_states()
 	_create_upgrade_buttons("stable", ["light_cavalry"], stable_upgrade_buttons)
 	cancel_btn.visible = stable.is_researching or stable.get_queue_size() > 0
+	if stable.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % stable.get_garrisoned_count()
 
 
 func _show_market_buttons(market: Market) -> void:
@@ -384,6 +407,9 @@ func _show_monastery_buttons(monastery: Monastery) -> void:
 	selected_building_type = "monastery"
 	_create_monastery_tech_buttons()
 	cancel_btn.visible = monastery.is_researching or monastery.get_queue_size() > 0
+	if monastery.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % monastery.get_garrisoned_count()
 
 
 func _update_market_prices() -> void:
@@ -417,12 +443,16 @@ func _update_build_button_states() -> void:
 	build_lumber_camp_btn.disabled = false
 	build_mining_camp_btn.disabled = false
 
+	# Dark Age buildings
+	build_outpost_btn.disabled = false
+
 	# Feudal Age buildings
 	_set_button_age_locked(build_archery_range_btn, not GameManager.is_building_unlocked("archery_range"), GameManager.get_required_age_name("archery_range", true), "Archery Range")
 	_set_button_age_locked(build_stable_btn, not GameManager.is_building_unlocked("stable"), GameManager.get_required_age_name("stable", true), "Stable")
 	_set_button_age_locked(build_market_btn, not GameManager.is_building_unlocked("market"), GameManager.get_required_age_name("market", true), "Market")
 	_set_button_age_locked(build_blacksmith_btn, not GameManager.is_building_unlocked("blacksmith"), GameManager.get_required_age_name("blacksmith", true), "Blacksmith (150W)")
 	_set_button_age_locked(build_monastery_btn, not GameManager.is_building_unlocked("monastery"), GameManager.get_required_age_name("monastery", true), "Monastery (175W)")
+	_set_button_age_locked(build_watch_tower_btn, not GameManager.is_building_unlocked("watch_tower"), GameManager.get_required_age_name("watch_tower", true), "Watch Tower (25W, 125S)")
 
 
 func _update_barracks_button_states() -> void:
@@ -603,11 +633,17 @@ func show_info(entity: Node) -> void:
 	elif entity is ResourceNode:
 		_show_resource_info(entity)
 	elif entity is TownCenter:
-		_show_building_info("Town Center", "Trains villagers\nDrop-off: all", entity)
+		var tc_details = "Trains villagers\nDrop-off: all"
+		if entity.get_garrisoned_count() > 0:
+			tc_details += "\nGarrisoned: %d/%d" % [entity.get_garrisoned_count(), entity.garrison_capacity]
+		_show_building_info("Town Center", tc_details, entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_tc_buttons(entity)
 	elif entity is Barracks:
-		_show_building_info("Barracks", "Trains infantry", entity)
+		var brk_details = "Trains infantry"
+		if entity.get_garrisoned_count() > 0:
+			brk_details += "\nGarrisoned: %d/%d" % [entity.get_garrisoned_count(), entity.garrison_capacity]
+		_show_building_info("Barracks", brk_details, entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_barracks_buttons(entity)
 	elif entity is House:
@@ -643,6 +679,15 @@ func show_info(entity: Node) -> void:
 		_show_building_info("Monastery", mon_details, entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_monastery_buttons(entity)
+	elif entity is WatchTower:
+		var tower_details = "Attack: %d pierce | Range: %d" % [WatchTower.TOWER_BASE_ATTACK, int(WatchTower.TOWER_ATTACK_RANGE)]
+		if entity.get_garrisoned_count() > 0:
+			tower_details += "\nGarrisoned: %d/%d" % [entity.get_garrisoned_count(), entity.garrison_capacity]
+		_show_building_info("Watch Tower", tower_details, entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_garrison_buttons(entity)
+	elif entity is Outpost:
+		_show_building_info("Outpost", "Provides line of sight\nLOS: 10 tiles", entity)
 	elif entity is Building:
 		_show_building_info(entity.building_name, "", entity)
 	else:
@@ -979,11 +1024,17 @@ func delete_selected_building() -> bool:
 	var refund_ratio = 1.0 - building.construction_progress
 	var wood_refund = int(building.wood_cost * refund_ratio)
 	var food_refund = int(building.food_cost * refund_ratio)
+	var stone_refund = int(building.stone_cost * refund_ratio)
+	var gold_refund = int(building.gold_cost * refund_ratio)
 
 	if wood_refund > 0:
 		GameManager.add_resource("wood", wood_refund, 0)
 	if food_refund > 0:
 		GameManager.add_resource("food", food_refund, 0)
+	if stone_refund > 0:
+		GameManager.add_resource("stone", stone_refund, 0)
+	if gold_refund > 0:
+		GameManager.add_resource("gold", gold_refund, 0)
 
 	# Release builders
 	for builder in building.builders.duplicate():
@@ -996,7 +1047,7 @@ func delete_selected_building() -> bool:
 	selected_info_entity = null
 	hide_info()
 
-	var total_refund = wood_refund + food_refund
+	var total_refund = wood_refund + food_refund + stone_refund + gold_refund
 	if total_refund > 0:
 		_show_notification("Cancelled (refunded %d)" % total_refund)
 	else:
@@ -1371,6 +1422,21 @@ func _on_build_monastery_pressed() -> void:
 		return
 	get_parent().start_monastery_placement()
 
+func _on_build_outpost_pressed() -> void:
+	if not GameManager.can_afford("wood", 25) or not GameManager.can_afford("stone", 25):
+		_show_error("Need 25 wood, 25 stone!")
+		return
+	get_parent().start_outpost_placement()
+
+func _on_build_watch_tower_pressed() -> void:
+	if not GameManager.is_building_unlocked("watch_tower"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("watch_tower", true))
+		return
+	if not GameManager.can_afford("wood", 25) or not GameManager.can_afford("stone", 125):
+		_show_error("Need 25 wood, 125 stone!")
+		return
+	get_parent().start_watch_tower_placement()
+
 
 func _on_train_monk_pressed() -> void:
 	if not GameManager.is_unit_unlocked("monk"):
@@ -1574,6 +1640,50 @@ func _on_cancel_pressed() -> void:
 				_show_stable_buttons(selected_building as Stable)
 			return
 		selected_building.cancel_training()
+
+
+# ============================================================================
+# Garrison panel
+# ============================================================================
+
+func show_garrison_building_panel(building: Building) -> void:
+	selected_building = building
+	selected_building_type = "garrison_building"
+	_show_garrison_buttons(building)
+
+func hide_garrison_panel() -> void:
+	if selected_building_type == "garrison_building":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func _show_garrison_buttons(building: Building) -> void:
+	_hide_all_action_buttons()
+	action_title.text = building.building_name
+	selected_building = building
+	selected_building_type = "garrison_building"
+	if building.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % building.get_garrisoned_count()
+
+func _on_ungarrison_pressed() -> void:
+	if selected_building and is_instance_valid(selected_building):
+		selected_building.ungarrison_all()
+		# Refresh the current panel
+		show_info(selected_building)
+
+func _on_town_bell_pressed() -> void:
+	if not selected_building is TownCenter:
+		return
+	var tc = selected_building as TownCenter
+	if tc.bell_active:
+		tc.ring_all_clear()
+		town_bell_btn.text = "Town Bell"
+		_show_notification("All clear!")
+	else:
+		tc.ring_town_bell()
+		town_bell_btn.text = "All Clear"
+		_show_notification("Town bell rung!")
 
 
 # ============================================================================

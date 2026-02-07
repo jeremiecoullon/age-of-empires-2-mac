@@ -37,6 +37,9 @@ var milestones: Dictionary = {
 	"first_relic_collected": null,
 	"first_relic_garrisoned": null,
 	"first_conversion": null,
+	"first_outpost": null,
+	"first_watch_tower": null,
+	"first_garrison": null,
 }
 
 # Previous state for change detection
@@ -108,7 +111,7 @@ func record_attack() -> void:
 
 func _check_milestones(game_time: float, state) -> void:
 	# Building milestones
-	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith"]
+	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith", "outpost", "watch_tower"]
 	for building_type in building_types:
 		var milestone_key = "first_" + building_type
 		if milestones[milestone_key] == null:
@@ -162,6 +165,25 @@ func _check_milestones(game_time: float, state) -> void:
 			var tech = GameManager.TECHNOLOGIES[tech_id]
 			if tech.get("type", "") == "unit_upgrade" and GameManager.has_tech(tech_id, AI_TEAM):
 				milestones["first_unit_upgrade"] = game_time
+				break
+
+	# Outpost milestone
+	if milestones["first_outpost"] == null:
+		var outpost_count = state.get_building_count("outpost")
+		if outpost_count > 0:
+			milestones["first_outpost"] = game_time
+
+	# Watch Tower milestone
+	if milestones["first_watch_tower"] == null:
+		var tower_count = state.get_building_count("watch_tower")
+		if tower_count > 0:
+			milestones["first_watch_tower"] = game_time
+
+	# Garrison milestone — detect any AI unit garrisoned in a building
+	if milestones["first_garrison"] == null:
+		for building in scene_tree.get_nodes_in_group("buildings"):
+			if building.team == AI_TEAM and building.garrisoned_units.size() > 0:
+				milestones["first_garrison"] = game_time
 				break
 
 	# Monastery milestone
@@ -442,6 +464,8 @@ func generate_summary(test_duration: float, time_scale: float, game_time: float,
 			"lumber_camp": state.get_building_count("lumber_camp"),
 			"mining_camp": state.get_building_count("mining_camp"),
 			"blacksmith": state.get_building_count("blacksmith"),
+			"outpost": state.get_building_count("outpost"),
+			"watch_tower": state.get_building_count("watch_tower"),
 		},
 		"technologies": {
 			"researched_count": state._count_researched_techs(),

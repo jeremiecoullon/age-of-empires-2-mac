@@ -13,10 +13,12 @@ const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
 const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
+const OUTPOST_SCENE_PATH = "res://scenes/buildings/outpost.tscn"
+const WATCH_TOWER_SCENE_PATH = "res://scenes/buildings/watch_tower.tscn"
 const RELIC_SCENE: PackedScene = preload("res://scenes/objects/relic.tscn")
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, OUTPOST, WATCH_TOWER }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -150,6 +152,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_stable_panel()
 		hud.hide_blacksmith_panel()
 		hud.hide_monastery_panel()
+		hud.hide_garrison_panel()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -167,6 +170,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_stable_panel()
 		hud.hide_blacksmith_panel()
 		hud.hide_monastery_panel()
+		hud.hide_garrison_panel()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -188,6 +192,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Monastery:
 			hud.show_monastery_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is WatchTower:
+			hud.show_garrison_building_panel(clicked_building)
+			hud.show_info(clicked_building)
 		else:
 			hud.show_info(clicked_building)
 		return
@@ -199,6 +206,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	hud.hide_stable_panel()
 	hud.hide_blacksmith_panel()
 	hud.hide_monastery_panel()
+	hud.hide_garrison_panel()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -354,6 +362,18 @@ func _issue_command(world_pos: Vector2) -> void:
 			if _game_logger:
 				_game_logger.log_action("repair", {})
 			return
+		# Friendly functional building with garrison capacity - garrison eligible units
+		elif target_building.garrison_capacity > 0 and target_building.is_functional():
+			var garrisoned_any = false
+			for unit in GameManager.selected_units:
+				if target_building.can_garrison(unit):
+					target_building.garrison_unit(unit)
+					garrisoned_any = true
+			if garrisoned_any:
+				GameManager.clear_selection()
+				if _game_logger:
+					_game_logger.log_action("garrison", {"building": target_building.building_name})
+				return
 
 	# Check if clicking on an animal (for hunting)
 	var animal = _get_animal_at_position(world_pos)
@@ -532,6 +552,28 @@ func start_monastery_placement() -> void:
 	current_building_type = BuildingType.MONASTERY
 	GameManager.start_building_placement(load(MONASTERY_SCENE_PATH), building_ghost)
 
+func start_outpost_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.6, 0.5, 0.3, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.OUTPOST
+	GameManager.start_building_placement(load(OUTPOST_SCENE_PATH), building_ghost)
+
+func start_watch_tower_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.5, 0.5, 0.55, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.WATCH_TOWER
+	GameManager.start_building_placement(load(WATCH_TOWER_SCENE_PATH), building_ghost)
+
 func start_blacksmith_placement() -> void:
 	if building_ghost:
 		building_ghost.queue_free()
@@ -593,11 +635,20 @@ func _place_building() -> void:
 
 	# Instantiate to get cost from the building itself (avoid duplicate values)
 	var building = GameManager.building_to_place.instantiate()
-	var cost = building.wood_cost
+	var costs: Dictionary = {}
+	if building.wood_cost > 0: costs["wood"] = building.wood_cost
+	if building.food_cost > 0: costs["food"] = building.food_cost
+	if building.stone_cost > 0: costs["stone"] = building.stone_cost
+	if building.gold_cost > 0: costs["gold"] = building.gold_cost
 
-	if not GameManager.spend_resource("wood", cost):
-		building.queue_free()
-		return
+	# Check all resources affordable
+	for res_type in costs:
+		if not GameManager.can_afford(res_type, costs[res_type]):
+			building.queue_free()
+			return
+	# Spend all resources
+	for res_type in costs:
+		GameManager.spend_resource(res_type, costs[res_type])
 
 	building.global_position = pos
 	building.team = 0  # Player team
@@ -646,6 +697,10 @@ func _get_building_size(type: BuildingType) -> Vector2:
 			return Vector2(96, 96)
 		BuildingType.MONASTERY:
 			return Vector2(96, 96)
+		BuildingType.OUTPOST:
+			return Vector2(32, 32)
+		BuildingType.WATCH_TOWER:
+			return Vector2(32, 32)
 		_:
 			return Vector2(64, 64)
 

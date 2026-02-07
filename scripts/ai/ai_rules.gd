@@ -102,7 +102,10 @@ class AdjustGathererPercentagesRule extends AIRule:
 		if current_phase == 0 and vill_count >= 10 and has_barracks and has_gold_needs:
 			return true
 
-		# Future: Phase 2 transitions can be added here
+		# Phase 2: Add stone gathering for defensive buildings (outpost, watch tower)
+		# Trigger when Feudal Age + military buildings exist
+		if current_phase == 1 and gs.get_age() >= GameManager.AGE_FEUDAL and has_barracks:
+			return true
 
 		return false
 
@@ -117,6 +120,13 @@ class AdjustGathererPercentagesRule extends AIRule:
 			gs.set_sn("sn_gold_gatherer_percentage", 15)
 			gs.set_sn("sn_stone_gatherer_percentage", 0)
 			gs.set_goal(GOAL_ECONOMY_PHASE, 1)
+		elif current_phase == 1:
+			# Add stone gathering for defensive buildings
+			gs.set_sn("sn_food_gatherer_percentage", 45)
+			gs.set_sn("sn_wood_gatherer_percentage", 30)
+			gs.set_sn("sn_gold_gatherer_percentage", 15)
+			gs.set_sn("sn_stone_gatherer_percentage", 10)
+			gs.set_goal(GOAL_ECONOMY_PHASE, 2)
 
 
 # =============================================================================
@@ -1102,6 +1112,97 @@ class ResearchMonasteryTechRule extends AIRule:
 		return ""
 
 
+# =============================================================================
+# DEFENSIVE BUILDINGS (Phase 7A)
+# =============================================================================
+
+class BuildOutpostRule extends AIRule:
+	var _outpost_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_outpost"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("outpost") > 0:
+			_outpost_queued_at = -1.0
+			return false
+
+		if _outpost_queued_at > 0.0 and gs.get_game_time() - _outpost_queued_at > QUEUE_TIMEOUT:
+			_outpost_queued_at = -1.0
+
+		# Build outpost with 8+ vills and some economy going
+		return _outpost_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 8 \
+			and gs.can_build("outpost")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("outpost")
+		_outpost_queued_at = gs.get_game_time()
+
+
+class BuildWatchTowerRule extends AIRule:
+	var _tower_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_watch_tower"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("watch_tower") >= 2:
+			_tower_queued_at = -1.0
+			return false
+
+		if _tower_queued_at > 0.0 and gs.get_game_time() - _tower_queued_at > QUEUE_TIMEOUT:
+			_tower_queued_at = -1.0
+
+		# Build watch tower in Feudal+ with military buildings and decent stone
+		return _tower_queued_at < 0.0 \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.get_resource("stone") >= 125 \
+			and gs.can_build("watch_tower")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("watch_tower")
+		_tower_queued_at = gs.get_game_time()
+
+
+class GarrisonUnderAttackRule extends AIRule:
+	func _init():
+		rule_name = "garrison_under_attack"
+
+	func conditions(gs: AIGameState) -> bool:
+		return gs.is_under_attack()
+
+	func actions(gs: AIGameState) -> void:
+		var count = gs.garrison_villagers_under_attack()
+		if count > 0:
+			gs._log_action("garrison_villagers", {"count": count})
+
+
+class UngarrisonWhenSafeRule extends AIRule:
+	func _init():
+		rule_name = "ungarrison_when_safe"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.is_under_attack():
+			return false
+		# Check if any AI buildings have garrisoned units
+		for building in gs.scene_tree.get_nodes_in_group("buildings"):
+			if building.team == AIGameState.AI_TEAM and building.garrisoned_units.size() > 0:
+				return true
+		return false
+
+	func actions(gs: AIGameState) -> void:
+		var count = 0
+		for building in gs.scene_tree.get_nodes_in_group("buildings"):
+			if building.team == AIGameState.AI_TEAM and building.garrisoned_units.size() > 0:
+				count += building.garrisoned_units.size()
+				building.ungarrison_all()
+		if count > 0:
+			gs._log_action("ungarrison_safe", {"count": count})
+
+
 class AttackRule extends AIRule:
 	func _init():
 		rule_name = "attack"
@@ -1174,6 +1275,11 @@ static func create_all_rules() -> Array:
 		ResearchBlacksmithTechRule.new(),
 		# Unit upgrades (Phase 5B)
 		ResearchUnitUpgradeRule.new(),
+		# Defensive buildings (Phase 7A)
+		BuildOutpostRule.new(),
+		BuildWatchTowerRule.new(),
+		GarrisonUnderAttackRule.new(),
+		UngarrisonWhenSafeRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)
