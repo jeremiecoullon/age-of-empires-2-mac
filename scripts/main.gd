@@ -11,9 +11,10 @@ const MINING_CAMP_SCENE_PATH = "res://scenes/buildings/mining_camp.tscn"
 const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
 const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
+const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -77,6 +78,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_market_panel()
 		hud.hide_archery_range_panel()
 		hud.hide_stable_panel()
+		hud.hide_blacksmith_panel()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -92,6 +94,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_market_panel()
 		hud.hide_archery_range_panel()
 		hud.hide_stable_panel()
+		hud.hide_blacksmith_panel()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -107,6 +110,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Stable:
 			hud.show_stable_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is Blacksmith:
+			hud.show_blacksmith_panel(clicked_building)
+			hud.show_info(clicked_building)
 		else:
 			hud.show_info(clicked_building)
 		return
@@ -116,6 +122,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	hud.hide_market_panel()
 	hud.hide_archery_range_panel()
 	hud.hide_stable_panel()
+	hud.hide_blacksmith_panel()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -398,6 +405,17 @@ func start_stable_placement() -> void:
 	current_building_type = BuildingType.STABLE
 	GameManager.start_building_placement(load(STABLE_SCENE_PATH), building_ghost)
 
+func start_blacksmith_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.4, 0.4, 0.45, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.BLACKSMITH
+	GameManager.start_building_placement(load(BLACKSMITH_SCENE_PATH), building_ghost)
+
 func _handle_building_placement_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if building_ghost:
@@ -496,6 +514,8 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.ARCHERY_RANGE:
 			return Vector2(96, 96)
 		BuildingType.STABLE:
+			return Vector2(96, 96)
+		BuildingType.BLACKSMITH:
 			return Vector2(96, 96)
 		_:
 			return Vector2(64, 64)

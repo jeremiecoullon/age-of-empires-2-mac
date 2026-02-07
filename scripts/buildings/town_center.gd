@@ -40,6 +40,8 @@ func _destroy() -> void:
 	is_destroyed = true
 	if is_researching_age:
 		cancel_age_research()
+	if is_researching:
+		cancel_research()
 	destroyed.emit()
 	# Defer victory check to ensure we're removed from the group first
 	call_deferred("_check_victory_deferred")
@@ -51,10 +53,13 @@ func _check_victory_deferred() -> void:
 func _process(delta: float) -> void:
 	if is_destroyed:
 		return
+	# Priority: age research > tech research (Loom) > training
 	if is_researching_age:
 		age_research_timer += delta
 		if age_research_timer >= age_research_time:
 			_complete_age_research()
+	elif is_researching:
+		_process_research(delta)
 	elif is_training:
 		train_timer += delta
 		training_progress.emit(train_timer / TRAIN_TIME)
@@ -63,8 +68,8 @@ func _process(delta: float) -> void:
 			_complete_training()
 
 func train_villager() -> bool:
-	# Block training during age research
-	if is_researching_age:
+	# Block training during age research or tech research (Loom)
+	if is_researching_age or is_researching:
 		return false
 
 	# Check queue capacity
@@ -214,3 +219,16 @@ func get_age_research_progress() -> float:
 	if not is_researching_age or age_research_time <= 0.0:
 		return 0.0
 	return age_research_timer / age_research_time
+
+## Start Loom research. Blocks training while active.
+func start_loom_research() -> bool:
+	if is_researching_age or is_researching:
+		return false
+	return start_research("loom")
+
+## Override to resume training after Loom completes
+func _complete_research() -> void:
+	super._complete_research()
+	# Resume training if queue was waiting
+	if not training_queue.is_empty() and not is_training:
+		_start_next_training()

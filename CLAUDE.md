@@ -206,21 +206,27 @@ Games are logged to `logs/game_logs/` with snapshots every 10 seconds. When the 
 4. **Implement the fix**, then run the code-reviewer agent on the changes.
 5. **Update the AI tuning log** in `docs/ai_player_designs/ai_tuning_log.md` to track what changed and why. This history matters as new features/maps are added — earlier tuning may become irrelevant.
 
-
+**Important:** The tuning log applies to ALL AI behavior changes, not just game-analysis fixes. If you modify AI rules, strategic numbers, gatherer percentages, rule conditions, or any logic in `scripts/ai/` during phase work or bug fixes, add an entry to the tuning log explaining what changed and why.
 
 ---
 
 ## Sprites & Assets
 
-**When creating new buildings/units without available sprites:**
+**When adding a new unit or building, follow these steps in order to find/create its sprite:**
 
-1. **Never use another entity's sprite as a fallback.** Don't use the barracks sprite for a stable, or militia sprite for an archer. This causes confusion and visual bugs.
+1. **Check `images/AoE-all_sprites/` first.** This gitignored directory contains extracted AoE2 sprites organized by `Units/` and `Buildings/`. Look for the entity there before doing anything else.
 
-2. **Create an SVG placeholder instead.** SVGs are simple XML that Godot imports natively. Create a basic colored rectangle/shape with text indicating what it represents. See `assets/sprites/buildings/farm.svg` or `market.svg` for examples.
+2. **For units: use `Stand Ground/` frames with 8-directional animations.** Copy the `Stand Ground/` folder's PNGs (not `.import` files) into `assets/sprites/units/<name>_frames/`. Then call `_load_directional_animations(folder_path, prefix, frame_count)` in the unit's `_ready()`. This gives idle 8-direction animation. Walk/Attack/Die animations are deferred to Phase 10.
 
-3. **Document the missing sprite** in `docs/gotchas.md` under the "Missing Sprites" section. This ensures Phase 9 (Polish) knows what to replace.
+3. **For buildings: use variant 1 PNG.** Copy `<BuildingName>1.png` into `assets/sprites/buildings/<name>_aoe.png`. Update the `.tscn` texture path and set scale to `Vector2(0.5, 0.5)` (matching barracks).
 
-See `docs/gotchas.md` "Missing Sprites" table for the full list of SVG placeholders. Units/buildings not in that table have AoE sprites.
+4. **Only if no AoE source exists: create an SVG placeholder.** SVGs are simple XML that Godot imports natively. Create a basic colored rectangle/shape with text indicating what it represents. See `assets/sprites/buildings/farm.svg` for an example. Document it in `docs/gotchas.md` under "Missing Sprites".
+
+5. **Never use another entity's sprite as a fallback.** Don't use the barracks sprite for a stable, or militia sprite for an archer. This causes confusion and visual bugs.
+
+After adding sprites, run `godot --headless --import --path .` to register the new assets.
+
+See `docs/gotchas.md` "Missing Sprites" table for entities still using SVG placeholders.
 
 ---
 

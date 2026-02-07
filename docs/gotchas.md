@@ -6,22 +6,28 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 
 ## Missing Sprites
 
-Track placeholder sprites here for replacement in Phase 9 (Polish). When creating a new entity without an available sprite, add it to this list.
+When adding a new entity, follow this priority order for sprites:
+
+1. **Check `images/AoE-all_sprites/`** (`Units/` and `Buildings/`). This gitignored directory has extracted AoE2 sprites for most entities.
+2. **Units:** copy the `Stand Ground/` frames into `assets/sprites/units/<name>_frames/`, then use `_load_directional_animations()` for 8-dir idle animation. Only stand/idle for now — walk/attack/die are deferred to Phase 10.
+3. **Buildings:** copy variant 1 PNG into `assets/sprites/buildings/<name>_aoe.png`, update the `.tscn`, scale `0.5`.
+4. **Only if no AoE source exists:** create an SVG placeholder and add it to the table below.
+
+Never use another entity's sprite as a fallback.
+
+**Remaining SVG placeholders:**
 
 | Entity | Type | Current Placeholder | Notes |
 |--------|------|---------------------|-------|
-| Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle |
-| Market | Building | `assets/sprites/buildings/market.svg` | Orange rectangle with "M" |
-| Archery Range | Building | `assets/sprites/buildings/archery_range.svg` | Building with target |
-| Stable | Building | `assets/sprites/buildings/stable.svg` | Brown rectangle with horseshoe |
-| Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
-| Scout Cavalry | Unit | `assets/sprites/units/scout_cavalry.svg` | Orange mounted figure |
-| Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
-| Skirmisher | Unit | `assets/sprites/units/skirmisher.svg` | Light green figure with javelins |
-| Cavalry Archer | Unit | `assets/sprites/units/cavalry_archer.svg` | Mounted figure with bow |
-| Trade Cart | Unit | `assets/sprites/units/trade_cart.svg` | Cart/wagon figure |
+| Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle. No AoE source available. |
 
-**Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
+### Replaced sprites — deferred work
+
+| Entity | What's done | What's deferred (Phase 10) |
+|--------|------------|---------------------------|
+| Archer, Spearman, Skirmisher, Scout Cavalry, Cavalry Archer, Knight, Trade Cart | Stand/idle 8-dir animation | Walk, Attack, Die, Rot animations |
+| Trade Cart | "Full" variant only | "Empty" variant for return trip |
+| Archery Range, Stable, Market, Blacksmith | Variant 1 (Feudal, European) | Age-specific variants, civ-specific variants |
 
 ---
 
@@ -383,3 +389,43 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Cavalry Archer is Castle Age**: Even though the Stable (its training building) is Feudal Age, the Cavalry Archer unit itself requires Castle Age. The button appears in the Stable panel but is disabled until Castle Age.
 
 - **AI build-queue flags need timeouts, not booleans**: Build rules (barracks, archery range, stable, mill, lumber camp, mining camp) use a flag to prevent queuing the same building twice. Originally a boolean that was only reset when the building existed. If the build failed silently (can't afford, no valid position), the flag was never reset, permanently blocking the rule. Fixed by using a timestamp + 30s timeout: `_barracks_queued_at` instead of `_barracks_queued`.
+
+### Phase 5A - Tech Research System + Blacksmith + Loom
+
+- **Tech bonus application must be idempotent**: `apply_tech_bonuses()` always recalculates stats from `_base_*` values + bonuses, never incrementing current values. This prevents drift if the signal fires multiple times or is called manually. Pattern: store base stats in `_store_base_stats()` once, then `apply_tech_bonuses()` sets `stat = _base_stat + bonus`.
+
+- **Loom HP bonus increases current_hp, not just max_hp**: When Loom is researched, villager `max_hp` increases by 15. The unit's `current_hp` must also increase by the same delta (unit gets tougher, not healed). Done by comparing `max_hp` before and after bonus application and adding the diff to `current_hp`.
+
+- **TC Loom blocks training**: TC `_process()` priority: age research > tech research (Loom) > training. When Loom is researching, `train_villager()` returns false. After Loom completes, `_complete_research()` checks the training queue and resumes with `_start_next_training()`.
+
+- **Forging/Iron Casting affect BOTH infantry AND cavalry attack**: These techs have effects for both `infantry_attack` and `cavalry_attack`. Militia and spearman apply `infantry_attack`, scout cavalry applies `cavalry_attack`. Cavalry archers apply BOTH `cavalry_attack` AND `archer_attack`.
+
+- **Fletching/Bodkin affect archers + range**: Each level adds +1 attack AND +1 range (converted to 32px per level in-game). Also affects TCs/towers/galleys in real AoE2, but those aren't implemented yet (Phase 7/11). Document for future.
+
+- **Building destruction during research must refund**: `_destroy()` in both Blacksmith and TC calls `cancel_research()` which refunds resources. Without this, resources spent on research would be permanently lost if the building is destroyed mid-research.
+
+- **Generic research system in Building base class**: Reusable by any building that needs to research techs. Uses `start_research()`, `cancel_research()`, `_process_research()`, `_complete_research()` pattern. TC overrides `_complete_research()` to resume training after Loom finishes. Blacksmith calls `_process_research(delta)` in its own `_process()`.
+
+- **Iron Casting cost**: 220F + 120G per AoE2 manual, not 200F + 100G. Was caught by spec-check agent.
+
+- **Object.get() in GDScript takes 1 argument, not 2**: `rule.get("property", default_value)` crashes with "Expected 1 argument(s)". Unlike Python dicts, `Object.get(prop)` returns the value or `null`. Use `var v = obj.get("prop"); if v is float and v > 0.0:` pattern instead. Found in ai_controller.gd skip reason reporting.
+
+- **AI gold gathering gate must account for tech costs**: The `AdjustGathererPercentagesRule` originally required both barracks AND archery range to start gold gathering. But Loom (50G) and Blacksmith techs need gold in Feudal Age before an archery range exists. Fixed to trigger on barracks + (archery_range OR Feudal Age).
+
+### Phase 5B - Unit Upgrades + Knight
+
+- **Base class can't directly reference subclass properties**: `_apply_researched_upgrades()` in unit.gd needs to set `attack_damage`, `attack_range`, `bonus_vs_cavalry`, etc. which are declared on subclasses, not the base Unit class. Using direct property access (`attack_damage = value`) causes compile errors. Fix: use `set(stat_key, value)` for dynamic property access. Same pattern needed in `_apply_unit_upgrade()` in game_manager.gd.
+
+- **In-place upgrade, not node replacement**: Upgrades transform existing units by overwriting stats, swapping groups, and setting display names. No new scenes/scripts per upgrade. Newly spawned units after upgrade auto-apply via `_apply_researched_upgrades()` in `_ready()`.
+
+- **Chained upgrades need a while loop**: Militia → Man-at-Arms → Long Swordsman is a chain. A militia spawned after both are researched must apply both sequentially. `_apply_researched_upgrades()` uses `while applied` loop that restarts after each upgrade applied, catching chains.
+
+- **"archers_line" group needed for Crossbowman**: The "archers" group includes skirmishers and cavalry archers. Crossbowman upgrade must only target archers (not skirmishers). Added "archers_line" group exclusively for archers to enable targeted upgrades.
+
+- **Upgrade groups in snapshot need ordering**: `game_state_snapshot.gd` classifies military units by group for logging. Upgraded groups (e.g., "elite_skirmishers") must be checked before base groups (e.g., "skirmishers") in the elif chain, otherwise upgraded units are misclassified.
+
+- **Knight uses load() not preload()**: Knight scene was created during this phase, so it may not be imported yet. Stable uses `KNIGHT_SCENE = load("res://scenes/units/knight.tscn")` in `_ready()` instead of `preload()`. Can switch to preload once import is confirmed stable.
+
+- **Militia stat fix is a prerequisite for Man-at-Arms**: Militia was 50HP/5atk (MVP placeholder). AoE2 spec is 40HP/4atk. Without fixing this first, Man-at-Arms (45HP/6atk) would be an HP *downgrade*, making the upgrade chain feel broken.
+
+- **Research blocks training in all training buildings**: Barracks, Archery Range, and Stable all check `if is_researching: _process_research(delta); return` in `_process()`. This matches AoE2 behavior where unit upgrades pause training.

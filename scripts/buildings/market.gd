@@ -4,7 +4,7 @@ class_name Market
 const TRADE_CART_WOOD_COST: int = 100
 const TRADE_CART_GOLD_COST: int = 50
 const TRAIN_TIME: float = 5.0
-const TradeCartScene: PackedScene = preload("res://scenes/units/trade_cart.tscn")
+var TradeCartScene: PackedScene  # Loaded in _ready() to avoid circular dependency with TradeCart
 const MAX_QUEUE_SIZE: int = 15
 
 var is_training: bool = false
@@ -19,6 +19,7 @@ signal trade_completed(resource_type: String, is_buy: bool, amount: int, gold_am
 signal queue_changed(queue_size: int)
 
 func _ready() -> void:
+	TradeCartScene = load("res://scenes/units/trade_cart.tscn")
 	max_hp = 2100  # Set before super._ready() so it uses correct max
 	super._ready()
 	add_to_group("markets")

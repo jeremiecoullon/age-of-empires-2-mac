@@ -26,6 +26,7 @@ const MINING_CAMP_SCENE: PackedScene = preload("res://scenes/buildings/mining_ca
 const MARKET_SCENE: PackedScene = preload("res://scenes/buildings/market.tscn")
 const ARCHERY_RANGE_SCENE: PackedScene = preload("res://scenes/buildings/archery_range.tscn")
 const STABLE_SCENE: PackedScene = preload("res://scenes/buildings/stable.tscn")
+const BLACKSMITH_SCENE: PackedScene = preload("res://scenes/buildings/blacksmith.tscn")
 
 # Building costs (wood only for MVP)
 const BUILDING_COSTS: Dictionary = {
@@ -37,7 +38,8 @@ const BUILDING_COSTS: Dictionary = {
 	"mining_camp": {"wood": 100},
 	"market": {"wood": 175},
 	"archery_range": {"wood": 175},
-	"stable": {"wood": 175}
+	"stable": {"wood": 175},
+	"blacksmith": {"wood": 150}
 }
 
 # Building sizes (in pixels)
@@ -50,7 +52,8 @@ const BUILDING_SIZES: Dictionary = {
 	"mining_camp": Vector2(64, 64),
 	"market": Vector2(96, 96),
 	"archery_range": Vector2(96, 96),
-	"stable": Vector2(96, 96)
+	"stable": Vector2(96, 96),
+	"blacksmith": Vector2(96, 96)
 }
 
 # Reference to controller (for accessing strategic numbers, timers, etc.)
@@ -68,6 +71,7 @@ var _pending_market_sells: Array[String] = []  # resource types to sell
 var _pending_villager_assignments: Array = []  # [villager, target, assignment_type] tuples
 var _assigned_villagers_this_tick: Dictionary = {}  # Track villagers already assigned to prevent double-assignment
 var _assigned_targets_this_tick: Dictionary = {}  # Track {target_instance_id: count} for pending assignments
+var _pending_researches: Dictionary = {}  # tech_id -> building_type ("blacksmith" or "town_center")
 
 # =============================================================================
 # INITIALIZATION
@@ -133,6 +137,80 @@ func research_age(target_age: int) -> bool:
 	if tc.is_researching_age:
 		return false
 	return tc.start_age_research(target_age)
+
+
+# =============================================================================
+# CONDITION HELPERS - Technology
+# =============================================================================
+
+func has_tech(tech_id: String) -> bool:
+	return GameManager.has_tech(tech_id, AI_TEAM)
+
+
+func can_research(tech_id: String) -> bool:
+	return get_can_research_reason(tech_id) == "ok"
+
+
+func get_can_research_reason(tech_id: String) -> String:
+	## Returns "ok" if tech can be researched, otherwise the reason why not.
+	if tech_id not in GameManager.TECHNOLOGIES:
+		return "unknown_tech"
+	if has_tech(tech_id):
+		return "already_researched"
+	if tech_id in _pending_researches:
+		return "already_queued"
+	var tech = GameManager.TECHNOLOGIES[tech_id]
+	if get_age() < tech["age"]:
+		return "requires_%s" % GameManager.AGE_NAMES[tech["age"]].to_lower().replace(" ", "_")
+	var prereq = tech["requires"]
+	if prereq != "" and not has_tech(prereq):
+		return "requires_" + prereq
+	# Check if building exists and is not already researching
+	var building_type = tech["building"]
+	if building_type == "blacksmith":
+		var bs = _get_ai_blacksmith()
+		if not bs:
+			return "no_blacksmith"
+		if bs.is_researching:
+			return "building_busy"
+	elif building_type == "town_center":
+		var tc = _get_ai_town_center()
+		if not tc:
+			return "no_town_center"
+		if tc.is_researching_age or tc.is_researching:
+			return "building_busy"
+	elif building_type in ["barracks", "archery_range", "stable"]:
+		var bldg = _get_ai_building(building_type)
+		if not bldg:
+			return "no_" + building_type
+		if bldg.is_researching:
+			return "building_busy"
+	# Check cost
+	for resource_type in tech["cost"]:
+		if get_resource(resource_type) < tech["cost"][resource_type]:
+			return "insufficient_" + resource_type
+	return "ok"
+
+
+func research_tech(tech_id: String) -> void:
+	## Queue a tech research action for this tick.
+	if tech_id in _pending_researches:
+		return  # Already queued
+	var tech = GameManager.TECHNOLOGIES[tech_id]
+	_pending_researches[tech_id] = tech["building"]
+
+
+func _count_researched_techs() -> int:
+	## Returns the number of technologies the AI has researched
+	return GameManager.ai_researched_techs.size()
+
+
+func _get_ai_blacksmith() -> Blacksmith:
+	## Returns first functional AI blacksmith, or null
+	for bs in scene_tree.get_nodes_in_group("blacksmiths"):
+		if bs.team == AI_TEAM and bs.is_functional():
+			return bs
+	return null
 
 
 # =============================================================================
@@ -211,6 +289,8 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "skirmishers"
 		"cavalry_archer":
 			group_name = "cavalry_archers"
+		"knight":
+			group_name = "knights"
 		"infantry":
 			# Count all infantry: militia + spearmen
 			var count = 0
@@ -263,6 +343,8 @@ func get_building_count(building_type: String) -> int:
 			group_name = "archery_ranges"
 		"stable":
 			group_name = "stables"
+		"blacksmith":
+			group_name = "blacksmiths"
 		"town_center":
 			group_name = "town_centers"
 
@@ -454,6 +536,19 @@ func get_can_train_reason(unit_type: String) -> String:
 			if not GameManager.can_afford("gold", stable.CAVALRY_ARCHER_GOLD_COST, AI_TEAM):
 				return "insufficient_gold"
 			return "ok"
+		"knight":
+			var stable = _get_ai_building("stable")
+			if not stable:
+				return "no_stable"
+			if not stable.is_functional():
+				return "stable_not_functional"
+			if stable.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", stable.KNIGHT_FOOD_COST, AI_TEAM):
+				return "insufficient_food"
+			if not GameManager.can_afford("gold", stable.KNIGHT_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
 
 	return "unknown_unit_type"
 
@@ -621,23 +716,26 @@ func attack_now() -> void:
 
 func scout_to(target_position: Vector2) -> void:
 	## Send an idle scout cavalry to the target position
-	for unit in scene_tree.get_nodes_in_group("scout_cavalry"):
-		if unit.team != AI_TEAM or unit.is_dead:
-			continue
-		# Find an idle scout
-		if unit.current_state == unit.State.IDLE:
-			unit.move_to(target_position)
-			_log_action("scout", {"target": [int(target_position.x), int(target_position.y)]})
-			return
+	## Checks both scout_cavalry and light_cavalry groups (scouts upgrade to light cavalry)
+	for group in ["scout_cavalry", "light_cavalry"]:
+		for unit in scene_tree.get_nodes_in_group(group):
+			if unit.team != AI_TEAM or unit.is_dead:
+				continue
+			if unit.current_state == unit.State.IDLE:
+				unit.move_to(target_position)
+				_log_action("scout", {"target": [int(target_position.x), int(target_position.y)]})
+				return
 
 
 func get_idle_scout() -> Node:
 	## Returns an idle scout cavalry unit, or null if none available
-	for unit in scene_tree.get_nodes_in_group("scout_cavalry"):
-		if unit.team != AI_TEAM or unit.is_dead:
-			continue
-		if unit.current_state == unit.State.IDLE:
-			return unit
+	## Checks both scout_cavalry and light_cavalry groups (scouts upgrade to light cavalry)
+	for group in ["scout_cavalry", "light_cavalry"]:
+		for unit in scene_tree.get_nodes_in_group(group):
+			if unit.team != AI_TEAM or unit.is_dead:
+				continue
+			if unit.current_state == unit.State.IDLE:
+				return unit
 	return null
 
 
@@ -705,6 +803,10 @@ func execute_actions() -> void:
 	for resource_type in _pending_market_sells:
 		_do_market_sell(resource_type)
 
+	# Execute tech research
+	for tech_id in _pending_researches:
+		_do_research(tech_id)
+
 	# Execute villager assignments
 	for assignment in _pending_villager_assignments:
 		var villager = assignment[0]
@@ -724,6 +826,7 @@ func _clear_pending() -> void:
 	_pending_villager_assignments.clear()
 	_assigned_villagers_this_tick.clear()
 	_assigned_targets_this_tick.clear()
+	_pending_researches.clear()
 
 
 # =============================================================================
@@ -752,33 +855,31 @@ func _do_train(unit_type: String) -> void:
 		"militia":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
-				barracks.train_militia()
-				success = true
+				success = barracks.train_militia()
 		"spearman":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
-				barracks.train_spearman()
-				success = true
+				success = barracks.train_spearman()
 		"archer":
 			var archery_range = _get_ai_building("archery_range")
 			if archery_range and archery_range.is_functional():
-				archery_range.train_archer()
-				success = true
+				success = archery_range.train_archer()
 		"skirmisher":
 			var archery_range = _get_ai_building("archery_range")
 			if archery_range and archery_range.is_functional():
-				archery_range.train_skirmisher()
-				success = true
+				success = archery_range.train_skirmisher()
 		"scout_cavalry":
 			var stable = _get_ai_building("stable")
 			if stable and stable.is_functional():
-				stable.train_scout_cavalry()
-				success = true
+				success = stable.train_scout_cavalry()
 		"cavalry_archer":
 			var stable = _get_ai_building("stable")
 			if stable and stable.is_functional():
-				stable.train_cavalry_archer()
-				success = true
+				success = stable.train_cavalry_archer()
+		"knight":
+			var stable = _get_ai_building("stable")
+			if stable and stable.is_functional():
+				success = stable.train_knight()
 
 	if success:
 		_log_action("train", {"unit": unit_type})
@@ -895,6 +996,29 @@ func _do_villager_assignment(villager: Node, target: Node, assignment_type: Stri
 		"hunt":
 			# Hunt animal - use command_hunt
 			villager.command_hunt(target)
+
+
+func _do_research(tech_id: String) -> void:
+	if tech_id not in GameManager.TECHNOLOGIES:
+		return
+	var tech = GameManager.TECHNOLOGIES[tech_id]
+	var building_type = tech["building"]
+
+	if building_type == "blacksmith":
+		var bs = _get_ai_blacksmith()
+		if bs and not bs.is_researching:
+			if bs.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
+	elif building_type == "town_center":
+		var tc = _get_ai_town_center()
+		if tc and not tc.is_researching_age and not tc.is_researching:
+			if tc.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
+	elif building_type in ["barracks", "archery_range", "stable"]:
+		var bldg = _get_ai_building(building_type)
+		if bldg and not bldg.is_researching:
+			if bldg.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
 
 
 # =============================================================================
@@ -1060,6 +1184,8 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return ARCHERY_RANGE_SCENE
 		"stable":
 			return STABLE_SCENE
+		"blacksmith":
+			return BLACKSMITH_SCENE
 	return null
 
 

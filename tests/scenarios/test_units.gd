@@ -171,13 +171,13 @@ func test_villager_initial_hp() -> Assertions.AssertResult:
 
 
 func test_militia_initial_hp() -> Assertions.AssertResult:
-	## Militia should have 50 HP (MVP value)
+	## Militia should have 40 HP (AoE2 spec)
 	var militia = runner.spawner.spawn_militia(Vector2(400, 400))
 	await runner.wait_frames(2)
 
-	if militia.max_hp != 50:
+	if militia.max_hp != 40:
 		return Assertions.AssertResult.new(false,
-			"Militia max_hp should be 50 (MVP value), got: %d" % militia.max_hp)
+			"Militia max_hp should be 40 (AoE2 spec), got: %d" % militia.max_hp)
 
 	if militia.current_hp != militia.max_hp:
 		return Assertions.AssertResult.new(false,

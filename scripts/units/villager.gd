@@ -39,6 +39,8 @@ func _ready() -> void:
 	add_to_group("villagers")
 	# 75 frames total, 8 directions = ~9 frames per direction
 	_load_directional_animations("res://assets/sprites/units/villager_frames", "Villagerstand", 75)
+	_store_base_stats()
+	apply_tech_bonuses()
 
 func die() -> void:
 	# Clean up construction/repair assignment before dying

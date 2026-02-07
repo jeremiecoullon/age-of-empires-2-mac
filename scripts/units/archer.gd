@@ -8,9 +8,6 @@ enum State { IDLE, MOVING, ATTACKING }
 @export var attack_range: float = 128.0  # ~4 tiles at 32px/tile
 @export var attack_cooldown: float = 2.0
 
-# Preload texture to avoid runtime file I/O
-const ARCHER_TEXTURE: Texture2D = preload("res://assets/sprites/units/archer.svg")
-
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
@@ -23,11 +20,24 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("archers")
+	add_to_group("archers_line")  # Crossbowman upgrade targets this (not "archers" which includes skirmishers/cav archers)
 	max_hp = 30
 	current_hp = max_hp
 	move_speed = 96.0  # Slightly slower than militia
-	# Use single SVG for now (no 8-dir sprites available)
-	_load_static_sprite(ARCHER_TEXTURE)
+	_load_directional_animations("res://assets/sprites/units/archer_frames", "Archerstand", 52)
+	_apply_researched_upgrades()
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+	_base_attack_range = attack_range
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("archer_attack", team)
+	attack_range = _base_attack_range + GameManager.get_tech_bonus("archer_range", team) * 32.0  # +1 range = +1 tile = 32px
 
 func _physics_process(delta: float) -> void:
 	match current_state:

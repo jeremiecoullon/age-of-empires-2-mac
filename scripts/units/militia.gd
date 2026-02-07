@@ -3,7 +3,7 @@ class_name Militia
 
 enum State { IDLE, MOVING, ATTACKING }
 
-@export var attack_damage: int = 5
+@export var attack_damage: int = 4
 @export var attack_range: float = 30.0
 @export var attack_cooldown: float = 1.0
 
@@ -20,10 +20,21 @@ func _ready() -> void:
 	add_to_group("military")
 	add_to_group("infantry")
 	add_to_group("militia")
-	max_hp = 50
+	max_hp = 40
 	current_hp = max_hp
 	# 30 frames total, 8 directions = ~4 frames per direction
 	_load_directional_animations("res://assets/sprites/units/militia_frames", "Militiastand", 30)
+	_apply_researched_upgrades()
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("infantry_attack", team)
 
 func _physics_process(delta: float) -> void:
 	match current_state:

@@ -10,8 +10,6 @@ enum State { IDLE, MOVING, ATTACKING }
 @export var attack_range: float = 30.0
 @export var attack_cooldown: float = 2.0
 
-const SCOUT_CAVALRY_TEXTURE: Texture2D = preload("res://assets/sprites/units/scout_cavalry.svg")
-
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
@@ -30,8 +28,18 @@ func _ready() -> void:
 	move_speed = 150.0  # Medium speed cavalry (AoE2 spec: M)
 	melee_armor = 0
 	pierce_armor = 2  # Resistant to ranged attacks
-	if SCOUT_CAVALRY_TEXTURE:
-		_load_static_sprite(SCOUT_CAVALRY_TEXTURE)
+	_load_directional_animations("res://assets/sprites/units/scout_cavalry_frames", "Scoutstand", 50)
+	_apply_researched_upgrades()
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("cavalry_attack", team)
 
 func _physics_process(delta: float) -> void:
 	match current_state:

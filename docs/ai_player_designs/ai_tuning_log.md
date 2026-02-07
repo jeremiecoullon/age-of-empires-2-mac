@@ -14,6 +14,14 @@ Game analysis reports live in `logs/game_logs/<game_id>/analysis.md`.
 
 ## Tuning changelog
 
+### 2026-02-07: Fix 5 — Broaden gold gathering gate for tech research
+
+**File:** `scripts/ai/ai_rules.gd` — `AdjustGathererPercentagesRule.conditions()`
+**Change:** Phase 0→1 transition now triggers on barracks + (archery_range OR Feudal Age), instead of barracks + archery_range only
+**Motivation:** Phase 5A added Loom (50G) and Blacksmith techs that need gold in Feudal Age. The archery range requirement (Fix 3) delayed gold gathering until after Feudal Age + archery range construction, making Loom research impossible. Feudal Age itself signals gold needs since that's when Blacksmith and Loom become relevant.
+**Result:** Not yet validated in a full human vs AI game. AI observer test 3 had a stochastic bad run (barracks at 335s, never reached Feudal) so the fix couldn't activate. The logic is sound: in runs where Feudal is reached (like test 2 at 535s), gold gathering would start immediately.
+**Tradeoff:** In Dark Age, gold is still 0% (unchanged). Gold gathering only starts at Feudal, which is the earliest techs need it. This preserves Fix 3's intent (no useless Dark Age gold mining) while unblocking Feudal Age tech research.
+
 ### 2026-02-06: Fix 4 — Raise villager pause threshold to < 3
 
 **File:** `scripts/ai/ai_rules.gd` — `TrainVillagerRule.conditions()`
