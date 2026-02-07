@@ -16,8 +16,10 @@ var current_training: TrainingType = TrainingType.NONE
 var spawn_point_offset: Vector2 = Vector2(0, 60)
 var training_queue: Array[int] = []
 
-# Relic storage (Phase 6B)
+# Relic storage
 var garrisoned_relics: Array = []
+var _gold_accumulator: float = 0.0
+const RELIC_GOLD_RATE: float = 0.5  # Gold per second per relic
 
 signal training_started
 signal training_completed
@@ -38,6 +40,13 @@ func _process(delta: float) -> void:
 		return
 	if not is_constructed:
 		return
+	# Relic gold generation (runs even during research/training)
+	if garrisoned_relics.size() > 0:
+		_gold_accumulator += RELIC_GOLD_RATE * garrisoned_relics.size() * delta
+		if _gold_accumulator >= 1.0:
+			var gold = int(_gold_accumulator)
+			GameManager.add_resource("gold", gold, team)
+			_gold_accumulator -= gold
 	if is_researching:
 		_process_research(delta)
 		return  # Research blocks training
@@ -133,7 +142,27 @@ func _complete_training() -> void:
 		train_timer = 0.0
 		current_training = TrainingType.NONE
 
+func garrison_relic(relic: Node) -> bool:
+	if not is_instance_valid(relic):
+		return false
+	garrisoned_relics.append(relic)
+	relic.garrison(self)
+	return true
+
+func get_relic_count() -> int:
+	return garrisoned_relics.size()
+
+func eject_relics() -> void:
+	for i in range(garrisoned_relics.size()):
+		var relic = garrisoned_relics[i]
+		if is_instance_valid(relic):
+			var offset = Vector2(30 * (i - 2), 60)  # Spread relics around building
+			relic.ungarrison(global_position + offset)
+	garrisoned_relics.clear()
+	_gold_accumulator = 0.0
+
 func _destroy() -> void:
+	eject_relics()
 	if is_researching:
 		cancel_research()
 	# Refund training queue

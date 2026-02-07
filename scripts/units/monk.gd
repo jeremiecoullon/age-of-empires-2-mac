@@ -5,7 +5,7 @@ class_name Monk
 ## AoE2 spec: 100G cost, 30 HP, 0 attack, 0/0 armor, speed 70
 ## Cannot attack. Heals friendly wounded units. Converts enemy units.
 
-enum State { IDLE, MOVING, HEALING, CONVERTING }
+enum State { IDLE, MOVING, HEALING, CONVERTING, PICKING_UP_RELIC }
 
 var current_state: State = State.IDLE
 
@@ -30,8 +30,10 @@ var rejuvenation_time: float = 62.0  # AoE2 base
 # Conversion resistance (applied by target, not monk)
 var conversion_resistance: float = 0.0
 
-# Relic carrying (Phase 6B)
+# Relic carrying
 var carrying_relic: Node = null
+var relic_target: Node = null
+var garrison_target: Node = null
 
 # Base stats for tech bonuses
 var _base_conversion_range: float = 288.0
@@ -102,16 +104,17 @@ func _physics_process(delta: float) -> void:
 			_process_healing(delta)
 		State.CONVERTING:
 			_process_converting(delta)
+		State.PICKING_UP_RELIC:
+			_process_picking_up_relic()
 
 func _check_auto_heal(delta: float) -> void:
+	# Don't auto-heal while rejuvenating or carrying a relic
+	if is_rejuvenating or carrying_relic:
+		return
 	heal_scan_timer += delta
 	if heal_scan_timer < HEAL_SCAN_INTERVAL:
 		return
 	heal_scan_timer = 0.0
-
-	# Don't auto-heal while rejuvenating
-	if is_rejuvenating:
-		return
 
 	# Look for nearby wounded friendly units
 	var target = _find_wounded_friendly()
@@ -144,6 +147,11 @@ func _find_wounded_friendly() -> Unit:
 
 func _process_moving() -> void:
 	if nav_agent.is_navigation_finished():
+		# Check if we arrived at a monastery to garrison a relic
+		if garrison_target and is_instance_valid(garrison_target) and carrying_relic:
+			_garrison_relic_at(garrison_target)
+		else:
+			garrison_target = null
 		current_state = State.IDLE
 		return
 
@@ -334,6 +342,8 @@ func can_convert(target: Node2D) -> bool:
 
 ## Command this monk to convert an enemy
 func command_convert(target: Node2D) -> void:
+	if carrying_relic:
+		return  # Can't convert while carrying a relic
 	if not can_convert(target):
 		return
 	if is_rejuvenating:
@@ -345,6 +355,8 @@ func command_convert(target: Node2D) -> void:
 
 ## Command this monk to heal a friendly unit
 func command_heal(target: Node2D) -> void:
+	if carrying_relic:
+		return  # Can't heal while carrying a relic
 	if not is_instance_valid(target) or not target is Unit:
 		return
 	if target.team != team:
@@ -360,14 +372,85 @@ func move_to(target_position: Vector2) -> void:
 	heal_target = null
 	conversion_target = null
 	conversion_timer = 0.0
+	relic_target = null
+	garrison_target = null
 	current_state = State.MOVING
 	nav_agent.target_position = target_position
 
+## Command this monk to pick up a relic
+func command_pickup_relic(relic: Node) -> void:
+	if carrying_relic:
+		return  # Already carrying
+	if not is_instance_valid(relic):
+		return
+	relic_target = relic
+	heal_target = null
+	conversion_target = null
+	conversion_timer = 0.0
+	garrison_target = null
+	current_state = State.PICKING_UP_RELIC
+	nav_agent.target_position = relic.global_position
+
+## Command this monk to garrison its relic at a monastery
+func command_garrison_relic(monastery: Node) -> void:
+	if not carrying_relic:
+		return
+	if not is_instance_valid(monastery):
+		return
+	garrison_target = monastery
+	heal_target = null
+	conversion_target = null
+	conversion_timer = 0.0
+	relic_target = null
+	current_state = State.MOVING
+	nav_agent.target_position = monastery.global_position
+
+func _process_picking_up_relic() -> void:
+	if not is_instance_valid(relic_target) or relic_target.is_carried or relic_target.is_garrisoned:
+		relic_target = null
+		current_state = State.IDLE
+		return
+
+	# Check if we're close enough to pick up (within 40px)
+	var distance = global_position.distance_to(relic_target.global_position)
+	if distance <= 40.0:
+		_stop_and_stay()
+		relic_target.pickup(self)
+		carrying_relic = relic_target
+		relic_target = null
+		_swap_to_relic_sprite()
+		current_state = State.IDLE
+		return
+
+	# Move toward the relic
+	nav_agent.target_position = relic_target.global_position
+	var next_path_position = nav_agent.get_next_path_position()
+	var direction = global_position.direction_to(next_path_position)
+	_resume_movement()
+	_apply_movement(direction * move_speed)
+
+func _garrison_relic_at(monastery: Node) -> void:
+	if not carrying_relic or not is_instance_valid(carrying_relic):
+		garrison_target = null
+		return
+	if not is_instance_valid(monastery) or not monastery.has_method("garrison_relic"):
+		garrison_target = null
+		return
+	monastery.garrison_relic(carrying_relic)
+	carrying_relic = null
+	garrison_target = null
+	_swap_to_normal_sprite()
+
+func _swap_to_relic_sprite() -> void:
+	_load_directional_animations("res://assets/sprites/units/monk_relic_frames", "Monkrelicstand", 5)
+
+func _swap_to_normal_sprite() -> void:
+	_load_directional_animations("res://assets/sprites/units/monk_frames", "Monkstand", 30)
+
 func die() -> void:
-	# Drop relic if carrying (Phase 6B)
+	# Drop relic if carrying
 	if carrying_relic and is_instance_valid(carrying_relic):
-		if carrying_relic.has_method("drop"):
-			carrying_relic.drop(global_position)
+		carrying_relic.drop(global_position)
 		carrying_relic = null
 	super.die()
 
@@ -375,6 +458,10 @@ func die() -> void:
 func get_status_text() -> String:
 	if is_rejuvenating:
 		return "Rejuvenating"
+	if carrying_relic:
+		if current_state == State.MOVING and garrison_target:
+			return "Garrisoning Relic"
+		return "Carrying Relic"
 	match current_state:
 		State.IDLE:
 			return "Idle"
@@ -384,4 +471,6 @@ func get_status_text() -> String:
 			return "Healing"
 		State.CONVERTING:
 			return "Converting"
+		State.PICKING_UP_RELIC:
+			return "Picking Up Relic"
 	return "Idle"

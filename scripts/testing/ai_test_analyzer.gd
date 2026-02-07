@@ -32,6 +32,11 @@ var milestones: Dictionary = {
 	"reached_castle_age": null,
 	"first_knight": null,
 	"first_unit_upgrade": null,
+	"first_monastery": null,
+	"first_monk": null,
+	"first_relic_collected": null,
+	"first_relic_garrisoned": null,
+	"first_conversion": null,
 }
 
 # Previous state for change detection
@@ -158,6 +163,38 @@ func _check_milestones(game_time: float, state) -> void:
 			if tech.get("type", "") == "unit_upgrade" and GameManager.has_tech(tech_id, AI_TEAM):
 				milestones["first_unit_upgrade"] = game_time
 				break
+
+	# Monastery milestone
+	if milestones["first_monastery"] == null:
+		var mon_count = state.get_building_count("monastery")
+		var prev_mon_count = _prev_building_counts.get("monastery", 0)
+		if mon_count > 0 and prev_mon_count == 0:
+			milestones["first_monastery"] = game_time
+	_prev_building_counts["monastery"] = state.get_building_count("monastery")
+
+	# Monk milestone
+	if milestones["first_monk"] == null:
+		var monk_count = state.get_unit_count("monk")
+		if monk_count > 0:
+			milestones["first_monk"] = game_time
+
+	# Relic milestones
+	if milestones["first_relic_collected"] == null or milestones["first_relic_garrisoned"] == null:
+		for relic in scene_tree.get_nodes_in_group("relics"):
+			if relic.is_carried and is_instance_valid(relic.carrier) and relic.carrier.team == AI_TEAM:
+				if milestones["first_relic_collected"] == null:
+					milestones["first_relic_collected"] = game_time
+			if relic.is_garrisoned and is_instance_valid(relic.garrison_building) and relic.garrison_building.team == AI_TEAM:
+				if milestones["first_relic_garrisoned"] == null:
+					milestones["first_relic_garrisoned"] = game_time
+
+	# Conversion milestone — detect AI monk actively converting
+	if milestones["first_conversion"] == null:
+		for unit in scene_tree.get_nodes_in_group("monks"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				if unit.current_state == 3:  # CONVERTING
+					milestones["first_conversion"] = game_time
+					break
 
 	# Attack milestone (set via record_attack())
 	if milestones["first_attack"] == null and attack_issued:

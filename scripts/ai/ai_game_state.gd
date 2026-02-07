@@ -2008,3 +2008,116 @@ func get_villagers_per_target() -> Dictionary:
 		result[resource_type + "_max"] = max_count
 
 	return result
+
+
+# =============================================================================
+# RELIC HELPERS (Phase 6B)
+# =============================================================================
+
+func get_uncollected_relics() -> Array:
+	## Returns relics that are not carried, not garrisoned, and not already targeted by an AI monk
+	var targeted_relics: Dictionary = {}
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team == AI_TEAM and not unit.is_dead and is_instance_valid(unit.relic_target):
+			targeted_relics[unit.relic_target.get_instance_id()] = true
+	var result: Array = []
+	for relic in scene_tree.get_nodes_in_group("relics"):
+		if not relic.is_carried and not relic.is_garrisoned:
+			if relic.get_instance_id() not in targeted_relics:
+				result.append(relic)
+	return result
+
+
+func get_idle_monk() -> Node:
+	## Returns an AI monk that is IDLE, not rejuvenating, not carrying a relic
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+		if unit.carrying_relic:
+			continue
+		if unit.is_rejuvenating:
+			continue
+		if unit.current_state == Monk.State.IDLE:
+			return unit
+	return null
+
+
+func get_monk_carrying_relic() -> Node:
+	## Returns an AI monk that is carrying a relic
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+		if unit.carrying_relic:
+			return unit
+	return null
+
+
+func get_enemy_high_value_target(monk_position: Vector2) -> Node:
+	## Returns a nearby enemy unit worth converting (most expensive first)
+	var max_range: float = 576.0  # 2x conversion range
+	var best_target: Node = null
+	var best_value: int = 0
+
+	# Value table for conversion targeting
+	var unit_values: Dictionary = {
+		"knights": 135,  # 60F + 75G
+		"heavy_cavalry_archers": 110,  # 40W + 70G
+		"cavalry_archers": 110,
+		"light_cavalry": 80,
+		"scout_cavalry": 80,
+		"crossbowmen": 70,
+		"archers_line": 70,
+		"elite_skirmishers": 60,
+		"skirmishers": 60,
+		"long_swordsmen": 55,
+		"man_at_arms": 50,
+		"pikemen": 50,
+		"militia": 40,
+		"spearmen": 35,
+	}
+
+	for unit in scene_tree.get_nodes_in_group("units"):
+		if unit.team == AI_TEAM or unit.is_dead:
+			continue
+		if unit is Villager:
+			continue  # Don't prioritize villagers
+		if not unit.is_in_group("military"):
+			continue
+
+		var dist = monk_position.distance_to(unit.global_position)
+		if dist > max_range:
+			continue
+
+		# Get value from groups
+		var value: int = 30  # default
+		for group_name in unit_values:
+			if unit.is_in_group(group_name):
+				value = unit_values[group_name]
+				break
+
+		if value > best_value:
+			best_value = value
+			best_target = unit
+
+	return best_target
+
+
+func command_monk_pickup_relic(monk: Node, relic: Node) -> void:
+	## Direct command: send monk to pick up a relic
+	if is_instance_valid(monk) and is_instance_valid(relic):
+		monk.command_pickup_relic(relic)
+		_log_action("monk_pickup_relic", {})
+
+
+func command_monk_garrison_relic(monk: Node, monastery: Node) -> void:
+	## Direct command: send monk carrying relic to garrison at monastery
+	if is_instance_valid(monk) and is_instance_valid(monastery):
+		monk.command_garrison_relic(monastery)
+		_log_action("monk_garrison_relic", {})
+
+
+func command_monk_convert(monk: Node, target: Node) -> void:
+	## Direct command: send monk to convert an enemy
+	if is_instance_valid(monk) and is_instance_valid(target):
+		monk.command_convert(target)
+		_log_action("monk_convert", {})

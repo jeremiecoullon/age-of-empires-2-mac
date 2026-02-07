@@ -449,3 +449,31 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Use `preload()` after initial import**: MONASTERY_SCENE and MONK_SCENE initially used `load()` because scenes weren't imported yet. After running `godot --headless --import`, switch to `preload()` as constants. This applies to all new scene references — use `load()` only during initial development, then convert.
 
 - **Illumination multiplier precision**: "+50% faster rejuvenation" means `base / 1.5`, not `base * 0.67`. The difference is 0.2 seconds (41.33 vs 41.54) but `/1.5` is mathematically exact.
+
+---
+
+## Phase 6B: Relics + Relic Victory + Full AI Monk Behavior
+
+- **Relics are NOT resources — use "relics" group only**: Relics must not be in the "resources" group or villagers will try to gather from them. They use a separate "relics" group and have their own click detection (`_get_relic_at_position()`), separate from the resource system.
+
+- **Relic is StaticBody2D, not Area2D**: Relics need click detection (collision_layer=4) but no physics response. Using StaticBody2D with `collision_layer = 4` and `collision_mask = 0` gives clickability without pushing units around.
+
+- **Relic command dispatch ordering matters**: In `_issue_command()`, the relic pickup check goes after the enemy unit check but before the friendly wounded heal check. The monastery garrison check goes at the start of the building section, before enemy building attack. Getting the order wrong means monks try to heal/attack instead of picking up relics.
+
+- **Monk carrying relic blocks heal AND convert**: Both `command_heal()` and `command_convert()` need `if carrying_relic: return` guards. Also block `_check_auto_heal()` — otherwise monks auto-heal while carrying relics, which isn't allowed in AoE2.
+
+- **Relic victory needs continuous `_process()` checking**: Unlike TC destruction (event-driven via `check_victory()`), relic victory uses a timer that counts up while all 5 relics are garrisoned by one team. Added `_process(delta)` to GameManager for `_check_relic_victory()`.
+
+- **Gold accumulator pattern for relic income**: Same fractional accumulator as repair/healing — `_gold_accumulator += rate * count * delta`, then extract integer gold when >= 1.0. Don't use `ceil()` or round per-frame, that gives 1 gold/frame instead of 0.5 gold/sec/relic.
+
+- **Monastery destruction must eject relics**: `eject_relics()` in `_destroy()` drops all garrisoned relics near the monastery position with small offsets. Relics are indestructible — they must reappear on the ground when their container is destroyed.
+
+- **Monk sprite swap on relic carry**: When a monk picks up a relic, swap SpriteFrames to monk-with-relic sprites. When they drop/garrison the relic, swap back to normal. The relic-carrying sprites are single-direction (5 frames), not 8-directional like normal monk.
+
+- **`garrison_target` pattern for relic delivery**: Rather than adding a new state, monks reuse the MOVING state with a `garrison_target` variable. When `_process_moving()` detects nav finished AND `garrison_target` is set AND monk is `carrying_relic`, it calls `_garrison_relic_at()`. Clear `garrison_target` on `move_to()` and all state transitions.
+
+- **AI monk commands are direct, not batch**: Unlike villager gathering (assign all idle vills), monk commands target individual monks to individual relics/targets. `get_idle_monk()` returns one monk, `get_monk_carrying_relic()` returns one monk. Each rule fires once per tick cycle, handling one monk at a time.
+
+- **`first_conversion` milestone has no tracking code**: The milestone is defined in the milestones dict but lacks a check in `_check_milestones()`. Conversion tracking would require signals or scanning all military units for team changes, which is complex. Left as `null` for now — the relic milestones are more important for 6B.
+
+- **Relic spawning separation**: Relics spawn at semi-random positions in the mid-map area (400-1400 range), with 300px minimum separation between relics, and distance checks against buildings and resources. This prevents relics from spawning inside bases or on top of resources.

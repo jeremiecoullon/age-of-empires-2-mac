@@ -400,6 +400,33 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if monk_count >= 3:
 				return "monk_limit_%d" % monk_count
 			return game_state.get_can_train_reason("monk")
+		"collect_relics":
+			if game_state.get_building_count("monastery") < 1:
+				return "no_monastery"
+			if not game_state.get_idle_monk():
+				return "no_idle_monks"
+			if game_state.get_uncollected_relics().is_empty():
+				return "no_uncollected_relics"
+		"garrison_relic":
+			if game_state.get_building_count("monastery") < 1:
+				return "no_monastery"
+			if not game_state.get_monk_carrying_relic():
+				return "no_monks_with_relics"
+		"convert_high_value":
+			var idle_monk = game_state.get_idle_monk()
+			if not idle_monk:
+				return "no_idle_monks"
+			if not game_state.get_enemy_high_value_target(idle_monk.global_position):
+				return "no_convertible_targets"
+		"research_monastery_tech":
+			if game_state.get_building_count("monastery") == 0:
+				return "no_monastery"
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			var mon = game_state._get_ai_monastery()
+			if mon and mon.is_researching:
+				return "monastery_busy"
+			return "all_techs_researched"
 		"research_blacksmith_tech":
 			if game_state.get_building_count("blacksmith") == 0:
 				return "no_blacksmith"
@@ -457,6 +484,7 @@ func _get_rule_blockers() -> Dictionary:
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
 		"build_monastery", "build_mill", "build_lumber_camp",
 		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
+		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech",
 		"advance_to_feudal", "advance_to_castle",
 		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
 		"defend_base", "attack"

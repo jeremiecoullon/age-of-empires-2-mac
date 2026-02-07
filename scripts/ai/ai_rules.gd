@@ -990,6 +990,118 @@ class TrainMonkRule extends AIRule:
 		gs.train("monk")
 
 
+# =============================================================================
+# RELIC COLLECTION (Phase 6B)
+# =============================================================================
+
+class CollectRelicsRule extends AIRule:
+	## Send idle monks to pick up uncollected relics
+	func _init():
+		rule_name = "collect_relics"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") < 1:
+			return false
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return false
+		var relics = gs.get_uncollected_relics()
+		return relics.size() > 0
+
+	func actions(gs: AIGameState) -> void:
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return
+		var relics = gs.get_uncollected_relics()
+		if relics.is_empty():
+			return
+		# Pick nearest relic
+		var nearest_relic: Node = null
+		var nearest_dist: float = INF
+		for relic in relics:
+			var dist = monk.global_position.distance_to(relic.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest_relic = relic
+		if nearest_relic:
+			gs.command_monk_pickup_relic(monk, nearest_relic)
+
+
+class GarrisonRelicRule extends AIRule:
+	## Send monks carrying relics to garrison at monastery
+	func _init():
+		rule_name = "garrison_relic"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") < 1:
+			return false
+		return gs.get_monk_carrying_relic() != null
+
+	func actions(gs: AIGameState) -> void:
+		var monk = gs.get_monk_carrying_relic()
+		if not monk:
+			return
+		var monastery = gs._get_ai_monastery()
+		if not monastery:
+			return
+		gs.command_monk_garrison_relic(monk, monastery)
+
+
+class ConvertHighValueTargetRule extends AIRule:
+	## Send idle monks to convert expensive enemy units
+	func _init():
+		rule_name = "convert_high_value"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Relic collection takes priority over conversion
+		if gs.get_uncollected_relics().size() > 0:
+			return false
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return false
+		var target = gs.get_enemy_high_value_target(monk.global_position)
+		return target != null
+
+	func actions(gs: AIGameState) -> void:
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return
+		var target = gs.get_enemy_high_value_target(monk.global_position)
+		if target:
+			gs.command_monk_convert(monk, target)
+
+
+class ResearchMonasteryTechRule extends AIRule:
+	## Research monastery techs in priority order
+	func _init():
+		rule_name = "research_monastery_tech"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") == 0:
+			return false
+		if gs.should_save_for_age():
+			return false
+		var mon = gs._get_ai_monastery()
+		if not mon or mon.is_researching:
+			return false
+		return _get_best_tech(gs) != ""
+
+	func actions(gs: AIGameState) -> void:
+		var tech_id = _get_best_tech(gs)
+		if tech_id != "":
+			gs.research_tech(tech_id)
+
+	func _get_best_tech(gs: AIGameState) -> String:
+		# Priority: Sanctity > Fervor > Redemption > Atonement
+		# Imperial techs are auto-excluded by age gate
+		var tech_priority = ["sanctity", "fervor", "redemption", "atonement",
+							 "illumination", "faith", "block_printing"]
+		for tech_id in tech_priority:
+			if gs.can_research(tech_id):
+				return tech_id
+		return ""
+
+
 class AttackRule extends AIRule:
 	func _init():
 		rule_name = "attack"
@@ -1049,6 +1161,11 @@ static func create_all_rules() -> Array:
 		# Monastery (Phase 6A)
 		BuildMonasteryRule.new(),
 		TrainMonkRule.new(),
+		# Relic collection and monk behavior (Phase 6B)
+		CollectRelicsRule.new(),
+		GarrisonRelicRule.new(),
+		ConvertHighValueTargetRule.new(),
+		ResearchMonasteryTechRule.new(),
 		# Age advancement (Phase 4A)
 		AdvanceToFeudalAgeRule.new(),
 		AdvanceToCastleAgeRule.new(),

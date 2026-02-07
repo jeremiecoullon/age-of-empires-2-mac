@@ -84,6 +84,9 @@ extends CanvasLayer
 # Attack notification (created dynamically)
 var attack_notification_label: Label = null
 
+# Relic victory countdown (created dynamically)
+var relic_countdown_label: Label = null
+
 # Currently selected building (for training)
 var selected_building: Building = null
 var selected_building_type: String = ""  # "tc", "barracks", "market", "archery_range", "stable", "blacksmith", "monastery"
@@ -126,6 +129,9 @@ func _ready() -> void:
 	GameManager.market_prices_changed.connect(_update_market_prices)
 	GameManager.player_under_attack.connect(_on_player_under_attack)
 	GameManager.age_changed.connect(_on_age_changed)
+	GameManager.relic_countdown_started.connect(_on_relic_countdown_started)
+	GameManager.relic_countdown_updated.connect(_on_relic_countdown_updated)
+	GameManager.relic_countdown_cancelled.connect(_on_relic_countdown_cancelled)
 
 	# Group buttons for easier management
 	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
@@ -151,6 +157,9 @@ func _ready() -> void:
 	_hide_all_action_buttons()
 	game_over_panel.visible = false
 	error_label.visible = false
+
+	# Relic victory countdown label
+	_setup_relic_countdown_label()
 
 	# Cache game logger reference
 	_game_logger = get_parent().get_node_or_null("GameLogger") as GameLogger
@@ -626,7 +635,12 @@ func show_info(entity: Node) -> void:
 		if entity.team == 0 and entity.is_functional():
 			_show_blacksmith_buttons(entity)
 	elif entity is Monastery:
-		_show_building_info("Monastery", "Trains monks\nResearches monastery techs", entity)
+		var mon_details = "Trains monks\nResearches monastery techs"
+		var relic_count = entity.get_relic_count()
+		if relic_count > 0:
+			var gold_rate = relic_count * Monastery.RELIC_GOLD_RATE
+			mon_details += "\nRelics: %d (+%.1f gold/sec)" % [relic_count, gold_rate]
+		_show_building_info("Monastery", mon_details, entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_monastery_buttons(entity)
 	elif entity is Building:
@@ -1646,6 +1660,37 @@ func _on_player_under_attack(attack_type: String) -> void:
 		attack_notification_label.visible = false
 		attack_notification_label.modulate.a = 1.0
 	)
+
+
+func _setup_relic_countdown_label() -> void:
+	relic_countdown_label = Label.new()
+	relic_countdown_label.name = "RelicCountdown"
+	relic_countdown_label.text = ""
+	relic_countdown_label.visible = false
+	relic_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	relic_countdown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	relic_countdown_label.add_theme_font_size_override("font_size", 18)
+	relic_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	relic_countdown_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	relic_countdown_label.position = Vector2(-200, 30)
+	relic_countdown_label.custom_minimum_size = Vector2(400, 30)
+	add_child(relic_countdown_label)
+
+
+func _on_relic_countdown_started(team: int) -> void:
+	relic_countdown_label.visible = true
+	var team_name = "Player" if team == 0 else "AI"
+	relic_countdown_label.text = "%s controls all relics!" % team_name
+
+
+func _on_relic_countdown_updated(team: int, time_remaining: float) -> void:
+	relic_countdown_label.visible = true
+	var team_name = "Player" if team == 0 else "AI"
+	relic_countdown_label.text = "%s controls all relics! %ds remaining" % [team_name, int(time_remaining)]
+
+
+func _on_relic_countdown_cancelled() -> void:
+	relic_countdown_label.visible = false
 
 
 func _on_game_over(winner: int) -> void:

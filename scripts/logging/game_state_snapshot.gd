@@ -11,8 +11,10 @@ static func capture(scene_tree: SceneTree, team: int) -> Dictionary:
 		"population": _capture_population(team),
 		"villagers": _capture_villagers(scene_tree, team),
 		"military": _capture_military(scene_tree, team),
+		"monks": _capture_monks(scene_tree, team),
 		"buildings": _capture_buildings(scene_tree, team),
 		"technologies": _capture_technologies(team),
+		"relics": _capture_relics(scene_tree, team),
 	}
 
 
@@ -142,6 +144,7 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"mining_camp": 0,
 		"market": 0,
 		"blacksmith": 0,
+		"monastery": 0,
 	}
 
 	# Map group names to result keys
@@ -157,6 +160,7 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"mining_camps": "mining_camp",
 		"markets": "market",
 		"blacksmiths": "blacksmith",
+		"monasteries": "monastery",
 	}
 
 	for group_name in groups:
@@ -165,6 +169,39 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 			if building.team == team and building.is_functional():
 				result[key] += 1
 
+	return result
+
+
+static func _capture_monks(scene_tree: SceneTree, team: int) -> Dictionary:
+	var result = {"total": 0, "idle": 0, "healing": 0, "converting": 0, "carrying_relic": 0, "rejuvenating": 0}
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team != team or unit.is_dead:
+			continue
+		result["total"] += 1
+		if unit.carrying_relic:
+			result["carrying_relic"] += 1
+		elif unit.is_rejuvenating:
+			result["rejuvenating"] += 1
+		elif unit.current_state == 0:  # IDLE
+			result["idle"] += 1
+		elif unit.current_state == 2:  # HEALING
+			result["healing"] += 1
+		elif unit.current_state == 3:  # CONVERTING
+			result["converting"] += 1
+	return result
+
+
+static func _capture_relics(scene_tree: SceneTree, team: int) -> Dictionary:
+	var result = {"on_ground": 0, "carried": 0, "garrisoned": 0}
+	for relic in scene_tree.get_nodes_in_group("relics"):
+		if relic.is_garrisoned:
+			if is_instance_valid(relic.garrison_building) and relic.garrison_building.team == team:
+				result["garrisoned"] += 1
+		elif relic.is_carried:
+			if is_instance_valid(relic.carrier) and relic.carrier.team == team:
+				result["carried"] += 1
+		else:
+			result["on_ground"] += 1
 	return result
 
 

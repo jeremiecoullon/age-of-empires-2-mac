@@ -1,4 +1,4 @@
-# Phase 6: Monks, Relics & Monastery
+# Phase 6: Monks, Relics & Monastery [COMPLETE]
 
 ## Context
 

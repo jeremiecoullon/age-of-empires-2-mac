@@ -382,8 +382,17 @@ signal villager_idle(villager: Node, reason: String)  # Emitted when player vill
 signal market_prices_changed  # Emitted when market prices update
 signal player_under_attack(attack_type: String)  # "military", "villager", or "building"
 signal age_changed(team: int, new_age: int)  # Emitted when a player advances to a new age
+signal relic_countdown_started(team: int)
+signal relic_countdown_updated(team: int, time_remaining: float)
+signal relic_countdown_cancelled()
 
 var game_ended: bool = false
+
+# Relic victory
+const RELIC_VICTORY_TIME: float = 200.0  # Seconds to hold all relics for victory
+const TOTAL_RELICS: int = 5
+var relic_victory_timer: float = 0.0
+var relic_victory_team: int = -1
 
 # Attack notification throttling
 const ATTACK_NOTIFY_COOLDOWN: float = 5.0  # Don't spam notifications
@@ -598,6 +607,58 @@ func refund_age_cost(target_age: int, team: int = 0) -> void:
 	for resource_type in costs:
 		add_resource(resource_type, costs[resource_type], team)
 
+var _relic_check_timer: float = 0.0
+const RELIC_CHECK_INTERVAL: float = 1.0
+
+func _process(delta: float) -> void:
+	if relic_victory_team >= 0:
+		# Active countdown — check every frame for accurate timer
+		_check_relic_victory(delta)
+	else:
+		# No active countdown — throttle to 1s intervals
+		_relic_check_timer += delta
+		if _relic_check_timer >= RELIC_CHECK_INTERVAL:
+			_relic_check_timer = 0.0
+			_check_relic_victory(delta)
+
+func _check_relic_victory(delta: float) -> void:
+	if game_ended:
+		return
+	# Count garrisoned relics per team
+	var team_relic_counts: Dictionary = {}
+	for monastery in get_tree().get_nodes_in_group("monasteries"):
+		if monastery.is_destroyed:
+			continue
+		var count = monastery.get_relic_count()
+		if count > 0:
+			team_relic_counts[monastery.team] = team_relic_counts.get(monastery.team, 0) + count
+
+	# Check if any team has all relics
+	var controlling_team: int = -1
+	for team_id in team_relic_counts:
+		if team_relic_counts[team_id] >= TOTAL_RELICS:
+			controlling_team = team_id
+			break
+
+	if controlling_team >= 0:
+		if relic_victory_team != controlling_team:
+			# New team took control of all relics
+			relic_victory_team = controlling_team
+			relic_victory_timer = 0.0
+			relic_countdown_started.emit(controlling_team)
+		relic_victory_timer += delta
+		var time_remaining = RELIC_VICTORY_TIME - relic_victory_timer
+		relic_countdown_updated.emit(controlling_team, time_remaining)
+		if relic_victory_timer >= RELIC_VICTORY_TIME:
+			game_ended = true
+			game_over.emit(controlling_team)
+	else:
+		if relic_victory_team >= 0:
+			# Lost control
+			relic_victory_team = -1
+			relic_victory_timer = 0.0
+			relic_countdown_cancelled.emit()
+
 # Victory check
 func check_victory() -> void:
 	if game_ended:
@@ -669,6 +730,8 @@ func reset() -> void:
 	player_tech_bonuses.clear()
 	ai_tech_bonuses.clear()
 	game_ended = false
+	relic_victory_timer = 0.0
+	relic_victory_team = -1
 	clear_selection()
 	is_placing_building = false
 	building_to_place = null

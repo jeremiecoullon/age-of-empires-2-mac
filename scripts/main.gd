@@ -13,6 +13,7 @@ const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
 const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
+const RELIC_SCENE: PackedScene = preload("res://scenes/objects/relic.tscn")
 const TILE_SIZE = 32
 
 enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY }
@@ -37,6 +38,74 @@ func _ready() -> void:
 	cursor_manager.initialize(self)
 
 	_game_logger = get_node_or_null("GameLogger") as GameLogger
+	_spawn_relics()
+
+
+func _spawn_relics() -> void:
+	var relic_positions: Array[Vector2] = []
+	var min_separation: float = 300.0
+	var map_min: float = 400.0
+	var map_max: float = 1400.0
+	var max_attempts: int = 100
+
+	for _i in range(GameManager.TOTAL_RELICS):
+		var placed = false
+		for _attempt in range(max_attempts):
+			var pos = Vector2(
+				randf_range(map_min, map_max),
+				randf_range(map_min, map_max)
+			)
+			# Check separation from other relics
+			var too_close = false
+			for existing in relic_positions:
+				if pos.distance_to(existing) < min_separation:
+					too_close = true
+					break
+			if too_close:
+				continue
+			# Check not on top of buildings/resources
+			var on_obstacle = false
+			for building in get_tree().get_nodes_in_group("buildings"):
+				if pos.distance_to(building.global_position) < 80.0:
+					on_obstacle = true
+					break
+			if not on_obstacle:
+				for resource in get_tree().get_nodes_in_group("resources"):
+					if pos.distance_to(resource.global_position) < 60.0:
+						on_obstacle = true
+						break
+			if on_obstacle:
+				continue
+			relic_positions.append(pos)
+			placed = true
+			break
+		if not placed:
+			# Fallback: place at a default position
+			relic_positions.append(Vector2(
+				map_min + (_i * (map_max - map_min) / GameManager.TOTAL_RELICS),
+				map_min + (_i * (map_max - map_min) / GameManager.TOTAL_RELICS)
+			))
+
+	for pos in relic_positions:
+		var relic = RELIC_SCENE.instantiate()
+		relic.global_position = pos
+		add_child(relic)
+
+
+func _get_relic_at_position(pos: Vector2) -> Node:
+	var relics = get_tree().get_nodes_in_group("relics")
+	var closest: Node = null
+	var closest_dist: float = 40.0
+
+	for relic in relics:
+		if not relic.visible:
+			continue
+		var dist = pos.distance_to(relic.global_position)
+		if dist < closest_dist:
+			closest_dist = dist
+			closest = relic
+
+	return closest
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
@@ -221,6 +290,20 @@ func _issue_command(world_pos: Vector2) -> void:
 			_game_logger.log_action("attack", {"target": "unit"})
 		return
 
+	# Check if clicking on a relic (for monk pickup)
+	var relic = _get_relic_at_position(world_pos)
+	if relic and not relic.is_carried and not relic.is_garrisoned:
+		var sent_monk = false
+		for unit in GameManager.selected_units:
+			if unit is Monk and not unit.carrying_relic:
+				unit.command_pickup_relic(relic)
+				sent_monk = true
+				break  # Only one monk per relic
+		if sent_monk:
+			if _game_logger:
+				_game_logger.log_action("pickup_relic", {})
+			return
+
 	# Check if clicking on a friendly wounded unit (monk heal)
 	if target_unit and target_unit.team == 0 and target_unit.current_hp < target_unit.max_hp:
 		var has_monks = false
@@ -236,6 +319,17 @@ func _issue_command(world_pos: Vector2) -> void:
 	# Check if clicking on a building
 	var target_building = _get_building_at_position(world_pos)
 	if target_building:
+		# Friendly monastery - garrison relic if monk is carrying one
+		if target_building.team == 0 and target_building is Monastery:
+			var sent_monk = false
+			for unit in GameManager.selected_units:
+				if unit is Monk and unit.carrying_relic:
+					unit.command_garrison_relic(target_building)
+					sent_monk = true
+			if sent_monk:
+				if _game_logger:
+					_game_logger.log_action("garrison_relic", {})
+				return
 		# Enemy building - attack
 		if target_building.team != 0:
 			for unit in GameManager.selected_units:
