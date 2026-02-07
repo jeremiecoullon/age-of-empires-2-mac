@@ -39,6 +39,7 @@ var milestones: Dictionary = {
 	"first_conversion": null,
 	"first_outpost": null,
 	"first_watch_tower": null,
+	"first_palisade_wall": null,
 	"first_garrison": null,
 }
 
@@ -111,7 +112,7 @@ func record_attack() -> void:
 
 func _check_milestones(game_time: float, state) -> void:
 	# Building milestones
-	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith", "outpost", "watch_tower"]
+	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith", "outpost", "watch_tower", "palisade_wall"]
 	for building_type in building_types:
 		var milestone_key = "first_" + building_type
 		if milestones[milestone_key] == null:
@@ -178,6 +179,12 @@ func _check_milestones(game_time: float, state) -> void:
 		var tower_count = state.get_building_count("watch_tower")
 		if tower_count > 0:
 			milestones["first_watch_tower"] = game_time
+
+	# Palisade Wall milestone
+	if milestones["first_palisade_wall"] == null:
+		var wall_count = state.get_building_count("palisade_wall")
+		if wall_count > 0:
+			milestones["first_palisade_wall"] = game_time
 
 	# Garrison milestone — detect any AI unit garrisoned in a building
 	if milestones["first_garrison"] == null:

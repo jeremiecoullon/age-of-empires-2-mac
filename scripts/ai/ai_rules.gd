@@ -1167,6 +1167,33 @@ class BuildWatchTowerRule extends AIRule:
 		_tower_queued_at = gs.get_game_time()
 
 
+class BuildPalisadeWallRule extends AIRule:
+	var _wall_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+	const MAX_WALLS: int = 5
+
+	func _init():
+		rule_name = "build_palisade_wall"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("palisade_wall") >= MAX_WALLS:
+			_wall_queued_at = -1.0
+			return false
+
+		if _wall_queued_at > 0.0 and gs.get_game_time() - _wall_queued_at > QUEUE_TIMEOUT:
+			_wall_queued_at = -1.0
+
+		# Build palisade walls after 3 min with a barracks
+		return _wall_queued_at < 0.0 \
+			and gs.get_game_time() >= 180.0 \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.can_build("palisade_wall")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("palisade_wall")
+		_wall_queued_at = gs.get_game_time()
+
+
 class GarrisonUnderAttackRule extends AIRule:
 	func _init():
 		rule_name = "garrison_under_attack"
@@ -1275,9 +1302,10 @@ static func create_all_rules() -> Array:
 		ResearchBlacksmithTechRule.new(),
 		# Unit upgrades (Phase 5B)
 		ResearchUnitUpgradeRule.new(),
-		# Defensive buildings (Phase 7A)
+		# Defensive buildings (Phase 7A/7B)
 		BuildOutpostRule.new(),
 		BuildWatchTowerRule.new(),
+		BuildPalisadeWallRule.new(),
 		GarrisonUnderAttackRule.new(),
 		UngarrisonWhenSafeRule.new(),
 		# Defense (Phase 3.1C)

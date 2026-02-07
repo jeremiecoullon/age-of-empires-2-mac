@@ -30,6 +30,9 @@ const BLACKSMITH_SCENE: PackedScene = preload("res://scenes/buildings/blacksmith
 const MONASTERY_SCENE: PackedScene = preload("res://scenes/buildings/monastery.tscn")
 const OUTPOST_SCENE: PackedScene = preload("res://scenes/buildings/outpost.tscn")
 const WATCH_TOWER_SCENE: PackedScene = preload("res://scenes/buildings/watch_tower.tscn")
+const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
+const STONE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/stone_wall.tscn")
+const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
 
 # Building costs
 const BUILDING_COSTS: Dictionary = {
@@ -45,7 +48,10 @@ const BUILDING_COSTS: Dictionary = {
 	"blacksmith": {"wood": 150},
 	"monastery": {"wood": 175},
 	"outpost": {"wood": 25, "stone": 25},
-	"watch_tower": {"wood": 25, "stone": 125}
+	"watch_tower": {"wood": 25, "stone": 125},
+	"palisade_wall": {"wood": 2},
+	"stone_wall": {"stone": 5},
+	"gate": {"stone": 30}
 }
 
 # Building sizes (in pixels)
@@ -62,7 +68,10 @@ const BUILDING_SIZES: Dictionary = {
 	"blacksmith": Vector2(96, 96),
 	"monastery": Vector2(96, 96),
 	"outpost": Vector2(32, 32),
-	"watch_tower": Vector2(32, 32)
+	"watch_tower": Vector2(32, 32),
+	"palisade_wall": Vector2(32, 32),
+	"stone_wall": Vector2(32, 32),
+	"gate": Vector2(32, 32)
 }
 
 # Reference to controller (for accessing strategic numbers, timers, etc.)
@@ -376,6 +385,12 @@ func get_building_count(building_type: String) -> int:
 			group_name = "outposts"
 		"watch_tower":
 			group_name = "watch_towers"
+		"palisade_wall":
+			group_name = "palisade_walls"
+		"stone_wall":
+			group_name = "stone_walls"
+		"gate":
+			group_name = "gates"
 		"town_center":
 			group_name = "town_centers"
 
@@ -1114,6 +1129,12 @@ func _get_ai_building(building_type: String) -> Node:
 			group_name = "outposts"
 		"watch_tower":
 			group_name = "watch_towers"
+		"palisade_wall":
+			group_name = "palisade_walls"
+		"stone_wall":
+			group_name = "stone_walls"
+		"gate":
+			group_name = "gates"
 
 	for building in scene_tree.get_nodes_in_group(group_name):
 		if building.team == AI_TEAM and not building.is_destroyed:
@@ -1250,6 +1271,12 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return OUTPOST_SCENE
 		"watch_tower":
 			return WATCH_TOWER_SCENE
+		"palisade_wall":
+			return PALISADE_WALL_SCENE
+		"stone_wall":
+			return STONE_WALL_SCENE
+		"gate":
+			return GATE_SCENE
 	return null
 
 

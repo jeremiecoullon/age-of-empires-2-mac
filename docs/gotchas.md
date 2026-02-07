@@ -501,3 +501,25 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Watch Tower attack doesn't target enemy buildings (TC does)**: TC's `_find_attack_target()` scans both units and buildings; Watch Tower only scans units. Minor inconsistency — towers won't shoot at enemy buildings within range. Will be fixed when extracting shared attack logic to base class (Phase 8, when Guard Tower/Keep need it too).
 
 - **Multi-resource building costs**: `_place_building()` in main.gd now handles wood/food/stone/gold costs. The building is instantiated to read its cost properties, then all resources are checked before any are spent (all-or-nothing). Same pattern used in repair cost calculation.
+
+---
+
+## Phase 7B: Walls + Gates + Wall Dragging + AI Defense
+
+- **Wall segments are individual buildings**: Each wall tile is a separate Building instance. A 10-tile wall = 10 nodes. This is simple and correct for a 60x60 map. No shared wall "line" object needed.
+
+- **Wall drag is a separate input code path**: `is_wall_placement` flag routes to `_handle_wall_placement_input()`. The existing `_handle_building_placement_input()` is untouched. This keeps the two systems isolated — single-click placement for gates and other buildings, drag for wall lines.
+
+- **L-shaped path: horizontal first, then vertical**: `_compute_wall_path()` always goes horizontal then vertical. No diagonal ambiguity. Uses `floori()` for tile index calculation to handle negative coordinates correctly (integer division truncates toward zero, not toward negative infinity).
+
+- **Cache ghost textures during wall drag**: `_update_wall_ghosts()` is called on every mouse move. Creating new `ImageTexture` objects per call causes allocation pressure. Fix: create the texture once in `start_*_wall_placement()` and store in `_wall_ghost_texture` member variable.
+
+- **Gate collision toggle lets enemies through (known simplification)**: When a friendly unit is near an unlocked gate, the CollisionShape2D is disabled entirely. This means ALL units (including enemies) can pass through while the gate is open. AoE2 only allows friendly passage. Fixing this properly would require per-team collision layers or a pathfinding-level solution. Acceptable for now — document and revisit if exploitable in gameplay.
+
+- **Gate auto-open scan throttled at 0.3s**: Uses accumulator pattern like TC/tower idle scan. With many gates (10+), each independently scanning all units every 0.3s could add up. Acceptable for current scale; consider Area2D monitoring if performance becomes an issue.
+
+- **Wall drag cost is all-or-nothing**: Total cost = per_segment_cost × valid_positions.size(). If the player can't afford the full wall, nothing is built. No partial placement. This prevents confusing partial walls but can surprise players who don't realize the total cost.
+
+- **preload() for wall/gate scenes**: Converted from `load()` to `preload()` constants (`PALISADE_WALL_SCENE`, `STONE_WALL_SCENE`, `GATE_SCENE`) to avoid file I/O during gameplay. The rest of main.gd's building scenes still use `load()` (pre-existing tech debt).
+
+- **AI builds individual wall segments, not lines**: The AI's `BuildPalisadeWallRule` places one wall segment at a time using the expanding-ring placement system. No drag logic needed for AI — it just places segments near the base each tick cycle.

@@ -148,6 +148,9 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"monastery": 0,
 		"outpost": 0,
 		"watch_tower": 0,
+		"palisade_wall": 0,
+		"stone_wall": 0,
+		"gate": 0,
 	}
 
 	# Map group names to result keys
@@ -166,6 +169,9 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"monasteries": "monastery",
 		"outposts": "outpost",
 		"watch_towers": "watch_tower",
+		"palisade_walls": "palisade_wall",
+		"stone_walls": "stone_wall",
+		"gates": "gate",
 	}
 
 	for group_name in groups:

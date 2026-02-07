@@ -462,6 +462,14 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if game_state.get_resource("stone") < 125:
 				return "need_125_stone_have_%d" % game_state.get_resource("stone")
 			return game_state.get_can_build_reason("watch_tower")
+		"build_palisade_wall":
+			if game_state.get_building_count("palisade_wall") >= 5:
+				return "have_enough_walls"
+			if game_state.get_game_time() < 180.0:
+				return "too_early"
+			if game_state.get_building_count("barracks") < 1:
+				return "need_barracks_first"
+			return game_state.get_can_build_reason("palisade_wall")
 		"garrison_under_attack":
 			if not game_state.is_under_attack():
 				return "not_under_attack"
@@ -504,7 +512,7 @@ func _get_rule_blockers() -> Dictionary:
 	var key_rules = [
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
 		"build_monastery", "build_mill", "build_lumber_camp",
-		"build_outpost", "build_watch_tower",
+		"build_outpost", "build_watch_tower", "build_palisade_wall",
 		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
 		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech",
 		"garrison_under_attack", "ungarrison_when_safe",
@@ -696,6 +704,9 @@ func _print_debug_state() -> void:
 	var monastery_count = game_state.get_building_count("monastery")
 	var outpost_count = game_state.get_building_count("outpost")
 	var watch_tower_count = game_state.get_building_count("watch_tower")
+	var palisade_wall_count = game_state.get_building_count("palisade_wall")
+	var stone_wall_count = game_state.get_building_count("stone_wall")
+	var gate_count = game_state.get_building_count("gate")
 
 	# Format timers as dict
 	var timers_remaining: Dictionary = {}
@@ -771,6 +782,9 @@ func _print_debug_state() -> void:
 			"monastery": monastery_count,
 			"outpost": outpost_count,
 			"watch_tower": watch_tower_count,
+			"palisade_wall": palisade_wall_count,
+			"stone_wall": stone_wall_count,
+			"gate": gate_count,
 		},
 		"tech": {
 			"researched_count": game_state._count_researched_techs(),

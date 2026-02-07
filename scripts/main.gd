@@ -15,10 +15,13 @@ const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
 const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
 const OUTPOST_SCENE_PATH = "res://scenes/buildings/outpost.tscn"
 const WATCH_TOWER_SCENE_PATH = "res://scenes/buildings/watch_tower.tscn"
+const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
+const STONE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/stone_wall.tscn")
+const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
 const RELIC_SCENE: PackedScene = preload("res://scenes/objects/relic.tscn")
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, OUTPOST, WATCH_TOWER }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, OUTPOST, WATCH_TOWER, PALISADE_WALL, STONE_WALL, GATE }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -32,6 +35,14 @@ var selection_rect: Rect2 = Rect2()
 var building_ghost: Sprite2D = null
 var cursor_manager: Node = null
 var _game_logger: GameLogger = null
+
+# Wall drag placement
+var is_wall_placement: bool = false
+var wall_drag_active: bool = false
+var wall_drag_start: Vector2 = Vector2.ZERO
+var wall_ghosts: Array[Sprite2D] = []
+var wall_scene_path: PackedScene = null
+var _wall_ghost_texture: ImageTexture = null
 
 func _ready() -> void:
 	# Initialize cursor manager
@@ -118,7 +129,10 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.is_placing_building:
-		_handle_building_placement_input(event)
+		if is_wall_placement:
+			_handle_wall_placement_input(event)
+		else:
+			_handle_building_placement_input(event)
 		return
 
 	if event is InputEventMouseButton:
@@ -153,6 +167,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_blacksmith_panel()
 		hud.hide_monastery_panel()
 		hud.hide_garrison_panel()
+		hud.hide_gate_panel()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -171,6 +186,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 		hud.hide_blacksmith_panel()
 		hud.hide_monastery_panel()
 		hud.hide_garrison_panel()
+		hud.hide_gate_panel()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -192,6 +208,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Monastery:
 			hud.show_monastery_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is Gate:
+			hud.show_gate_panel(clicked_building)
+			hud.show_info(clicked_building)
 		elif clicked_building is WatchTower:
 			hud.show_garrison_building_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -207,6 +226,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	hud.hide_blacksmith_panel()
 	hud.hide_monastery_panel()
 	hud.hide_garrison_panel()
+	hud.hide_gate_panel()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -585,6 +605,219 @@ func start_blacksmith_placement() -> void:
 	current_building_type = BuildingType.BLACKSMITH
 	GameManager.start_building_placement(load(BLACKSMITH_SCENE_PATH), building_ghost)
 
+func start_palisade_wall_placement() -> void:
+	_cancel_building_placement()
+	is_wall_placement = true
+	wall_scene_path = PALISADE_WALL_SCENE
+	current_building_type = BuildingType.PALISADE_WALL
+	_wall_ghost_texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.5, 0.35, 0.15, 0.5))
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _wall_ghost_texture
+	add_child(building_ghost)
+
+	GameManager.start_building_placement(wall_scene_path, building_ghost)
+
+func start_stone_wall_placement() -> void:
+	_cancel_building_placement()
+	is_wall_placement = true
+	wall_scene_path = STONE_WALL_SCENE
+	current_building_type = BuildingType.STONE_WALL
+	_wall_ghost_texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.6, 0.6, 0.65, 0.5))
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _wall_ghost_texture
+	add_child(building_ghost)
+
+	GameManager.start_building_placement(wall_scene_path, building_ghost)
+
+func start_gate_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.5, 0.4, 0.3, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.GATE
+	GameManager.start_building_placement(GATE_SCENE, building_ghost)
+
+# ============================================================================
+# Wall drag placement
+# ============================================================================
+
+func _handle_wall_placement_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var pos = get_global_mouse_position()
+		pos.x = snapped(pos.x, TILE_SIZE) + TILE_SIZE / 2
+		pos.y = snapped(pos.y, TILE_SIZE) + TILE_SIZE / 2
+
+		if wall_drag_active:
+			var path = _compute_wall_path(wall_drag_start, pos)
+			_update_wall_ghosts(path)
+		elif building_ghost:
+			building_ghost.global_position = pos
+
+	elif event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				# Start drag
+				var pos = get_global_mouse_position()
+				pos.x = snapped(pos.x, TILE_SIZE) + TILE_SIZE / 2
+				pos.y = snapped(pos.y, TILE_SIZE) + TILE_SIZE / 2
+				wall_drag_start = pos
+				wall_drag_active = true
+				# Hide the single ghost — we'll use wall_ghosts array
+				if building_ghost:
+					building_ghost.visible = false
+			else:
+				# Release — place wall segments
+				if wall_drag_active:
+					_place_wall_segments()
+				_cancel_wall_placement()
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			_cancel_wall_placement()
+
+	elif event is InputEventKey:
+		if event.keycode == KEY_ESCAPE and event.pressed:
+			_cancel_wall_placement()
+
+func _compute_wall_path(start: Vector2, end: Vector2) -> Array[Vector2]:
+	## Compute L-shaped path: horizontal first, then vertical.
+	## Positions are snapped tile-center coordinates.
+	var path: Array[Vector2] = []
+
+	var sx = floori((start.x - TILE_SIZE / 2) / TILE_SIZE)
+	var sy = floori((start.y - TILE_SIZE / 2) / TILE_SIZE)
+	var ex = floori((end.x - TILE_SIZE / 2) / TILE_SIZE)
+	var ey = floori((end.y - TILE_SIZE / 2) / TILE_SIZE)
+
+	# Horizontal segment
+	var x_step = 1 if ex >= sx else -1
+	var x = sx
+	while x != ex + x_step:
+		path.append(Vector2(x * TILE_SIZE + TILE_SIZE / 2, sy * TILE_SIZE + TILE_SIZE / 2))
+		x += x_step
+
+	# Vertical segment (skip the corner which was already added)
+	var y_step = 1 if ey >= sy else -1
+	var y = sy + y_step
+	while y != ey + y_step:
+		path.append(Vector2(ex * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2))
+		y += y_step
+
+	return path
+
+func _update_wall_ghosts(positions: Array[Vector2]) -> void:
+	# Filter out positions that already have buildings
+	var valid_positions: Array[Vector2] = []
+	for pos in positions:
+		if _is_valid_building_position(pos, Vector2(32, 32)):
+			valid_positions.append(pos)
+
+	# Reuse existing ghosts, create new ones as needed, free extras
+	while wall_ghosts.size() < valid_positions.size():
+		var ghost = Sprite2D.new()
+		ghost.texture = _wall_ghost_texture
+		add_child(ghost)
+		wall_ghosts.append(ghost)
+
+	while wall_ghosts.size() > valid_positions.size():
+		var ghost = wall_ghosts.pop_back()
+		ghost.queue_free()
+
+	for i in range(valid_positions.size()):
+		wall_ghosts[i].global_position = valid_positions[i]
+
+func _place_wall_segments() -> void:
+	if not wall_drag_active:
+		return
+
+	var end_pos = get_global_mouse_position()
+	end_pos.x = snapped(end_pos.x, TILE_SIZE) + TILE_SIZE / 2
+	end_pos.y = snapped(end_pos.y, TILE_SIZE) + TILE_SIZE / 2
+
+	var path = _compute_wall_path(wall_drag_start, end_pos)
+
+	# Filter to valid positions
+	var valid_positions: Array[Vector2] = []
+	for pos in path:
+		if _is_valid_building_position(pos, Vector2(32, 32)):
+			valid_positions.append(pos)
+
+	if valid_positions.is_empty():
+		hud._show_error("No valid positions for wall!")
+		return
+
+	# Need at least one selected villager
+	var builder_villagers: Array[Villager] = []
+	for unit in GameManager.selected_units:
+		if unit is Villager and unit.team == 0 and is_instance_valid(unit) and not unit.is_dead and not unit.is_garrisoned():
+			builder_villagers.append(unit)
+
+	if builder_villagers.is_empty():
+		hud._show_error("Select a villager to build!")
+		return
+
+	# Calculate total cost (all-or-nothing)
+	var sample_building = wall_scene_path.instantiate()
+	var costs: Dictionary = {}
+	if sample_building.wood_cost > 0:
+		costs["wood"] = sample_building.wood_cost * valid_positions.size()
+	if sample_building.stone_cost > 0:
+		costs["stone"] = sample_building.stone_cost * valid_positions.size()
+	sample_building.queue_free()
+
+	# Check affordability
+	for res_type in costs:
+		if not GameManager.can_afford(res_type, costs[res_type]):
+			hud._show_error("Not enough %s! Need %d" % [res_type, costs[res_type]])
+			return
+
+	# Spend all resources
+	for res_type in costs:
+		GameManager.spend_resource(res_type, costs[res_type])
+
+	# Place each segment
+	var first_building: Building = null
+	for pos in valid_positions:
+		var building = wall_scene_path.instantiate()
+		building.global_position = pos
+		building.team = 0
+		buildings_container.add_child(building)
+		building.start_construction()
+		if first_building == null:
+			first_building = building
+
+	# Assign builders to first segment
+	if first_building:
+		for villager in builder_villagers:
+			villager.command_build(first_building)
+
+	if _game_logger:
+		_game_logger.log_action("place_wall", {
+			"type": BuildingType.keys()[current_building_type].to_lower(),
+			"segments": valid_positions.size(),
+		})
+
+func _cancel_wall_placement() -> void:
+	_clear_wall_ghosts()
+	wall_drag_active = false
+	is_wall_placement = false
+	wall_scene_path = null
+	_wall_ghost_texture = null
+	GameManager.cancel_building_placement()
+	if building_ghost:
+		building_ghost.queue_free()
+		building_ghost = null
+	current_building_type = BuildingType.NONE
+
+func _clear_wall_ghosts() -> void:
+	for ghost in wall_ghosts:
+		if is_instance_valid(ghost):
+			ghost.queue_free()
+	wall_ghosts.clear()
+
 func _handle_building_placement_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if building_ghost:
@@ -605,6 +838,9 @@ func _handle_building_placement_input(event: InputEvent) -> void:
 			_cancel_building_placement()
 
 func _cancel_building_placement() -> void:
+	if is_wall_placement:
+		_cancel_wall_placement()
+		return
 	GameManager.cancel_building_placement()
 	building_ghost = null
 	current_building_type = BuildingType.NONE
@@ -700,6 +936,12 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.OUTPOST:
 			return Vector2(32, 32)
 		BuildingType.WATCH_TOWER:
+			return Vector2(32, 32)
+		BuildingType.PALISADE_WALL:
+			return Vector2(32, 32)
+		BuildingType.STONE_WALL:
+			return Vector2(32, 32)
+		BuildingType.GATE:
 			return Vector2(32, 32)
 		_:
 			return Vector2(64, 64)

@@ -36,6 +36,12 @@ extends CanvasLayer
 @onready var build_monastery_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMonasteryButton
 @onready var build_outpost_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildOutpostButton
 @onready var build_watch_tower_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildWatchTowerButton
+@onready var build_palisade_wall_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildPalisadeWallButton
+@onready var build_stone_wall_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStoneWallButton
+@onready var build_gate_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildGateButton
+
+# Gate button
+@onready var lock_gate_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/LockGateButton
 
 # Garrison buttons
 @onready var ungarrison_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/UngarrisonButton
@@ -143,7 +149,8 @@ func _ready() -> void:
 	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
 					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
 					 build_archery_range_btn, build_stable_btn, build_blacksmith_btn,
-					 build_monastery_btn, build_outpost_btn, build_watch_tower_btn]
+					 build_monastery_btn, build_outpost_btn, build_watch_tower_btn,
+					 build_palisade_wall_btn, build_stone_wall_btn, build_gate_btn]
 	monastery_buttons = [train_monk_btn]
 	tc_buttons = [train_villager_btn, advance_age_btn, loom_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
@@ -302,6 +309,7 @@ func _hide_all_action_buttons() -> void:
 	stable_upgrade_buttons.clear()
 	ungarrison_btn.visible = false
 	town_bell_btn.visible = false
+	lock_gate_btn.visible = false
 	cancel_btn.visible = false
 	train_progress.visible = false
 	queue_label.text = ""
@@ -453,6 +461,13 @@ func _update_build_button_states() -> void:
 	_set_button_age_locked(build_blacksmith_btn, not GameManager.is_building_unlocked("blacksmith"), GameManager.get_required_age_name("blacksmith", true), "Blacksmith (150W)")
 	_set_button_age_locked(build_monastery_btn, not GameManager.is_building_unlocked("monastery"), GameManager.get_required_age_name("monastery", true), "Monastery (175W)")
 	_set_button_age_locked(build_watch_tower_btn, not GameManager.is_building_unlocked("watch_tower"), GameManager.get_required_age_name("watch_tower", true), "Watch Tower (25W, 125S)")
+
+	# Walls - Dark Age
+	build_palisade_wall_btn.disabled = false
+
+	# Stone Wall and Gate - Feudal Age
+	_set_button_age_locked(build_stone_wall_btn, not GameManager.is_building_unlocked("stone_wall"), GameManager.get_required_age_name("stone_wall", true), "Stone Wall (5S)")
+	_set_button_age_locked(build_gate_btn, not GameManager.is_building_unlocked("gate"), GameManager.get_required_age_name("gate", true), "Gate (30S)")
 
 
 func _update_barracks_button_states() -> void:
@@ -679,6 +694,17 @@ func show_info(entity: Node) -> void:
 		_show_building_info("Monastery", mon_details, entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_monastery_buttons(entity)
+	elif entity is Gate:
+		var gate_details = "Armor: %d/%d" % [entity.melee_armor, entity.pierce_armor]
+		if entity.is_open:
+			gate_details += "\nStatus: Open"
+		else:
+			gate_details += "\nStatus: Closed"
+		if entity.is_locked:
+			gate_details += " (Locked)"
+		_show_building_info("Gate", gate_details, entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_gate_buttons(entity)
 	elif entity is WatchTower:
 		var tower_details = "Attack: %d pierce | Range: %d" % [WatchTower.TOWER_BASE_ATTACK, int(WatchTower.TOWER_ATTACK_RANGE)]
 		if entity.get_garrisoned_count() > 0:
@@ -1438,6 +1464,30 @@ func _on_build_watch_tower_pressed() -> void:
 	get_parent().start_watch_tower_placement()
 
 
+func _on_build_palisade_wall_pressed() -> void:
+	if not GameManager.can_afford("wood", 2):
+		_show_error("Need 2 wood!")
+		return
+	get_parent().start_palisade_wall_placement()
+
+func _on_build_stone_wall_pressed() -> void:
+	if not GameManager.is_building_unlocked("stone_wall"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("stone_wall", true))
+		return
+	if not GameManager.can_afford("stone", 5):
+		_show_error("Need 5 stone!")
+		return
+	get_parent().start_stone_wall_placement()
+
+func _on_build_gate_pressed() -> void:
+	if not GameManager.is_building_unlocked("gate"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("gate", true))
+		return
+	if not GameManager.can_afford("stone", 30):
+		_show_error("Need 30 stone!")
+		return
+	get_parent().start_gate_placement()
+
 func _on_train_monk_pressed() -> void:
 	if not GameManager.is_unit_unlocked("monk"):
 		_show_error("Requires %s!" % GameManager.get_required_age_name("monk"))
@@ -1671,6 +1721,39 @@ func _on_ungarrison_pressed() -> void:
 		selected_building.ungarrison_all()
 		# Refresh the current panel
 		show_info(selected_building)
+
+# ============================================================================
+# Gate panel
+# ============================================================================
+
+func show_gate_panel(gate: Gate) -> void:
+	selected_building = gate
+	selected_building_type = "gate"
+	_show_gate_buttons(gate)
+
+func hide_gate_panel() -> void:
+	if selected_building_type == "gate":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func _show_gate_buttons(gate: Gate) -> void:
+	_hide_all_action_buttons()
+	action_title.text = "Gate"
+	selected_building = gate
+	selected_building_type = "gate"
+	lock_gate_btn.visible = true
+	lock_gate_btn.text = "Unlock Gate" if gate.is_locked else "Lock Gate"
+
+func _on_lock_gate_pressed() -> void:
+	if selected_building and is_instance_valid(selected_building) and selected_building is Gate:
+		var gate = selected_building as Gate
+		gate.toggle_lock()
+		lock_gate_btn.text = "Unlock Gate" if gate.is_locked else "Lock Gate"
+		if gate.is_locked:
+			_show_notification("Gate locked")
+		else:
+			_show_notification("Gate unlocked")
 
 func _on_town_bell_pressed() -> void:
 	if not selected_building is TownCenter:
