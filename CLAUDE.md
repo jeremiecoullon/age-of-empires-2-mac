@@ -57,7 +57,7 @@ This is the canonical workflow for building phases. Each phase (or sub-phase) fo
    - Will the current structure make Phase N+1 harder than it needs to be?
 4. **Decide:** If refactor needed → include it in the plan before features.
 
-**Then write the execution plan** to both the plan file AND `docs/plans/phase-{X}-plan.md` (identical content in both). This ensures the comprehensive plan survives into the build phase without information loss. The plan should contain:
+**Then write the execution plan** to both the plan file AND `docs/plans/phase-{X}-plan.md` (identical content in both). This ensures the comprehensive plan survives into the build phase without information loss. (Note: plan files in `docs/plans/` exist from phase 4b onward — earlier phases predate this workflow.) The plan should contain:
 
 1. **Refactoring identified** — what (if anything) needs refactoring first
 2. **Ordered feature list** — specific files to create/modify, in implementation order
@@ -220,7 +220,7 @@ Games are logged to `logs/game_logs/` with snapshots every 10 seconds. When the 
 
 3. **Document the missing sprite** in `docs/gotchas.md` under the "Missing Sprites" section. This ensures Phase 9 (Polish) knows what to replace.
 
-Existing SVG placeholders: farm, market. All other buildings/units have AoE sprites.
+See `docs/gotchas.md` "Missing Sprites" table for the full list of SVG placeholders. Units/buildings not in that table have AoE sprites.
 
 ---
 

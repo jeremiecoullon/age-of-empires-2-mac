@@ -24,7 +24,7 @@ This project uses a simple GDScript test framework in `tests/`.
 /Applications/Godot.app/Contents/MacOS/Godot --headless --import --path .
 
 # Step 2: Run the test suite
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . tests/test_scene.tscn
 ```
 
 Both steps are required. Exit code 0 = all passed, 1 = failures.
