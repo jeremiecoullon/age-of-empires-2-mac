@@ -22,6 +22,7 @@ static var _sprite_frames_cache: Dictionary = {}
 @export var sight_range: float = 128.0  # How far unit can see (for auto-aggro), ~4 tiles
 
 var stance: int = Stance.AGGRESSIVE  # Default stance for all units
+var unit_display_name: String = ""  # Set by upgrade system (empty = use default name)
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
@@ -367,6 +368,36 @@ func find_enemy_in_sight() -> Unit:
 	return nearest
 
 # ===== TECHNOLOGY BONUS SYSTEM =====
+
+## Apply any already-researched unit upgrades to this unit. Called in subclass _ready() BEFORE _store_base_stats().
+## Handles chained upgrades (e.g., militia spawned after both Man-at-Arms and Long Swordsman researched).
+func _apply_researched_upgrades() -> void:
+	var applied = true
+	while applied:
+		applied = false
+		for tech_id in GameManager.TECHNOLOGIES:
+			var tech = GameManager.TECHNOLOGIES[tech_id]
+			if tech.get("type", "") != "unit_upgrade":
+				continue
+			if not GameManager.has_tech(tech_id, team):
+				continue
+			if not is_in_group(tech["from_group"]):
+				continue
+			# This upgrade applies to us — use set() for subclass properties
+			var new_stats: Dictionary = tech["new_stats"]
+			if "max_hp" in new_stats:
+				max_hp = new_stats["max_hp"]
+				current_hp = max_hp
+			for stat_key in new_stats:
+				if stat_key == "max_hp":
+					continue  # Already handled above
+				set(stat_key, new_stats[stat_key])
+			# Swap groups
+			remove_from_group(tech["from_group"])
+			add_to_group(tech["to_group"])
+			unit_display_name = tech["to_name"]
+			applied = true
+			break  # Restart loop to check for chained upgrades
 
 ## Store current stats as base values. Call once in subclass _ready() AFTER setting stats.
 func _store_base_stats() -> void:

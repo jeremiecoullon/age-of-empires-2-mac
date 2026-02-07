@@ -23,11 +23,13 @@ func _ready() -> void:
 	super._ready()
 	add_to_group("military")
 	add_to_group("archers")
+	add_to_group("archers_line")  # Crossbowman upgrade targets this (not "archers" which includes skirmishers/cav archers)
 	max_hp = 30
 	current_hp = max_hp
 	move_speed = 96.0  # Slightly slower than militia
 	# Use single SVG for now (no 8-dir sprites available)
 	_load_static_sprite(ARCHER_TEXTURE)
+	_apply_researched_upgrades()
 	_store_base_stats()
 	apply_tech_bonuses()
 

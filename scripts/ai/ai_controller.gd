@@ -301,6 +301,18 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if game_state.get_military_population() < 3:
 				return "need_3_military_first"
 			return game_state.get_can_train_reason("cavalry_archer")
+		"train_knight":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("stable") < 1:
+				return "no_stable"
+			if game_state.get_military_population() < 3:
+				return "need_3_military_first"
+			return game_state.get_can_train_reason("knight")
+		"research_unit_upgrade":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			return "no_available_upgrades"
 		"build_archery_range":
 			if game_state.get_building_count("archery_range") > 0:
 				return "already_have_archery_range"
@@ -425,9 +437,9 @@ func _get_rule_blockers() -> Dictionary:
 	var key_rules = [
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
 		"build_mill", "build_lumber_camp",
-		"train_militia", "train_archer", "train_scout_cavalry",
+		"train_militia", "train_archer", "train_scout_cavalry", "train_knight",
 		"advance_to_feudal", "advance_to_castle",
-		"research_loom", "research_blacksmith_tech",
+		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
 		"defend_base", "attack"
 	]
 	for rule in rules:
@@ -596,6 +608,7 @@ func _print_debug_state() -> void:
 	var skirmisher_count = game_state.get_unit_count("skirmisher")
 	var scout_count = game_state.get_unit_count("scout_cavalry")
 	var cav_archer_count = game_state.get_unit_count("cavalry_archer")
+	var knight_count = game_state.get_unit_count("knight")
 
 	# Get building counts
 	var tc_count = game_state.get_building_count("town_center")
@@ -666,6 +679,7 @@ func _print_debug_state() -> void:
 			"skirmisher": skirmisher_count,
 			"scout": scout_count,
 			"cav_archer": cav_archer_count,
+			"knight": knight_count,
 		},
 		"buildings": {
 			"town_center": tc_count,
@@ -729,6 +743,11 @@ func _get_current_research_name() -> String:
 	var tc = game_state._get_ai_town_center()
 	if tc and tc.is_researching:
 		return GameManager.TECHNOLOGIES.get(tc.current_research_id, {}).get("name", tc.current_research_id)
+	# Check training buildings for unit upgrade research
+	for building_type in ["barracks", "archery_range", "stable"]:
+		var bldg = game_state._get_ai_building(building_type)
+		if bldg and bldg.is_researching:
+			return GameManager.TECHNOLOGIES.get(bldg.current_research_id, {}).get("name", bldg.current_research_id)
 	return ""
 
 

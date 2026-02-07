@@ -33,6 +33,7 @@ func _ready() -> void:
 	pierce_armor = 0
 	if SPEARMAN_TEXTURE:
 		_load_static_sprite(SPEARMAN_TEXTURE)
+	_apply_researched_upgrades()
 	_store_base_stats()
 	apply_tech_bonuses()
 

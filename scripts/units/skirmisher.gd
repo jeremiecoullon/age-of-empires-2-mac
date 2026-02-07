@@ -33,6 +33,7 @@ func _ready() -> void:
 	pierce_armor = 3  # High pierce armor - resists arrows
 	if SKIRMISHER_TEXTURE:
 		_load_static_sprite(SKIRMISHER_TEXTURE)
+	_apply_researched_upgrades()
 	_store_base_stats()
 	apply_tech_bonuses()
 

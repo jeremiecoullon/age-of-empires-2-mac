@@ -44,6 +44,7 @@ extends CanvasLayer
 @onready var train_skirmisher_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSkirmisherButton
 @onready var train_scout_cavalry_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScoutCavalryButton
 @onready var train_cavalry_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton
+@onready var train_knight_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainKnightButton
 
 # Market buttons
 @onready var buy_wood_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton
@@ -105,6 +106,9 @@ var archery_range_buttons: Array[Button] = []
 var stable_buttons: Array[Button] = []
 var market_buttons: Array[Button] = []
 var blacksmith_buttons: Array[Button] = []  # Dynamically created tech research buttons
+var barracks_upgrade_buttons: Array[Button] = []  # Dynamically created upgrade buttons
+var archery_range_upgrade_buttons: Array[Button] = []
+var stable_upgrade_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -126,7 +130,7 @@ func _ready() -> void:
 	tc_buttons = [train_villager_btn, advance_age_btn, loom_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
 	archery_range_buttons = [train_archer_btn, train_skirmisher_btn]
-	stable_buttons = [train_scout_cavalry_btn, train_cavalry_archer_btn]
+	stable_buttons = [train_scout_cavalry_btn, train_cavalry_archer_btn, train_knight_btn]
 	market_buttons = [buy_wood_btn, buy_food_btn, buy_stone_btn,
 					  sell_wood_btn, sell_food_btn, sell_stone_btn, train_trade_cart_btn]
 
@@ -205,6 +209,15 @@ func _update_production_progress() -> void:
 			cancel_btn.visible = false
 			return
 
+	# Research progress for training buildings (Barracks, Archery Range, Stable)
+	if (selected_building is Barracks or selected_building is ArcheryRange or selected_building is Stable) and selected_building.is_researching:
+		train_progress.value = selected_building.get_research_progress() * 100
+		train_progress.visible = true
+		var tech_name = GameManager.TECHNOLOGIES.get(selected_building.current_research_id, {}).get("name", "?")
+		queue_label.text = tech_name
+		cancel_btn.visible = true
+		return
+
 	if not selected_building.has_method("get_queue_size"):
 		train_progress.visible = false
 		queue_label.text = ""
@@ -237,6 +250,18 @@ func _hide_all_action_buttons() -> void:
 		btn.visible = false
 	for btn in blacksmith_buttons:
 		btn.visible = false
+	for btn in barracks_upgrade_buttons:
+		if is_instance_valid(btn):
+			btn.queue_free()
+	barracks_upgrade_buttons.clear()
+	for btn in archery_range_upgrade_buttons:
+		if is_instance_valid(btn):
+			btn.queue_free()
+	archery_range_upgrade_buttons.clear()
+	for btn in stable_upgrade_buttons:
+		if is_instance_valid(btn):
+			btn.queue_free()
+	stable_upgrade_buttons.clear()
 	cancel_btn.visible = false
 	train_progress.visible = false
 	queue_label.text = ""
@@ -270,6 +295,8 @@ func _show_barracks_buttons(barracks: Barracks) -> void:
 	selected_building = barracks
 	selected_building_type = "barracks"
 	_update_barracks_button_states()
+	_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "pikeman"], barracks_upgrade_buttons)
+	cancel_btn.visible = barracks.is_researching or barracks.get_queue_size() > 0
 
 
 func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
@@ -280,6 +307,8 @@ func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
 	selected_building = archery_range
 	selected_building_type = "archery_range"
 	_update_archery_range_button_states()
+	_create_upgrade_buttons("archery_range", ["crossbowman", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
+	cancel_btn.visible = archery_range.is_researching or archery_range.get_queue_size() > 0
 
 
 func _show_stable_buttons(stable: Stable) -> void:
@@ -290,6 +319,8 @@ func _show_stable_buttons(stable: Stable) -> void:
 	selected_building = stable
 	selected_building_type = "stable"
 	_update_stable_button_states()
+	_create_upgrade_buttons("stable", ["light_cavalry"], stable_upgrade_buttons)
+	cancel_btn.visible = stable.is_researching or stable.get_queue_size() > 0
 
 
 func _show_market_buttons(market: Market) -> void:
@@ -379,11 +410,77 @@ func _update_stable_button_states() -> void:
 	var locked = not GameManager.is_unit_unlocked("cavalry_archer")
 	_set_button_age_locked(train_cavalry_archer_btn, locked, GameManager.get_required_age_name("cavalry_archer"), "Train Cavalry Archer")
 
+	# Knight - Castle Age
+	var knight_locked = not GameManager.is_unit_unlocked("knight")
+	_set_button_age_locked(train_knight_btn, knight_locked, GameManager.get_required_age_name("knight"), "Train Knight")
+
 
 func _update_market_button_states() -> void:
 	# Trade Cart - Feudal Age (market itself is Feudal, so should always be unlocked here)
 	train_trade_cart_btn.disabled = false
 	train_trade_cart_btn.text = "Train Trade Cart"
+
+
+## Create upgrade research buttons for a training building (barracks, archery range, stable).
+## tech_ids: ordered list of upgrade tech IDs to show. btn_array: passed by reference to store buttons.
+func _create_upgrade_buttons(building_type: String, tech_ids: Array, btn_array: Array[Button]) -> void:
+	# Clean up old buttons
+	for btn in btn_array:
+		if is_instance_valid(btn):
+			btn.queue_free()
+	btn_array.clear()
+
+	for tech_id in tech_ids:
+		if tech_id not in GameManager.TECHNOLOGIES:
+			continue
+		var tech = GameManager.TECHNOLOGIES[tech_id]
+		var btn = Button.new()
+		btn.custom_minimum_size = Vector2(120, 25)
+
+		if GameManager.has_tech(tech_id, 0):
+			btn.text = "%s [Done]" % tech["name"]
+			btn.disabled = true
+		elif GameManager.get_age(0) < tech["age"]:
+			btn.text = "%s (%s)" % [tech["name"], GameManager.AGE_NAMES[tech["age"]]]
+			btn.disabled = true
+		elif tech["requires"] != "" and not GameManager.has_tech(tech["requires"], 0):
+			var prereq_name = GameManager.TECHNOLOGIES[tech["requires"]]["name"]
+			btn.text = "%s (Req: %s)" % [tech["name"], prereq_name]
+			btn.disabled = true
+		elif selected_building and selected_building.is_researching:
+			btn.text = _format_tech_cost(tech)
+			btn.disabled = true
+		else:
+			btn.text = _format_tech_cost(tech)
+			btn.disabled = false
+
+		var captured_id = tech_id
+		btn.pressed.connect(func(): _on_upgrade_tech_pressed(captured_id))
+		action_grid.add_child(btn)
+		btn.visible = true
+		btn_array.append(btn)
+
+
+func _on_upgrade_tech_pressed(tech_id: String) -> void:
+	if not selected_building or not is_instance_valid(selected_building):
+		return
+	if selected_building.is_researching:
+		_show_error("Already researching!")
+		return
+	if selected_building.start_research(tech_id):
+		var tech_name = GameManager.TECHNOLOGIES[tech_id]["name"]
+		_show_notification("Researching %s..." % tech_name)
+		# Refresh the building panel to update button states
+		if selected_building_type == "barracks":
+			_show_barracks_buttons(selected_building as Barracks)
+		elif selected_building_type == "archery_range":
+			_show_archery_range_buttons(selected_building as ArcheryRange)
+		elif selected_building_type == "stable":
+			_show_stable_buttons(selected_building as Stable)
+		if _game_logger:
+			_game_logger.log_action("research", {"tech": tech_id})
+	else:
+		_show_error("Cannot research!")
 
 
 func _refresh_current_panel() -> void:
@@ -393,10 +490,13 @@ func _refresh_current_panel() -> void:
 		_update_advance_age_button()
 	elif selected_building_type == "barracks":
 		_update_barracks_button_states()
+		_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "pikeman"], barracks_upgrade_buttons)
 	elif selected_building_type == "archery_range":
 		_update_archery_range_button_states()
+		_create_upgrade_buttons("archery_range", ["crossbowman", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
 	elif selected_building_type == "stable":
 		_update_stable_button_states()
+		_create_upgrade_buttons("stable", ["light_cavalry"], stable_upgrade_buttons)
 	elif selected_building_type == "market":
 		_update_market_button_states()
 	elif selected_building_type == "blacksmith":
@@ -424,18 +524,20 @@ func show_info(entity: Node) -> void:
 			_show_build_buttons()
 	elif entity is TradeCart:
 		_show_trade_cart_info(entity)
+	elif entity is Knight:
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Knight")
 	elif entity is Militia:
-		_show_military_info(entity, "Militia")
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Militia")
 	elif entity is Archer:
-		_show_military_info(entity, "Archer")
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Archer")
 	elif entity is Skirmisher:
-		_show_military_info(entity, "Skirmisher")
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Skirmisher")
 	elif entity is CavalryArcher:
-		_show_military_info(entity, "Cavalry Archer")
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Cavalry Archer")
 	elif entity is ScoutCavalry:
-		_show_military_info(entity, "Scout Cavalry")
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Scout Cavalry")
 	elif entity is Spearman:
-		_show_military_info(entity, "Spearman")
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Spearman")
 	elif entity is Sheep:
 		_show_animal_info(entity, "Sheep", "Herdable. First to spot owns it.")
 	elif entity is Deer:
@@ -1002,6 +1104,23 @@ func _on_train_cavalry_archer_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 
+func _on_train_knight_pressed() -> void:
+	if not GameManager.is_unit_unlocked("knight"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("knight"))
+		return
+	if selected_building is Stable:
+		var stable = selected_building as Stable
+		if stable.train_knight():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "knight"})
+		else:
+			if not GameManager.can_afford("food", Stable.KNIGHT_FOOD_COST):
+				_show_error("Need 60 food!")
+			elif not GameManager.can_afford("gold", Stable.KNIGHT_GOLD_COST):
+				_show_error("Need 75 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
 func _on_advance_age_pressed() -> void:
 	if not selected_building is TownCenter:
 		return
@@ -1274,6 +1393,18 @@ func _on_cancel_pressed() -> void:
 				_show_notification("Research cancelled")
 				_create_blacksmith_tech_buttons()
 				return
+		# Cancel research on training buildings (barracks, archery range, stable)
+		if (selected_building is Barracks or selected_building is ArcheryRange or selected_building is Stable) and selected_building.is_researching:
+			selected_building.cancel_research()
+			_show_notification("Research cancelled")
+			# Refresh the panel to update upgrade button states
+			if selected_building is Barracks:
+				_show_barracks_buttons(selected_building as Barracks)
+			elif selected_building is ArcheryRange:
+				_show_archery_range_buttons(selected_building as ArcheryRange)
+			elif selected_building is Stable:
+				_show_stable_buttons(selected_building as Stable)
+			return
 		selected_building.cancel_training()
 
 

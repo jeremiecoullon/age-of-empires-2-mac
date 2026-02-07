@@ -32,6 +32,7 @@ func _ready() -> void:
 	pierce_armor = 2  # Resistant to ranged attacks
 	if SCOUT_CAVALRY_TEXTURE:
 		_load_static_sprite(SCOUT_CAVALRY_TEXTURE)
+	_apply_researched_upgrades()
 	_store_base_stats()
 	apply_tech_bonuses()
 

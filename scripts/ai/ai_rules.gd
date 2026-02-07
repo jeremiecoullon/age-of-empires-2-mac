@@ -633,6 +633,24 @@ class TrainCavalryArcherRule extends AIRule:
 		gs.train("cavalry_archer")
 
 
+class TrainKnightRule extends AIRule:
+	func _init():
+		rule_name = "train_knight"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("stable") < 1:
+			return false
+		if not gs.can_train("knight"):
+			return false
+		# Knights are expensive (60F+75G) - only train with decent economy
+		return gs.get_military_population() >= 3
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("knight")
+
+
 # =============================================================================
 # AGE ADVANCEMENT (Phase 4A)
 # =============================================================================
@@ -867,6 +885,60 @@ class ResearchLoomRule extends AIRule:
 		gs.research_tech("loom")
 
 
+class ResearchUnitUpgradeRule extends AIRule:
+	## Researches unit upgrades at training buildings (barracks, archery range, stable).
+	## Picks the best upgrade based on current army composition — upgrade the unit type
+	## the AI has the most of first.
+
+	func _init():
+		rule_name = "research_unit_upgrade"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		return _get_best_upgrade(gs) != ""
+
+	func actions(gs: AIGameState) -> void:
+		var tech_id = _get_best_upgrade(gs)
+		if tech_id != "":
+			gs.research_tech(tech_id)
+
+	func _get_best_upgrade(gs: AIGameState) -> String:
+		## Pick the best available unit upgrade based on army composition.
+		## Priority: upgrade the unit type the AI has the most of.
+
+		# Candidate upgrades grouped by what they benefit
+		var upgrade_groups = [
+			# [tech_id, relevant_unit_count]
+			["man_at_arms", gs.get_unit_count("militia") + gs.get_unit_count("infantry")],
+			["long_swordsman", gs.get_unit_count("infantry")],
+			["pikeman", gs.get_unit_count("spearman")],
+			["crossbowman", gs.get_unit_count("archer")],
+			["elite_skirmisher", gs.get_unit_count("skirmisher")],
+			["heavy_cavalry_archer", gs.get_unit_count("cavalry_archer")],
+			["light_cavalry", gs.get_unit_count("scout_cavalry")],
+		]
+
+		# Sort by unit count descending — upgrade what we have most of
+		upgrade_groups.sort_custom(func(a, b): return a[1] > b[1])
+
+		for entry in upgrade_groups:
+			var tech_id = entry[0]
+			var count = entry[1]
+			# Only upgrade if we actually have some of these units (or will benefit)
+			if count > 0 and gs.can_research(tech_id):
+				return tech_id
+
+		# Fallback: check if any upgrade is available even without matching units
+		# (useful for pre-researching before training)
+		for entry in upgrade_groups:
+			var tech_id = entry[0]
+			if gs.can_research(tech_id):
+				return tech_id
+
+		return ""
+
+
 class AttackRule extends AIRule:
 	func _init():
 		rule_name = "attack"
@@ -920,6 +992,7 @@ static func create_all_rules() -> Array:
 		TrainSkirmisherRule.new(),
 		TrainScoutCavalryRule.new(),
 		TrainCavalryArcherRule.new(),
+		TrainKnightRule.new(),
 		# Blacksmith (Phase 5A)
 		BuildBlacksmithRule.new(),
 		# Age advancement (Phase 4A)
@@ -928,6 +1001,8 @@ static func create_all_rules() -> Array:
 		# Technology research (Phase 5A)
 		ResearchLoomRule.new(),
 		ResearchBlacksmithTechRule.new(),
+		# Unit upgrades (Phase 5B)
+		ResearchUnitUpgradeRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)

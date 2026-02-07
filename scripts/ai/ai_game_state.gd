@@ -179,6 +179,12 @@ func get_can_research_reason(tech_id: String) -> String:
 			return "no_town_center"
 		if tc.is_researching_age or tc.is_researching:
 			return "building_busy"
+	elif building_type in ["barracks", "archery_range", "stable"]:
+		var bldg = _get_ai_building(building_type)
+		if not bldg:
+			return "no_" + building_type
+		if bldg.is_researching:
+			return "building_busy"
 	# Check cost
 	for resource_type in tech["cost"]:
 		if get_resource(resource_type) < tech["cost"][resource_type]:
@@ -283,6 +289,8 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "skirmishers"
 		"cavalry_archer":
 			group_name = "cavalry_archers"
+		"knight":
+			group_name = "knights"
 		"infantry":
 			# Count all infantry: militia + spearmen
 			var count = 0
@@ -528,6 +536,19 @@ func get_can_train_reason(unit_type: String) -> String:
 			if not GameManager.can_afford("gold", stable.CAVALRY_ARCHER_GOLD_COST, AI_TEAM):
 				return "insufficient_gold"
 			return "ok"
+		"knight":
+			var stable = _get_ai_building("stable")
+			if not stable:
+				return "no_stable"
+			if not stable.is_functional():
+				return "stable_not_functional"
+			if stable.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("food", stable.KNIGHT_FOOD_COST, AI_TEAM):
+				return "insufficient_food"
+			if not GameManager.can_afford("gold", stable.KNIGHT_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
 
 	return "unknown_unit_type"
 
@@ -695,23 +716,26 @@ func attack_now() -> void:
 
 func scout_to(target_position: Vector2) -> void:
 	## Send an idle scout cavalry to the target position
-	for unit in scene_tree.get_nodes_in_group("scout_cavalry"):
-		if unit.team != AI_TEAM or unit.is_dead:
-			continue
-		# Find an idle scout
-		if unit.current_state == unit.State.IDLE:
-			unit.move_to(target_position)
-			_log_action("scout", {"target": [int(target_position.x), int(target_position.y)]})
-			return
+	## Checks both scout_cavalry and light_cavalry groups (scouts upgrade to light cavalry)
+	for group in ["scout_cavalry", "light_cavalry"]:
+		for unit in scene_tree.get_nodes_in_group(group):
+			if unit.team != AI_TEAM or unit.is_dead:
+				continue
+			if unit.current_state == unit.State.IDLE:
+				unit.move_to(target_position)
+				_log_action("scout", {"target": [int(target_position.x), int(target_position.y)]})
+				return
 
 
 func get_idle_scout() -> Node:
 	## Returns an idle scout cavalry unit, or null if none available
-	for unit in scene_tree.get_nodes_in_group("scout_cavalry"):
-		if unit.team != AI_TEAM or unit.is_dead:
-			continue
-		if unit.current_state == unit.State.IDLE:
-			return unit
+	## Checks both scout_cavalry and light_cavalry groups (scouts upgrade to light cavalry)
+	for group in ["scout_cavalry", "light_cavalry"]:
+		for unit in scene_tree.get_nodes_in_group(group):
+			if unit.team != AI_TEAM or unit.is_dead:
+				continue
+			if unit.current_state == unit.State.IDLE:
+				return unit
 	return null
 
 
@@ -831,33 +855,31 @@ func _do_train(unit_type: String) -> void:
 		"militia":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
-				barracks.train_militia()
-				success = true
+				success = barracks.train_militia()
 		"spearman":
 			var barracks = _get_ai_building("barracks")
 			if barracks and barracks.is_functional():
-				barracks.train_spearman()
-				success = true
+				success = barracks.train_spearman()
 		"archer":
 			var archery_range = _get_ai_building("archery_range")
 			if archery_range and archery_range.is_functional():
-				archery_range.train_archer()
-				success = true
+				success = archery_range.train_archer()
 		"skirmisher":
 			var archery_range = _get_ai_building("archery_range")
 			if archery_range and archery_range.is_functional():
-				archery_range.train_skirmisher()
-				success = true
+				success = archery_range.train_skirmisher()
 		"scout_cavalry":
 			var stable = _get_ai_building("stable")
 			if stable and stable.is_functional():
-				stable.train_scout_cavalry()
-				success = true
+				success = stable.train_scout_cavalry()
 		"cavalry_archer":
 			var stable = _get_ai_building("stable")
 			if stable and stable.is_functional():
-				stable.train_cavalry_archer()
-				success = true
+				success = stable.train_cavalry_archer()
+		"knight":
+			var stable = _get_ai_building("stable")
+			if stable and stable.is_functional():
+				success = stable.train_knight()
 
 	if success:
 		_log_action("train", {"unit": unit_type})
@@ -991,6 +1013,11 @@ func _do_research(tech_id: String) -> void:
 		var tc = _get_ai_town_center()
 		if tc and not tc.is_researching_age and not tc.is_researching:
 			if tc.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
+	elif building_type in ["barracks", "archery_range", "stable"]:
+		var bldg = _get_ai_building(building_type)
+		if bldg and not bldg.is_researching:
+			if bldg.start_research(tech_id):
 				_log_action("research", {"tech": tech_id})
 
 

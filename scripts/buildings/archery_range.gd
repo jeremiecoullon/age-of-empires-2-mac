@@ -36,6 +36,9 @@ func _ready() -> void:
 	build_time = 50.0
 
 func _process(delta: float) -> void:
+	if is_researching:
+		_process_research(delta)
+		return  # Research blocks training
 	if is_training:
 		train_timer += delta
 		training_progress.emit(train_timer / _get_current_train_time())
@@ -165,6 +168,16 @@ func _complete_training() -> void:
 		is_training = false
 		train_timer = 0.0
 		current_training = TrainingType.NONE
+
+func _destroy() -> void:
+	if is_researching:
+		cancel_research()
+	super._destroy()
+
+func _complete_research() -> void:
+	super._complete_research()
+	if not training_queue.is_empty() and not is_training:
+		_start_next_training()
 
 func get_train_progress() -> float:
 	if not is_training:

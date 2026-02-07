@@ -72,30 +72,55 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 	var result = {
 		"total": 0,
 		"militia": 0,
+		"man_at_arms": 0,
+		"long_swordsman": 0,
 		"spearman": 0,
+		"pikeman": 0,
 		"archer": 0,
+		"crossbowman": 0,
 		"skirmisher": 0,
+		"elite_skirmisher": 0,
 		"scout_cavalry": 0,
+		"light_cavalry": 0,
 		"cavalry_archer": 0,
+		"heavy_cavalry_archer": 0,
+		"knight": 0,
 	}
 
 	# Iterate military group once and classify with elif chain.
-	# Check specific subtypes before generic ones to avoid double-counting
-	# (e.g. skirmishers are in both "skirmishers" and "archers" groups).
+	# Check upgraded groups before base groups to avoid double-counting
+	# (e.g. crossbowmen were archers before upgrade).
 	for unit in scene_tree.get_nodes_in_group("military"):
 		if unit.team != team or unit.is_dead:
 			continue
 		result["total"] += 1
-		if unit.is_in_group("skirmishers"):
+		# Upgraded groups first (most specific)
+		if unit.is_in_group("elite_skirmishers"):
+			result["elite_skirmisher"] += 1
+		elif unit.is_in_group("skirmishers"):
 			result["skirmisher"] += 1
+		elif unit.is_in_group("heavy_cavalry_archers"):
+			result["heavy_cavalry_archer"] += 1
 		elif unit.is_in_group("cavalry_archers"):
 			result["cavalry_archer"] += 1
+		elif unit.is_in_group("light_cavalry"):
+			result["light_cavalry"] += 1
 		elif unit.is_in_group("scout_cavalry"):
 			result["scout_cavalry"] += 1
-		elif unit.is_in_group("archers"):
+		elif unit.is_in_group("knights"):
+			result["knight"] += 1
+		elif unit.is_in_group("crossbowmen"):
+			result["crossbowman"] += 1
+		elif unit.is_in_group("archers") or unit.is_in_group("archers_line"):
 			result["archer"] += 1
+		elif unit.is_in_group("long_swordsmen"):
+			result["long_swordsman"] += 1
+		elif unit.is_in_group("man_at_arms"):
+			result["man_at_arms"] += 1
 		elif unit.is_in_group("militia"):
 			result["militia"] += 1
+		elif unit.is_in_group("pikemen"):
+			result["pikeman"] += 1
 		elif unit.is_in_group("spearmen"):
 			result["spearman"] += 1
 		else:

@@ -30,6 +30,8 @@ var milestones: Dictionary = {
 	"first_attack": null,
 	"reached_feudal_age": null,
 	"reached_castle_age": null,
+	"first_knight": null,
+	"first_unit_upgrade": null,
 }
 
 # Previous state for change detection
@@ -141,6 +143,21 @@ func _check_milestones(game_time: float, state) -> void:
 	if milestones["first_loom"] == null:
 		if GameManager.has_tech("loom", AI_TEAM):
 			milestones["first_loom"] = game_time
+
+	# Knight milestone
+	if milestones["first_knight"] == null:
+		for unit in scene_tree.get_nodes_in_group("knights"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				milestones["first_knight"] = game_time
+				break
+
+	# Unit upgrade milestone (any unit_upgrade tech researched)
+	if milestones["first_unit_upgrade"] == null:
+		for tech_id in GameManager.TECHNOLOGIES:
+			var tech = GameManager.TECHNOLOGIES[tech_id]
+			if tech.get("type", "") == "unit_upgrade" and GameManager.has_tech(tech_id, AI_TEAM):
+				milestones["first_unit_upgrade"] = game_time
+				break
 
 	# Attack milestone (set via record_attack())
 	if milestones["first_attack"] == null and attack_issued:

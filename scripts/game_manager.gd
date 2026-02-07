@@ -52,6 +52,7 @@ const UNIT_AGE_REQUIREMENTS: Dictionary = {
 	"scout_cavalry": AGE_FEUDAL,
 	"trade_cart": AGE_FEUDAL,
 	"cavalry_archer": AGE_CASTLE,
+	"knight": AGE_CASTLE,
 }
 
 # Age state per player
@@ -135,6 +136,66 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 1},
 		"requires": "padded_archer_armor"
 	},
+	# ===== UNIT UPGRADES =====
+	# Barracks line
+	"man_at_arms": {
+		"name": "Man-at-Arms", "age": AGE_FEUDAL, "building": "barracks",
+		"cost": {"food": 100, "gold": 40}, "research_time": 40.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "militia", "to_group": "man_at_arms",
+		"to_name": "Man-at-Arms",
+		"new_stats": {"max_hp": 45, "attack_damage": 6, "melee_armor": 0, "pierce_armor": 0}
+	},
+	"long_swordsman": {
+		"name": "Long Swordsman", "age": AGE_CASTLE, "building": "barracks",
+		"cost": {"food": 200, "gold": 65}, "research_time": 45.0,
+		"effects": {}, "requires": "man_at_arms",
+		"type": "unit_upgrade", "from_group": "man_at_arms", "to_group": "long_swordsmen",
+		"to_name": "Long Swordsman",
+		"new_stats": {"max_hp": 55, "attack_damage": 9, "melee_armor": 0, "pierce_armor": 0}
+	},
+	"pikeman": {
+		"name": "Pikeman", "age": AGE_CASTLE, "building": "barracks",
+		"cost": {"food": 215, "gold": 90}, "research_time": 45.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "spearmen", "to_group": "pikemen",
+		"to_name": "Pikeman",
+		"new_stats": {"max_hp": 55, "attack_damage": 4, "melee_armor": 1, "pierce_armor": 0, "bonus_vs_cavalry": 22}
+	},
+	# Archery Range line
+	"crossbowman": {
+		"name": "Crossbowman", "age": AGE_CASTLE, "building": "archery_range",
+		"cost": {"food": 125, "gold": 75}, "research_time": 35.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "archers_line", "to_group": "crossbowmen",
+		"to_name": "Crossbowman",
+		"new_stats": {"max_hp": 35, "attack_damage": 5, "attack_range": 160.0}
+	},
+	"elite_skirmisher": {
+		"name": "Elite Skirmisher", "age": AGE_CASTLE, "building": "archery_range",
+		"cost": {"wood": 200, "gold": 100}, "research_time": 50.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "skirmishers", "to_group": "elite_skirmishers",
+		"to_name": "Elite Skirmisher",
+		"new_stats": {"max_hp": 35, "attack_damage": 3, "pierce_armor": 4, "bonus_vs_archers": 5, "attack_range": 160.0}
+	},
+	"heavy_cavalry_archer": {
+		"name": "Heavy Cav Archer", "age": AGE_CASTLE, "building": "archery_range",
+		"cost": {"food": 900, "gold": 500}, "research_time": 50.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "cavalry_archers", "to_group": "heavy_cavalry_archers",
+		"to_name": "Heavy Cav Archer",
+		"new_stats": {"max_hp": 60, "attack_damage": 7, "melee_armor": 1, "pierce_armor": 0, "attack_range": 128.0}
+	},
+	# Stable line
+	"light_cavalry": {
+		"name": "Light Cavalry", "age": AGE_CASTLE, "building": "stable",
+		"cost": {"food": 150, "gold": 50}, "research_time": 45.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "scout_cavalry", "to_group": "light_cavalry",
+		"to_name": "Light Cavalry",
+		"new_stats": {"max_hp": 60, "attack_damage": 7, "melee_armor": 0, "pierce_armor": 2}
+	},
 }
 
 # Per-team technology state
@@ -193,7 +254,42 @@ func complete_tech_research(tech_id: String, team: int = 0) -> void:
 	if not techs.has(tech_id):
 		techs.append(tech_id)
 	_recalculate_tech_bonuses(team)
+	# Apply unit upgrade if this is a unit_upgrade tech
+	if tech_id in TECHNOLOGIES and TECHNOLOGIES[tech_id].get("type", "") == "unit_upgrade":
+		_apply_unit_upgrade(tech_id, team)
 	tech_researched.emit(team, tech_id)
+
+func _apply_unit_upgrade(tech_id: String, team_id: int) -> void:
+	var tech = TECHNOLOGIES[tech_id]
+	var from_group: String = tech["from_group"]
+	var to_group: String = tech["to_group"]
+	var to_name: String = tech["to_name"]
+	var new_stats: Dictionary = tech["new_stats"]
+
+	for unit in get_tree().get_nodes_in_group(from_group):
+		if unit.team != team_id:
+			continue
+		# Apply new stats — use set() for subclass properties
+		if "max_hp" in new_stats:
+			var old_max = unit.max_hp
+			unit.max_hp = new_stats["max_hp"]
+			# Increase current HP by delta if upgraded, clamp if downgraded
+			if unit.max_hp > old_max:
+				unit.current_hp += unit.max_hp - old_max
+			else:
+				unit.current_hp = min(unit.current_hp, unit.max_hp)
+		for stat_key in new_stats:
+			if stat_key == "max_hp":
+				continue  # Already handled above
+			unit.set(stat_key, new_stats[stat_key])
+		# Swap groups
+		unit.remove_from_group(from_group)
+		unit.add_to_group(to_group)
+		# Set display name
+		unit.unit_display_name = to_name
+		# Re-store base stats and reapply tech bonuses
+		unit._store_base_stats()
+		unit.apply_tech_bonuses()
 
 func get_tech_bonus(bonus_key: String, team: int = 0) -> int:
 	var bonuses = player_tech_bonuses if team == 0 else ai_tech_bonuses

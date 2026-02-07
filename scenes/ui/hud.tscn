@@ -355,6 +355,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(120, 25)
 text = "Cav Archer (40W, 70G)"
 
+[node name="TrainKnightButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Knight (60F, 75G)"
+
 [node name="BuyWoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
 layout_mode = 2
@@ -529,6 +535,7 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSkirmisherButton" to="." method="_on_train_skirmisher_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScoutCavalryButton" to="." method="_on_train_scout_cavalry_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainKnightButton" to="." method="_on_train_knight_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyFoodButton" to="." method="_on_buy_food_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyStoneButton" to="." method="_on_buy_stone_pressed"]
