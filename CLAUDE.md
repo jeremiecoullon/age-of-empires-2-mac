@@ -220,7 +220,7 @@ Games are logged to `logs/game_logs/` with snapshots every 10 seconds. When the 
 
 3. **Document the missing sprite** in `docs/gotchas.md` under the "Missing Sprites" section. This ensures Phase 9 (Polish) knows what to replace.
 
-Existing SVG placeholders: farm, market. All other buildings/units have AoE sprites.
+See `docs/gotchas.md` "Missing Sprites" table for the full list of SVG placeholders. Units/buildings not in that table have AoE sprites.
 
 ---
 

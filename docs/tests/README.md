@@ -11,7 +11,7 @@ This folder documents the automated testing infrastructure for the AoE2 clone.
 
 **From command line (CI):**
 ```bash
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . tests/test_scene.tscn
 ```
 
 ## What It Tests
@@ -206,10 +206,10 @@ Tests auto-quit in headless mode with proper exit code:
 
 ```bash
 # Mac
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . res://tests/test_scene.tscn
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . tests/test_scene.tscn
 
 # Linux (adjust path as needed)
-godot --headless --path . res://tests/test_scene.tscn
+godot --headless --path . tests/test_scene.tscn
 ```
 
 Exit code 0 = all tests passed, exit code 1 = some tests failed.
