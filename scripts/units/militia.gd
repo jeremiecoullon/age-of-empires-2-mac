@@ -24,6 +24,16 @@ func _ready() -> void:
 	current_hp = max_hp
 	# 30 frames total, 8 directions = ~4 frames per direction
 	_load_directional_animations("res://assets/sprites/units/militia_frames", "Militiastand", 30)
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("infantry_attack", team)
 
 func _physics_process(delta: float) -> void:
 	match current_state:

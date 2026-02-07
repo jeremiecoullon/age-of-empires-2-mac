@@ -32,6 +32,16 @@ func _ready() -> void:
 	pierce_armor = 2  # Resistant to ranged attacks
 	if SCOUT_CAVALRY_TEXTURE:
 		_load_static_sprite(SCOUT_CAVALRY_TEXTURE)
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("cavalry_attack", team)
 
 func _physics_process(delta: float) -> void:
 	match current_state:

@@ -470,39 +470,52 @@ This phase re-implements the AI using independent rules that fire when condition
 ## Phase 5: Tech Research & Upgrades
 **Goal:** Full technology and unit upgrade system
 
+**Sub-phases (approved 2026-02-07):**
+- **5A**: Tech research system + Blacksmith building + Loom at TC + Feudal/Castle Blacksmith techs + AI rules + observability
+- **5B**: Unit upgrade system + Knight (new unit) + Castle-and-below unit upgrades + AI upgrade rules
+
+Imperial techs and upgrades deferred to Phase 9.
+
+### Phase 5A: Tech Research System + Blacksmith + Loom
+
 | Feature | Type | Notes |
 |---------|------|-------|
-| Blacksmith | Building | Attack/armor upgrades |
-| Tech research system | System | Buildings research technologies, queue, progress bar |
-| Unit upgrade lines | System | Upgrade all existing units of type |
-| Loom | Tech | +15 villager HP, +1/+1 armor (TC, Dark Age) |
+| Generic research system | System | Reusable research logic in Building base class |
+| Tech definitions | System | TECHNOLOGIES dict in GameManager with per-team state |
+| Tech effect system | System | Per-team bonuses applied to units via signal |
+| Blacksmith | Building | 150W, 2100HP, Feudal Age, researches attack/armor techs |
+| Loom | Tech | +15 villager HP, +1/+1 armor (TC, Dark Age, 50G) |
+| Blacksmith techs (Feudal) | Tech | Forging, Scale Mail, Scale Barding, Fletching, Padded Archer |
+| Blacksmith techs (Castle) | Tech | Iron Casting, Chain Mail, Chain Barding, Bodkin Arrow, Leather Archer |
+| Blacksmith HUD panel | UI | Tech buttons, research progress, build button |
+| Loom button | UI | In TC panel, shows research progress |
+| AI BuildBlacksmithRule | AI | Build after barracks + 2 military |
+| AI ResearchBlacksmithTechRule | AI | Pick best tech based on army composition |
+| AI ResearchLoomRule | AI | Research when gold available |
 
-**Unit Upgrades (Infantry):**
-| Upgrade | Age | Cost | Building |
-|---------|-----|------|----------|
-| Man-at-Arms | Feudal | 100F, 40G | Barracks |
-| Long Swordsman | Castle | 200F, 65G | Barracks |
-| Two-Handed Swordsman | Imperial | 300F, 100G | Barracks |
-| Champion | Imperial | 750F, 350G | Barracks |
-| Pikeman | Castle | 215F, 90G | Barracks |
+**5A Done when:** Blacksmith techs affect unit stats. AI researches techs. Loom works at TC.
 
-**Unit Upgrades (Archers):**
-| Upgrade | Age | Cost | Building |
-|---------|-----|------|----------|
-| Crossbowman | Castle | 125F, 75G | Archery Range |
-| Arbalester | Imperial | 350F, 300G | Archery Range |
-| Elite Skirmisher | Castle | 200W, 100G | Archery Range |
-| Heavy Cavalry Archer | Castle | 900F, 500G | Archery Range |
+### Phase 5B: Unit Upgrades + Knight
 
-**Unit Upgrades (Cavalry):**
-| Upgrade | Age | Cost | Building |
-|---------|-----|------|----------|
-| Light Cavalry | Castle | 150F, 50G | Stable |
-| Knight | Castle | - | Stable (new unit) |
-| Cavalier | Imperial | 300F, 300G | Stable |
-| Paladin | Imperial | 1300F, 750G | Stable |
+| Feature | Type | Notes |
+|---------|------|-------|
+| Unit upgrade system | System | Research at training building, transforms existing units in-place |
+| Man-at-Arms | Upgrade | Feudal, 100F+40G, Barracks |
+| Long Swordsman | Upgrade | Castle, 200F+65G, Barracks |
+| Pikeman | Upgrade | Castle, 215F+90G, Barracks |
+| Crossbowman | Upgrade | Castle, 125F+75G, Archery Range |
+| Elite Skirmisher | Upgrade | Castle, 200W+100G, Archery Range |
+| Heavy Cavalry Archer | Upgrade | Castle, 900F+500G, Archery Range |
+| Light Cavalry | Upgrade | Castle, 150F+50G, Stable |
+| Knight | Unit | Castle, 60F+75G, 100HP, 10atk, 2/2 armor, Stable |
+| Upgrade buttons | UI | In Barracks/Archery Range/Stable panels |
+| AI upgrade rules | AI | Research upgrades based on army composition |
 
-**Blacksmith Techs:** See `docs/AoE_manual/AoE_manual.txt` for costs and effects
+**5B Done when:** Unit upgrades work for all Castle-and-below lines. Knight trainable. AI researches upgrades.
+
+**Imperial content deferred to Phase 9:** Two-Handed Swordsman, Champion, Arbalester, Cavalier, Paladin, Blast Furnace, Plate Mail Armor, Plate Barding Armor, Bracer, Ring Archer Armor.
+
+**Blacksmith Techs (Feudal + Castle):** See `docs/AoE_manual/AoE_manual.txt` for costs and effects
 
 **AI updates:** AI researches upgrades based on army composition.
 
@@ -595,7 +608,7 @@ This phase re-implements the AI using independent rules that fire when condition
 ---
 
 ## Phase 9: Imperial Age & Advanced
-**Goal:** Complete age system with late-game power units
+**Goal:** Complete age system with late-game power units and deferred Imperial upgrades
 
 | Feature | Type | Notes |
 |---------|------|-------|
@@ -614,6 +627,16 @@ This phase re-implements the AI using independent rules that fire when condition
 | Camel | Unit | Anti-cavalry cavalry, 100 HP, bonus vs mounted |
 | Heavy Camel | Unit | Camel upgrade, 120 HP |
 | Hand Cannoneer | Unit | Gunpowder archer, 17 attack, inaccurate |
+| Two-Handed Swordsman | Upgrade | Imperial, 300F+100G, Barracks (deferred from Phase 5) |
+| Champion | Upgrade | Imperial, 750F+350G, Barracks (deferred from Phase 5) |
+| Arbalester | Upgrade | Imperial, 350F+300G, Archery Range (deferred from Phase 5) |
+| Cavalier | Upgrade | Imperial, 300F+300G, Stable (deferred from Phase 5) |
+| Paladin | Upgrade | Imperial, 1300F+750G, Stable (deferred from Phase 5) |
+| Blast Furnace | Tech | Imperial Blacksmith tech (deferred from Phase 5) |
+| Plate Mail Armor | Tech | Imperial Blacksmith tech (deferred from Phase 5) |
+| Plate Barding Armor | Tech | Imperial Blacksmith tech (deferred from Phase 5) |
+| Bracer | Tech | Imperial Blacksmith tech (deferred from Phase 5) |
+| Ring Archer Armor | Tech | Imperial Blacksmith tech (deferred from Phase 5) |
 
 **AI updates:** AI advances to Imperial, builds Castle, uses Trebuchets, builds Wonder if ahead.
 

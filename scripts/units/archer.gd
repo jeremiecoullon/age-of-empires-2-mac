@@ -28,6 +28,18 @@ func _ready() -> void:
 	move_speed = 96.0  # Slightly slower than militia
 	# Use single SVG for now (no 8-dir sprites available)
 	_load_static_sprite(ARCHER_TEXTURE)
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+	_base_attack_range = attack_range
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("archer_attack", team)
+	attack_range = _base_attack_range + GameManager.get_tech_bonus("archer_range", team) * 32.0  # +1 range = +1 tile = 32px
 
 func _physics_process(delta: float) -> void:
 	match current_state:

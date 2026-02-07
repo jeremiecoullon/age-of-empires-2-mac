@@ -94,11 +94,12 @@ class AdjustGathererPercentagesRule extends AIRule:
 		var vill_count = gs.get_civilian_population()
 		var has_barracks = gs.get_building_count("barracks") >= 1
 
-		# Transition to Phase 1 when economy is established AND we have a
-		# gold-spending building. Without this gate, 15% of villagers mine
-		# gold that sits idle (militia only costs food/wood).
-		var has_archery_range = gs.get_building_count("archery_range") >= 1
-		if current_phase == 0 and vill_count >= 10 and has_barracks and has_archery_range:
+		# Transition to Phase 1 when economy is established AND we have
+		# gold-spending needs. In Feudal Age, Loom (50G) and Blacksmith techs
+		# require gold, so trigger on barracks + (archery_range OR Feudal Age).
+		var has_gold_needs = gs.get_building_count("archery_range") >= 1 \
+			or gs.get_age() >= GameManager.AGE_FEUDAL
+		if current_phase == 0 and vill_count >= 10 and has_barracks and has_gold_needs:
 			return true
 
 		# Future: Phase 2 transitions can be added here
@@ -744,6 +745,128 @@ class ScoutingRule extends AIRule:
 # ATTACK
 # =============================================================================
 
+# =============================================================================
+# BUILDING - BLACKSMITH
+# =============================================================================
+
+class BuildBlacksmithRule extends AIRule:
+	var _blacksmith_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_blacksmith"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("blacksmith") > 0:
+			_blacksmith_queued_at = -1.0
+			return false
+
+		if _blacksmith_queued_at > 0.0 and gs.get_game_time() - _blacksmith_queued_at > QUEUE_TIMEOUT:
+			_blacksmith_queued_at = -1.0
+
+		# Build after we have military buildings and some economy
+		return _blacksmith_queued_at < 0.0 \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.get_military_population() >= 2 \
+			and gs.can_build("blacksmith")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("blacksmith")
+		_blacksmith_queued_at = gs.get_game_time()
+
+
+# =============================================================================
+# TECHNOLOGY RESEARCH
+# =============================================================================
+
+class ResearchBlacksmithTechRule extends AIRule:
+	func _init():
+		rule_name = "research_blacksmith_tech"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("blacksmith") == 0:
+			return false
+		if gs.should_save_for_age():
+			return false
+		# Check if blacksmith is already researching
+		var bs = gs._get_ai_blacksmith()
+		if not bs or bs.is_researching:
+			return false
+		# Check if any tech is available
+		return _get_best_tech(gs) != ""
+
+	func actions(gs: AIGameState) -> void:
+		var tech_id = _get_best_tech(gs)
+		if tech_id != "":
+			gs.research_tech(tech_id)
+
+	func _get_best_tech(gs: AIGameState) -> String:
+		## Pick the best available tech to research based on army composition.
+		## Priority: attack upgrades for existing army types > armor upgrades
+		var infantry_count = gs.get_unit_count("infantry")
+		var cavalry_count = gs.get_unit_count("cavalry")
+		var archer_count = gs.get_unit_count("ranged")
+
+		# Attack upgrades first (highest impact)
+		# Forging/Iron Casting affect both infantry and cavalry
+		if infantry_count + cavalry_count > 0:
+			for tech_id in ["forging", "iron_casting"]:
+				if gs.can_research(tech_id):
+					return tech_id
+
+		# Fletching/Bodkin for archers
+		if archer_count > 0:
+			for tech_id in ["fletching", "bodkin_arrow"]:
+				if gs.can_research(tech_id):
+					return tech_id
+
+		# Armor upgrades (lower priority)
+		if infantry_count > 0:
+			for tech_id in ["scale_mail_armor", "chain_mail_armor"]:
+				if gs.can_research(tech_id):
+					return tech_id
+
+		if cavalry_count > 0:
+			for tech_id in ["scale_barding_armor", "chain_barding_armor"]:
+				if gs.can_research(tech_id):
+					return tech_id
+
+		if archer_count > 0:
+			for tech_id in ["padded_archer_armor", "leather_archer_armor"]:
+				if gs.can_research(tech_id):
+					return tech_id
+
+		# If we have any military, try whatever's available
+		if infantry_count + cavalry_count + archer_count > 0:
+			for tech_id in ["forging", "fletching", "scale_mail_armor", "scale_barding_armor", "padded_archer_armor",
+							"iron_casting", "bodkin_arrow", "chain_mail_armor", "chain_barding_armor", "leather_archer_armor"]:
+				if gs.can_research(tech_id):
+					return tech_id
+
+		return ""
+
+
+class ResearchLoomRule extends AIRule:
+	func _init():
+		rule_name = "research_loom"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.has_tech("loom"):
+			return false
+		if gs.should_save_for_age():
+			return false
+		# Research Loom when we have gold and TC is not busy
+		var tc_node = gs._get_ai_town_center()
+		if not tc_node or not tc_node.is_functional():
+			return false
+		if tc_node.is_researching_age or tc_node.is_researching or tc_node.is_training:
+			return false
+		return gs.can_research("loom")
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_tech("loom")
+
+
 class AttackRule extends AIRule:
 	func _init():
 		rule_name = "attack"
@@ -797,9 +920,14 @@ static func create_all_rules() -> Array:
 		TrainSkirmisherRule.new(),
 		TrainScoutCavalryRule.new(),
 		TrainCavalryArcherRule.new(),
+		# Blacksmith (Phase 5A)
+		BuildBlacksmithRule.new(),
 		# Age advancement (Phase 4A)
 		AdvanceToFeudalAgeRule.new(),
 		AdvanceToCastleAgeRule.new(),
+		# Technology research (Phase 5A)
+		ResearchLoomRule.new(),
+		ResearchBlacksmithTechRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)

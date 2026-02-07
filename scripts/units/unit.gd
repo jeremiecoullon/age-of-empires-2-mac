@@ -35,6 +35,13 @@ var current_direction: int = Direction.S  # Default facing south
 signal died
 signal damaged(amount: int, attacker: Node2D)  # Emitted when unit takes damage
 
+# Base stats for tech bonus system — set once by subclass, never modified
+var _base_attack_damage: int = 0
+var _base_melee_armor: int = 0
+var _base_pierce_armor: int = 0
+var _base_max_hp: int = 0
+var _base_attack_range: float = 0.0
+
 func _ready() -> void:
 	add_to_group("units")
 	current_hp = max_hp
@@ -48,6 +55,8 @@ func _ready() -> void:
 	damaged.connect(_on_damaged_for_notification)
 	# Connect to avoidance velocity computed signal for pathfinding around other units
 	nav_agent.velocity_computed.connect(_on_velocity_computed)
+	# Listen for tech research to recalculate bonuses
+	GameManager.tech_researched.connect(_on_tech_researched)
 
 func _apply_team_color() -> void:
 	if sprite:
@@ -356,6 +365,53 @@ func find_enemy_in_sight() -> Unit:
 			nearest = unit
 
 	return nearest
+
+# ===== TECHNOLOGY BONUS SYSTEM =====
+
+## Store current stats as base values. Call once in subclass _ready() AFTER setting stats.
+func _store_base_stats() -> void:
+	_base_max_hp = max_hp
+	_base_melee_armor = melee_armor
+	_base_pierce_armor = pierce_armor
+	# attack_damage and attack_range are on subclasses, so subclasses override this
+
+## Recalculate stats from base + tech bonuses. Idempotent — always recalculates from scratch.
+## Subclasses should override to handle their specific bonus keys (attack_damage, attack_range).
+func apply_tech_bonuses() -> void:
+	# Base class handles HP and armor bonuses common to all unit types
+	var hp_bonus := 0
+	var melee_armor_bonus := 0
+	var pierce_armor_bonus := 0
+
+	if is_in_group("villagers"):
+		hp_bonus += GameManager.get_tech_bonus("villager_hp", team)
+		melee_armor_bonus += GameManager.get_tech_bonus("villager_melee_armor", team)
+		pierce_armor_bonus += GameManager.get_tech_bonus("villager_pierce_armor", team)
+
+	if is_in_group("infantry"):
+		melee_armor_bonus += GameManager.get_tech_bonus("infantry_melee_armor", team)
+		pierce_armor_bonus += GameManager.get_tech_bonus("infantry_pierce_armor", team)
+
+	if is_in_group("cavalry"):
+		melee_armor_bonus += GameManager.get_tech_bonus("cavalry_melee_armor", team)
+		pierce_armor_bonus += GameManager.get_tech_bonus("cavalry_pierce_armor", team)
+
+	if is_in_group("archers"):
+		melee_armor_bonus += GameManager.get_tech_bonus("archer_melee_armor", team)
+		pierce_armor_bonus += GameManager.get_tech_bonus("archer_pierce_armor", team)
+
+	var old_max_hp = max_hp
+	max_hp = _base_max_hp + hp_bonus
+	melee_armor = _base_melee_armor + melee_armor_bonus
+	pierce_armor = _base_pierce_armor + pierce_armor_bonus
+
+	# HP bonus: increase current_hp by the same amount max_hp increased (unit gets tougher, not healed)
+	if max_hp > old_max_hp:
+		current_hp += max_hp - old_max_hp
+
+func _on_tech_researched(_team: int, _tech_id: String) -> void:
+	if _team == team:
+		apply_tech_bonuses()
 
 ## Find nearest enemy building within sight range. Returns null if none found.
 func find_enemy_building_in_sight() -> Building:

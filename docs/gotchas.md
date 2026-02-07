@@ -20,6 +20,7 @@ Track placeholder sprites here for replacement in Phase 9 (Polish). When creatin
 | Skirmisher | Unit | `assets/sprites/units/skirmisher.svg` | Light green figure with javelins |
 | Cavalry Archer | Unit | `assets/sprites/units/cavalry_archer.svg` | Mounted figure with bow |
 | Trade Cart | Unit | `assets/sprites/units/trade_cart.svg` | Cart/wagon figure |
+| Blacksmith | Building | `assets/sprites/buildings/blacksmith.svg` | Dark stone building with anvil |
 
 **Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
 
@@ -383,3 +384,25 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Cavalry Archer is Castle Age**: Even though the Stable (its training building) is Feudal Age, the Cavalry Archer unit itself requires Castle Age. The button appears in the Stable panel but is disabled until Castle Age.
 
 - **AI build-queue flags need timeouts, not booleans**: Build rules (barracks, archery range, stable, mill, lumber camp, mining camp) use a flag to prevent queuing the same building twice. Originally a boolean that was only reset when the building existed. If the build failed silently (can't afford, no valid position), the flag was never reset, permanently blocking the rule. Fixed by using a timestamp + 30s timeout: `_barracks_queued_at` instead of `_barracks_queued`.
+
+### Phase 5A - Tech Research System + Blacksmith + Loom
+
+- **Tech bonus application must be idempotent**: `apply_tech_bonuses()` always recalculates stats from `_base_*` values + bonuses, never incrementing current values. This prevents drift if the signal fires multiple times or is called manually. Pattern: store base stats in `_store_base_stats()` once, then `apply_tech_bonuses()` sets `stat = _base_stat + bonus`.
+
+- **Loom HP bonus increases current_hp, not just max_hp**: When Loom is researched, villager `max_hp` increases by 15. The unit's `current_hp` must also increase by the same delta (unit gets tougher, not healed). Done by comparing `max_hp` before and after bonus application and adding the diff to `current_hp`.
+
+- **TC Loom blocks training**: TC `_process()` priority: age research > tech research (Loom) > training. When Loom is researching, `train_villager()` returns false. After Loom completes, `_complete_research()` checks the training queue and resumes with `_start_next_training()`.
+
+- **Forging/Iron Casting affect BOTH infantry AND cavalry attack**: These techs have effects for both `infantry_attack` and `cavalry_attack`. Militia and spearman apply `infantry_attack`, scout cavalry applies `cavalry_attack`. Cavalry archers apply BOTH `cavalry_attack` AND `archer_attack`.
+
+- **Fletching/Bodkin affect archers + range**: Each level adds +1 attack AND +1 range (converted to 32px per level in-game). Also affects TCs/towers/galleys in real AoE2, but those aren't implemented yet (Phase 7/11). Document for future.
+
+- **Building destruction during research must refund**: `_destroy()` in both Blacksmith and TC calls `cancel_research()` which refunds resources. Without this, resources spent on research would be permanently lost if the building is destroyed mid-research.
+
+- **Generic research system in Building base class**: Reusable by any building that needs to research techs. Uses `start_research()`, `cancel_research()`, `_process_research()`, `_complete_research()` pattern. TC overrides `_complete_research()` to resume training after Loom finishes. Blacksmith calls `_process_research(delta)` in its own `_process()`.
+
+- **Iron Casting cost**: 220F + 120G per AoE2 manual, not 200F + 100G. Was caught by spec-check agent.
+
+- **Object.get() in GDScript takes 1 argument, not 2**: `rule.get("property", default_value)` crashes with "Expected 1 argument(s)". Unlike Python dicts, `Object.get(prop)` returns the value or `null`. Use `var v = obj.get("prop"); if v is float and v > 0.0:` pattern instead. Found in ai_controller.gd skip reason reporting.
+
+- **AI gold gathering gate must account for tech costs**: The `AdjustGathererPercentagesRule` originally required both barracks AND archery range to start gold gathering. But Loom (50G) and Blacksmith techs need gold in Feudal Age before an archery range exists. Fixed to trigger on barracks + (archery_range OR Feudal Age).

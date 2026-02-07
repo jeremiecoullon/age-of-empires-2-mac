@@ -20,6 +20,9 @@ var milestones: Dictionary = {
 	"first_archery_range": null,
 	"first_stable": null,
 	"first_market": null,
+	"first_blacksmith": null,
+	"first_tech_researched": null,
+	"first_loom": null,
 	"reached_5_villagers": null,
 	"reached_10_villagers": null,
 	"reached_15_villagers": null,
@@ -98,7 +101,7 @@ func record_attack() -> void:
 
 func _check_milestones(game_time: float, state) -> void:
 	# Building milestones
-	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market"]
+	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith"]
 	for building_type in building_types:
 		var milestone_key = "first_" + building_type
 		if milestones[milestone_key] == null:
@@ -130,6 +133,14 @@ func _check_milestones(game_time: float, state) -> void:
 		milestones["reached_feudal_age"] = game_time
 	if milestones["reached_castle_age"] == null and current_age >= GameManager.AGE_CASTLE:
 		milestones["reached_castle_age"] = game_time
+
+	# Tech milestones
+	if milestones["first_tech_researched"] == null:
+		if GameManager.ai_researched_techs.size() > 0:
+			milestones["first_tech_researched"] = game_time
+	if milestones["first_loom"] == null:
+		if GameManager.has_tech("loom", AI_TEAM):
+			milestones["first_loom"] = game_time
 
 	# Attack milestone (set via record_attack())
 	if milestones["first_attack"] == null and attack_issued:
@@ -376,6 +387,11 @@ func generate_summary(test_duration: float, time_scale: float, game_time: float,
 			"mill": state.get_building_count("mill"),
 			"lumber_camp": state.get_building_count("lumber_camp"),
 			"mining_camp": state.get_building_count("mining_camp"),
+			"blacksmith": state.get_building_count("blacksmith"),
+		},
+		"technologies": {
+			"researched_count": state._count_researched_techs(),
+			"has_loom": state.has_tech("loom"),
 		}
 	}
 

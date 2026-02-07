@@ -206,7 +206,7 @@ Games are logged to `logs/game_logs/` with snapshots every 10 seconds. When the 
 4. **Implement the fix**, then run the code-reviewer agent on the changes.
 5. **Update the AI tuning log** in `docs/ai_player_designs/ai_tuning_log.md` to track what changed and why. This history matters as new features/maps are added — earlier tuning may become irrelevant.
 
-
+**Important:** The tuning log applies to ALL AI behavior changes, not just game-analysis fixes. If you modify AI rules, strategic numbers, gatherer percentages, rule conditions, or any logic in `scripts/ai/` during phase work or bug fixes, add an entry to the tuning log explaining what changed and why.
 
 ---
 

@@ -166,6 +166,66 @@ func is_functional() -> bool:
 func get_construction_percent() -> int:
 	return int(construction_progress * 100)
 
+# ===== RESEARCH SYSTEM =====
+
+var is_researching: bool = false
+var research_timer: float = 0.0
+var current_research_id: String = ""
+var research_time: float = 0.0
+
+signal research_started(tech_id: String)
+signal research_completed(tech_id: String)
+
+func start_research(tech_id: String) -> bool:
+	if is_researching:
+		return false
+	if tech_id not in GameManager.TECHNOLOGIES:
+		return false
+	if not GameManager.can_research_tech(tech_id, team):
+		return false
+
+	GameManager.spend_tech_cost(tech_id, team)
+	is_researching = true
+	current_research_id = tech_id
+	research_timer = 0.0
+	research_time = GameManager.TECHNOLOGIES[tech_id]["research_time"]
+	research_started.emit(tech_id)
+	return true
+
+func cancel_research() -> bool:
+	if not is_researching:
+		return false
+	GameManager.refund_tech_cost(current_research_id, team)
+	is_researching = false
+	current_research_id = ""
+	research_timer = 0.0
+	research_time = 0.0
+	return true
+
+func _process_research(delta: float) -> bool:
+	## Returns true if research completed this frame
+	if not is_researching:
+		return false
+	research_timer += delta
+	if research_timer >= research_time:
+		_complete_research()
+		return true
+	return false
+
+func _complete_research() -> void:
+	var completed_id = current_research_id
+	is_researching = false
+	current_research_id = ""
+	research_timer = 0.0
+	research_time = 0.0
+	GameManager.complete_tech_research(completed_id, team)
+	research_completed.emit(completed_id)
+
+func get_research_progress() -> float:
+	if not is_researching or research_time <= 0.0:
+		return 0.0
+	return research_timer / research_time
+
 # ===== REPAIR SYSTEM =====
 
 ## Whether this building can be repaired (constructed, not destroyed, and damaged)

@@ -42,6 +42,7 @@ const BUILDING_AGE_REQUIREMENTS: Dictionary = {
 	"archery_range": AGE_FEUDAL,
 	"stable": AGE_FEUDAL,
 	"market": AGE_FEUDAL,
+	"blacksmith": AGE_FEUDAL,
 }
 
 const UNIT_AGE_REQUIREMENTS: Dictionary = {
@@ -56,6 +57,161 @@ const UNIT_AGE_REQUIREMENTS: Dictionary = {
 # Age state per player
 var player_age: int = AGE_DARK
 var ai_age: int = AGE_DARK
+
+# ===== TECHNOLOGY SYSTEM =====
+
+# Technology definitions (Feudal + Castle only; Imperial deferred to Phase 9)
+# Effects: keys map to bonus categories applied to units via apply_tech_bonuses()
+const TECHNOLOGIES: Dictionary = {
+	# Loom (Town Center, Dark Age)
+	"loom": {
+		"name": "Loom", "age": AGE_DARK, "building": "town_center",
+		"cost": {"gold": 50}, "research_time": 25.0,
+		"effects": {"villager_hp": 15, "villager_melee_armor": 1, "villager_pierce_armor": 1},
+		"requires": ""
+	},
+	# Blacksmith - Infantry/Cavalry Attack line (Forging affects both)
+	"forging": {
+		"name": "Forging", "age": AGE_FEUDAL, "building": "blacksmith",
+		"cost": {"food": 150}, "research_time": 50.0,
+		"effects": {"infantry_attack": 1, "cavalry_attack": 1},
+		"requires": ""
+	},
+	"iron_casting": {
+		"name": "Iron Casting", "age": AGE_CASTLE, "building": "blacksmith",
+		"cost": {"food": 220, "gold": 120}, "research_time": 75.0,
+		"effects": {"infantry_attack": 1, "cavalry_attack": 1},
+		"requires": "forging"
+	},
+	# Blacksmith - Infantry Armor line
+	"scale_mail_armor": {
+		"name": "Scale Mail Armor", "age": AGE_FEUDAL, "building": "blacksmith",
+		"cost": {"food": 100}, "research_time": 40.0,
+		"effects": {"infantry_melee_armor": 1, "infantry_pierce_armor": 1},
+		"requires": ""
+	},
+	"chain_mail_armor": {
+		"name": "Chain Mail Armor", "age": AGE_CASTLE, "building": "blacksmith",
+		"cost": {"food": 200, "gold": 100}, "research_time": 55.0,
+		"effects": {"infantry_melee_armor": 1, "infantry_pierce_armor": 1},
+		"requires": "scale_mail_armor"
+	},
+	# Blacksmith - Cavalry Armor line
+	"scale_barding_armor": {
+		"name": "Scale Barding Armor", "age": AGE_FEUDAL, "building": "blacksmith",
+		"cost": {"food": 150}, "research_time": 45.0,
+		"effects": {"cavalry_melee_armor": 1, "cavalry_pierce_armor": 1},
+		"requires": ""
+	},
+	"chain_barding_armor": {
+		"name": "Chain Barding Armor", "age": AGE_CASTLE, "building": "blacksmith",
+		"cost": {"food": 250, "gold": 150}, "research_time": 60.0,
+		"effects": {"cavalry_melee_armor": 1, "cavalry_pierce_armor": 1},
+		"requires": "scale_barding_armor"
+	},
+	# Blacksmith - Archer Attack line (Fletching also affects TCs/towers in future)
+	"fletching": {
+		"name": "Fletching", "age": AGE_FEUDAL, "building": "blacksmith",
+		"cost": {"food": 100, "gold": 50}, "research_time": 30.0,
+		"effects": {"archer_attack": 1, "archer_range": 1},
+		"requires": ""
+	},
+	"bodkin_arrow": {
+		"name": "Bodkin Arrow", "age": AGE_CASTLE, "building": "blacksmith",
+		"cost": {"food": 200, "gold": 100}, "research_time": 60.0,
+		"effects": {"archer_attack": 1, "archer_range": 1},
+		"requires": "fletching"
+	},
+	# Blacksmith - Archer Armor line
+	"padded_archer_armor": {
+		"name": "Padded Archer Armor", "age": AGE_FEUDAL, "building": "blacksmith",
+		"cost": {"food": 100}, "research_time": 40.0,
+		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 1},
+		"requires": ""
+	},
+	"leather_archer_armor": {
+		"name": "Leather Archer Armor", "age": AGE_CASTLE, "building": "blacksmith",
+		"cost": {"food": 150, "gold": 150}, "research_time": 55.0,
+		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 1},
+		"requires": "padded_archer_armor"
+	},
+}
+
+# Per-team technology state
+var player_researched_techs: Array[String] = []
+var ai_researched_techs: Array[String] = []
+var player_tech_bonuses: Dictionary = {}
+var ai_tech_bonuses: Dictionary = {}
+
+signal tech_researched(team: int, tech_id: String)
+
+func has_tech(tech_id: String, team: int = 0) -> bool:
+	var techs = player_researched_techs if team == 0 else ai_researched_techs
+	return techs.has(tech_id)
+
+func can_research_tech(tech_id: String, team: int = 0) -> bool:
+	if tech_id not in TECHNOLOGIES:
+		return false
+	if has_tech(tech_id, team):
+		return false
+	var tech = TECHNOLOGIES[tech_id]
+	# Check age requirement
+	if get_age(team) < tech["age"]:
+		return false
+	# Check prerequisite
+	var prereq = tech["requires"]
+	if prereq != "" and not has_tech(prereq, team):
+		return false
+	# Check cost
+	var pool = resources if team == 0 else ai_resources
+	for resource_type in tech["cost"]:
+		if pool[resource_type] < tech["cost"][resource_type]:
+			return false
+	return true
+
+func spend_tech_cost(tech_id: String, team: int = 0) -> bool:
+	if tech_id not in TECHNOLOGIES:
+		return false
+	var tech = TECHNOLOGIES[tech_id]
+	var pool = resources if team == 0 else ai_resources
+	for resource_type in tech["cost"]:
+		if pool[resource_type] < tech["cost"][resource_type]:
+			return false
+	for resource_type in tech["cost"]:
+		spend_resource(resource_type, tech["cost"][resource_type], team)
+	return true
+
+func refund_tech_cost(tech_id: String, team: int = 0) -> void:
+	if tech_id not in TECHNOLOGIES:
+		return
+	var tech = TECHNOLOGIES[tech_id]
+	for resource_type in tech["cost"]:
+		add_resource(resource_type, tech["cost"][resource_type], team)
+
+func complete_tech_research(tech_id: String, team: int = 0) -> void:
+	var techs = player_researched_techs if team == 0 else ai_researched_techs
+	if not techs.has(tech_id):
+		techs.append(tech_id)
+	_recalculate_tech_bonuses(team)
+	tech_researched.emit(team, tech_id)
+
+func get_tech_bonus(bonus_key: String, team: int = 0) -> int:
+	var bonuses = player_tech_bonuses if team == 0 else ai_tech_bonuses
+	return bonuses.get(bonus_key, 0)
+
+func _recalculate_tech_bonuses(team: int = 0) -> void:
+	var techs = player_researched_techs if team == 0 else ai_researched_techs
+	var bonuses: Dictionary = {}
+	for tech_id in techs:
+		if tech_id not in TECHNOLOGIES:
+			continue
+		var effects = TECHNOLOGIES[tech_id]["effects"]
+		for key in effects:
+			bonuses[key] = bonuses.get(key, 0) + effects[key]
+	if team == 0:
+		player_tech_bonuses = bonuses
+	else:
+		ai_tech_bonuses = bonuses
 
 # Resource pools - dictionary-based for extensibility
 var resources: Dictionary = {"wood": 200, "food": 200, "gold": 0, "stone": 0}
@@ -367,6 +523,10 @@ func reset() -> void:
 	ai_population_cap = 5
 	player_age = AGE_DARK
 	ai_age = AGE_DARK
+	player_researched_techs.clear()
+	ai_researched_techs.clear()
+	player_tech_bonuses.clear()
+	ai_tech_bonuses.clear()
 	game_ended = false
 	clear_selection()
 	is_placing_building = false

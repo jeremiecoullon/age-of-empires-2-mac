@@ -12,6 +12,7 @@ static func capture(scene_tree: SceneTree, team: int) -> Dictionary:
 		"villagers": _capture_villagers(scene_tree, team),
 		"military": _capture_military(scene_tree, team),
 		"buildings": _capture_buildings(scene_tree, team),
+		"technologies": _capture_technologies(team),
 	}
 
 
@@ -115,6 +116,7 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"lumber_camp": 0,
 		"mining_camp": 0,
 		"market": 0,
+		"blacksmith": 0,
 	}
 
 	# Map group names to result keys
@@ -129,6 +131,7 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"lumber_camps": "lumber_camp",
 		"mining_camps": "mining_camp",
 		"markets": "market",
+		"blacksmiths": "blacksmith",
 	}
 
 	for group_name in groups:
@@ -138,3 +141,22 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 				result[key] += 1
 
 	return result
+
+
+static func _capture_technologies(team: int) -> Dictionary:
+	var researched: Array = []
+	if team == 0:
+		researched = GameManager.player_researched_techs.duplicate()
+	else:
+		researched = GameManager.ai_researched_techs.duplicate()
+
+	# Find current research (check blacksmiths and TCs)
+	var current_research: String = ""
+	# We can't easily iterate scene nodes here (static func without scene_tree for this),
+	# so just report the researched set. Current research is tracked in AI_STATE logs.
+
+	return {
+		"researched": researched,
+		"researched_count": researched.size(),
+		"has_loom": GameManager.has_tech("loom", team),
+	}

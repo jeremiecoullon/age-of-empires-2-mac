@@ -32,10 +32,12 @@ extends CanvasLayer
 @onready var build_market_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMarketButton
 @onready var build_archery_range_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildArcheryRangeButton
 @onready var build_stable_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton
+@onready var build_blacksmith_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildBlacksmithButton
 
 # Train buttons
 @onready var train_villager_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton
 @onready var advance_age_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/AdvanceAgeButton
+@onready var loom_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/LoomButton
 @onready var train_militia_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMilitiaButton
 @onready var train_spearman_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainSpearmanButton
 @onready var train_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainArcherButton
@@ -81,7 +83,7 @@ var attack_notification_label: Label = null
 
 # Currently selected building (for training)
 var selected_building: Building = null
-var selected_building_type: String = ""  # "tc", "barracks", "market", "archery_range", "stable"
+var selected_building_type: String = ""  # "tc", "barracks", "market", "archery_range", "stable", "blacksmith"
 
 # Track selected entity for info panel updates
 var selected_info_entity: Node = null
@@ -102,6 +104,7 @@ var barracks_buttons: Array[Button] = []
 var archery_range_buttons: Array[Button] = []
 var stable_buttons: Array[Button] = []
 var market_buttons: Array[Button] = []
+var blacksmith_buttons: Array[Button] = []  # Dynamically created tech research buttons
 
 
 func _ready() -> void:
@@ -119,8 +122,8 @@ func _ready() -> void:
 	# Group buttons for easier management
 	build_buttons = [build_house_btn, build_barracks_btn, build_farm_btn, build_mill_btn,
 					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
-					 build_archery_range_btn, build_stable_btn]
-	tc_buttons = [train_villager_btn, advance_age_btn]
+					 build_archery_range_btn, build_stable_btn, build_blacksmith_btn]
+	tc_buttons = [train_villager_btn, advance_age_btn, loom_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
 	archery_range_buttons = [train_archer_btn, train_skirmisher_btn]
 	stable_buttons = [train_scout_cavalry_btn, train_cavalry_archer_btn]
@@ -179,6 +182,34 @@ func _update_production_progress() -> void:
 			queue_label.text = age_name
 			cancel_btn.visible = true
 			return
+		if tc.is_researching:
+			train_progress.value = tc.get_research_progress() * 100
+			train_progress.visible = true
+			queue_label.text = "Loom"
+			cancel_btn.visible = true
+			return
+
+	# Tech research progress (Blacksmith)
+	if selected_building is Blacksmith:
+		var bs = selected_building as Blacksmith
+		if bs.is_researching:
+			train_progress.value = bs.get_research_progress() * 100
+			train_progress.visible = true
+			var tech_name = GameManager.TECHNOLOGIES.get(bs.current_research_id, {}).get("name", "?")
+			queue_label.text = tech_name
+			cancel_btn.visible = true
+			return
+		else:
+			train_progress.visible = false
+			queue_label.text = ""
+			cancel_btn.visible = false
+			return
+
+	if not selected_building.has_method("get_queue_size"):
+		train_progress.visible = false
+		queue_label.text = ""
+		cancel_btn.visible = false
+		return
 
 	var queue_size = selected_building.get_queue_size()
 	queue_label.text = "[%d]" % queue_size if queue_size > 0 else ""
@@ -204,6 +235,8 @@ func _hide_all_action_buttons() -> void:
 		btn.visible = false
 	for btn in market_buttons:
 		btn.visible = false
+	for btn in blacksmith_buttons:
+		btn.visible = false
 	cancel_btn.visible = false
 	train_progress.visible = false
 	queue_label.text = ""
@@ -226,6 +259,7 @@ func _show_tc_buttons(tc: TownCenter) -> void:
 	selected_building = tc
 	selected_building_type = "tc"
 	_update_advance_age_button()
+	_update_loom_button()
 
 
 func _show_barracks_buttons(barracks: Barracks) -> void:
@@ -269,6 +303,15 @@ func _show_market_buttons(market: Market) -> void:
 	_update_market_button_states()
 
 
+func _show_blacksmith_buttons(blacksmith: Blacksmith) -> void:
+	_hide_all_action_buttons()
+	action_title.text = "Blacksmith"
+	selected_building = blacksmith
+	selected_building_type = "blacksmith"
+	_create_blacksmith_tech_buttons()
+	cancel_btn.visible = blacksmith.is_researching
+
+
 func _update_market_prices() -> void:
 	buy_wood_btn.text = "Buy Wood: %dg" % GameManager.get_market_buy_price("wood")
 	buy_food_btn.text = "Buy Food: %dg" % GameManager.get_market_buy_price("food")
@@ -304,6 +347,7 @@ func _update_build_button_states() -> void:
 	_set_button_age_locked(build_archery_range_btn, not GameManager.is_building_unlocked("archery_range"), GameManager.get_required_age_name("archery_range", true), "Archery Range")
 	_set_button_age_locked(build_stable_btn, not GameManager.is_building_unlocked("stable"), GameManager.get_required_age_name("stable", true), "Stable")
 	_set_button_age_locked(build_market_btn, not GameManager.is_building_unlocked("market"), GameManager.get_required_age_name("market", true), "Market")
+	_set_button_age_locked(build_blacksmith_btn, not GameManager.is_building_unlocked("blacksmith"), GameManager.get_required_age_name("blacksmith", true), "Blacksmith (150W)")
 
 
 func _update_barracks_button_states() -> void:
@@ -355,6 +399,8 @@ func _refresh_current_panel() -> void:
 		_update_stable_button_states()
 	elif selected_building_type == "market":
 		_update_market_button_states()
+	elif selected_building_type == "blacksmith":
+		_create_blacksmith_tech_buttons()  # Recreate to reflect new age
 
 	# Also refresh build buttons if a villager is selected
 	if selected_info_entity is Villager and selected_info_entity.team == 0:
@@ -434,6 +480,10 @@ func show_info(entity: Node) -> void:
 		_show_building_info("Stable", "Trains cavalry", entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_stable_buttons(entity)
+	elif entity is Blacksmith:
+		_show_building_info("Blacksmith", "Researches upgrades", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_blacksmith_buttons(entity)
 	elif entity is Building:
 		_show_building_info(entity.building_name, "", entity)
 	else:
@@ -481,6 +531,15 @@ func show_stable_panel(stable: Stable) -> void:
 
 func hide_stable_panel() -> void:
 	if selected_building_type == "stable":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
+func show_blacksmith_panel(blacksmith: Blacksmith) -> void:
+	show_info(blacksmith)
+
+func hide_blacksmith_panel() -> void:
+	if selected_building_type == "blacksmith":
 		_hide_all_action_buttons()
 		selected_building = null
 		selected_building_type = ""
@@ -1079,6 +1138,121 @@ func _on_train_trade_cart_pressed() -> void:
 				_show_error("Pop cap reached!")
 
 
+func _on_loom_pressed() -> void:
+	if not selected_building is TownCenter:
+		return
+	var tc = selected_building as TownCenter
+	if GameManager.has_tech("loom", 0):
+		_show_error("Already researched!")
+		return
+	if tc.is_researching_age or tc.is_researching:
+		_show_error("Already researching!")
+		return
+	if tc.start_loom_research():
+		_show_notification("Researching Loom...")
+		if _game_logger:
+			_game_logger.log_action("research", {"tech": "loom"})
+	else:
+		if not GameManager.can_afford("gold", 50):
+			_show_error("Need 50 gold!")
+
+func _on_build_blacksmith_pressed() -> void:
+	if not GameManager.is_building_unlocked("blacksmith"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("blacksmith", true))
+		return
+	if not GameManager.can_afford("wood", 150):
+		_show_error("Need 150 wood!")
+		return
+	get_parent().start_blacksmith_placement()
+
+
+func _update_loom_button() -> void:
+	if GameManager.has_tech("loom", 0):
+		loom_btn.text = "Loom [Done]"
+		loom_btn.disabled = true
+	else:
+		loom_btn.text = "Loom (50G)"
+		loom_btn.disabled = false
+
+
+## Create blacksmith tech research buttons dynamically based on available techs
+func _create_blacksmith_tech_buttons() -> void:
+	# Remove old buttons
+	for btn in blacksmith_buttons:
+		if is_instance_valid(btn):
+			btn.queue_free()
+	blacksmith_buttons.clear()
+
+	if not selected_building is Blacksmith:
+		return
+	var blacksmith = selected_building as Blacksmith
+
+	# Ordered tech lines for display
+	var tech_lines: Array[Array] = [
+		["forging", "iron_casting"],  # Attack (infantry + cavalry)
+		["scale_mail_armor", "chain_mail_armor"],  # Infantry armor
+		["scale_barding_armor", "chain_barding_armor"],  # Cavalry armor
+		["fletching", "bodkin_arrow"],  # Archer attack + range
+		["padded_archer_armor", "leather_archer_armor"],  # Archer armor
+	]
+
+	for line in tech_lines:
+		for tech_id in line:
+			var tech = GameManager.TECHNOLOGIES[tech_id]
+			var btn = Button.new()
+			btn.custom_minimum_size = Vector2(120, 25)
+
+			if GameManager.has_tech(tech_id, 0):
+				btn.text = "%s [Done]" % tech["name"]
+				btn.disabled = true
+			elif GameManager.get_age(0) < tech["age"]:
+				btn.text = "%s (%s)" % [tech["name"], GameManager.AGE_NAMES[tech["age"]]]
+				btn.disabled = true
+			elif tech["requires"] != "" and not GameManager.has_tech(tech["requires"], 0):
+				var prereq_name = GameManager.TECHNOLOGIES[tech["requires"]]["name"]
+				btn.text = "%s (Req: %s)" % [tech["name"], prereq_name]
+				btn.disabled = true
+			elif blacksmith.is_researching:
+				btn.text = _format_tech_cost(tech)
+				btn.disabled = true
+			else:
+				btn.text = _format_tech_cost(tech)
+				btn.disabled = false
+
+			var captured_id = tech_id
+			btn.pressed.connect(func(): _on_blacksmith_tech_pressed(captured_id))
+			action_grid.add_child(btn)
+			btn.visible = true
+			blacksmith_buttons.append(btn)
+
+	cancel_btn.visible = blacksmith.is_researching
+
+
+func _format_tech_cost(tech: Dictionary) -> String:
+	var cost_parts: Array[String] = []
+	for res in tech["cost"]:
+		var short = res[0].to_upper()
+		cost_parts.append("%d%s" % [tech["cost"][res], short])
+	return "%s (%s)" % [tech["name"], ", ".join(cost_parts)]
+
+
+func _on_blacksmith_tech_pressed(tech_id: String) -> void:
+	if not selected_building is Blacksmith:
+		return
+	var blacksmith = selected_building as Blacksmith
+	if blacksmith.is_researching:
+		_show_error("Already researching!")
+		return
+	if blacksmith.start_research(tech_id):
+		var tech_name = GameManager.TECHNOLOGIES[tech_id]["name"]
+		_show_notification("Researching %s..." % tech_name)
+		_create_blacksmith_tech_buttons()  # Refresh button states
+		if _game_logger:
+			_game_logger.log_action("research", {"tech": tech_id})
+	else:
+		_show_error("Cannot research!")
+
+
 func _on_cancel_pressed() -> void:
 	if selected_building and is_instance_valid(selected_building):
 		# Cancel age research first if active (TC only)
@@ -1087,6 +1261,18 @@ func _on_cancel_pressed() -> void:
 			if tc.is_researching_age:
 				tc.cancel_age_research()
 				_show_notification("Age research cancelled")
+				return
+			if tc.is_researching:
+				tc.cancel_research()
+				_show_notification("Loom research cancelled")
+				_update_loom_button()
+				return
+		# Cancel blacksmith research
+		if selected_building is Blacksmith:
+			if selected_building.is_researching:
+				selected_building.cancel_research()
+				_show_notification("Research cancelled")
+				_create_blacksmith_tech_buttons()
 				return
 		selected_building.cancel_training()
 

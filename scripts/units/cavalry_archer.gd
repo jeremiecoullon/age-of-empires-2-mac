@@ -33,6 +33,19 @@ func _ready() -> void:
 	pierce_armor = 0
 	if CAVALRY_ARCHER_TEXTURE:
 		_load_static_sprite(CAVALRY_ARCHER_TEXTURE)
+	_store_base_stats()
+	apply_tech_bonuses()
+
+func _store_base_stats() -> void:
+	super._store_base_stats()
+	_base_attack_damage = attack_damage
+	_base_attack_range = attack_range
+
+func apply_tech_bonuses() -> void:
+	super.apply_tech_bonuses()
+	# Cavalry archers get BOTH cavalry attack AND archer attack/range bonuses
+	attack_damage = _base_attack_damage + GameManager.get_tech_bonus("cavalry_attack", team) + GameManager.get_tech_bonus("archer_attack", team)
+	attack_range = _base_attack_range + GameManager.get_tech_bonus("archer_range", team) * 32.0
 
 func _physics_process(delta: float) -> void:
 	match current_state:

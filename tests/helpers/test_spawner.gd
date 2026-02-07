@@ -30,6 +30,7 @@ const MARKET_SCENE = preload("res://scenes/buildings/market.tscn")
 const FARM_SCENE = preload("res://scenes/buildings/farm.tscn")
 const ARCHERY_RANGE_SCENE = preload("res://scenes/buildings/archery_range.tscn")
 const STABLE_SCENE = preload("res://scenes/buildings/stable.tscn")
+const BLACKSMITH_SCENE = preload("res://scenes/buildings/blacksmith.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -221,6 +222,15 @@ func spawn_stable(position: Vector2, team: int = 0) -> Node:
 	buildings_container.add_child(stable)
 	spawned_entities.append(stable)
 	return stable
+
+
+func spawn_blacksmith(position: Vector2, team: int = 0) -> Node:
+	var blacksmith = BLACKSMITH_SCENE.instantiate()
+	blacksmith.global_position = position
+	blacksmith.team = team
+	buildings_container.add_child(blacksmith)
+	spawned_entities.append(blacksmith)
+	return blacksmith
 
 
 func spawn_tree(position: Vector2, amount: int = 100) -> Node:
