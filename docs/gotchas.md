@@ -6,24 +6,28 @@ Accumulated learnings and pitfalls. Add entries here as issues are encountered d
 
 ## Missing Sprites
 
-Track placeholder sprites here for replacement in Phase 9 (Polish). When creating a new entity without an available sprite, add it to this list.
+When adding a new entity, follow this priority order for sprites:
+
+1. **Check `images/AoE-all_sprites/`** (`Units/` and `Buildings/`). This gitignored directory has extracted AoE2 sprites for most entities.
+2. **Units:** copy the `Stand Ground/` frames into `assets/sprites/units/<name>_frames/`, then use `_load_directional_animations()` for 8-dir idle animation. Only stand/idle for now — walk/attack/die are deferred to Phase 10.
+3. **Buildings:** copy variant 1 PNG into `assets/sprites/buildings/<name>_aoe.png`, update the `.tscn`, scale `0.5`.
+4. **Only if no AoE source exists:** create an SVG placeholder and add it to the table below.
+
+Never use another entity's sprite as a fallback.
+
+**Remaining SVG placeholders:**
 
 | Entity | Type | Current Placeholder | Notes |
 |--------|------|---------------------|-------|
-| Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle |
-| Market | Building | `assets/sprites/buildings/market.svg` | Orange rectangle with "M" |
-| Archery Range | Building | `assets/sprites/buildings/archery_range.svg` | Building with target |
-| Stable | Building | `assets/sprites/buildings/stable.svg` | Brown rectangle with horseshoe |
-| Archer | Unit | `assets/sprites/units/archer.svg` | Green figure with bow |
-| Scout Cavalry | Unit | `assets/sprites/units/scout_cavalry.svg` | Orange mounted figure |
-| Spearman | Unit | `assets/sprites/units/spearman.svg` | Blue figure with spear |
-| Skirmisher | Unit | `assets/sprites/units/skirmisher.svg` | Light green figure with javelins |
-| Cavalry Archer | Unit | `assets/sprites/units/cavalry_archer.svg` | Mounted figure with bow |
-| Trade Cart | Unit | `assets/sprites/units/trade_cart.svg` | Cart/wagon figure |
-| Blacksmith | Building | `assets/sprites/buildings/blacksmith.svg` | Dark stone building with anvil |
-| Knight | Unit | `assets/sprites/units/knight.svg` | Armored mounted rider with shield |
+| Farm | Building | `assets/sprites/buildings/farm.svg` | Simple green rectangle. No AoE source available. |
 
-**Important:** Never use another entity's sprite as a fallback. Always create an SVG placeholder and add it here.
+### Replaced sprites — deferred work
+
+| Entity | What's done | What's deferred (Phase 10) |
+|--------|------------|---------------------------|
+| Archer, Spearman, Skirmisher, Scout Cavalry, Cavalry Archer, Knight, Trade Cart | Stand/idle 8-dir animation | Walk, Attack, Die, Rot animations |
+| Trade Cart | "Full" variant only | "Empty" variant for return trip |
+| Archery Range, Stable, Market, Blacksmith | Variant 1 (Feudal, European) | Age-specific variants, civ-specific variants |
 
 ---
 

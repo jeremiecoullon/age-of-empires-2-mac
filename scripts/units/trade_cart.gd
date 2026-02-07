@@ -10,9 +10,6 @@ const TILE_SIZE: float = 32.0  # Pixels per tile
 const MARKET_ARRIVAL_DISTANCE: float = 60.0  # Distance in pixels to consider "arrived"
 const MARKET_SEARCH_INTERVAL: float = 0.5  # Throttle expensive market searches
 
-# Preload texture to avoid runtime file I/O
-const TRADE_CART_TEXTURE: Texture2D = preload("res://assets/sprites/units/trade_cart.svg")
-
 @export var home_market: Market = null  # Starting market
 @export var destination_market: Market = null  # Target market
 
@@ -27,8 +24,7 @@ func _ready() -> void:
 	max_hp = 70  # From AoE2 spec
 	move_speed = 100.0  # Medium speed
 
-	# Use single SVG for now (no 8-dir sprites available)
-	_load_static_sprite(TRADE_CART_TEXTURE)
+	_load_directional_animations("res://assets/sprites/units/trade_cart_frames", "Tradecatdstand", 50)
 
 func _physics_process(delta: float) -> void:
 	match current_state:

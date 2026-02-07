@@ -8,9 +8,6 @@ enum State { IDLE, MOVING, ATTACKING }
 @export var attack_range: float = 128.0  # ~4 tiles at 32px/tile
 @export var attack_cooldown: float = 2.0
 
-# Preload texture to avoid runtime file I/O
-const ARCHER_TEXTURE: Texture2D = preload("res://assets/sprites/units/archer.svg")
-
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
@@ -27,8 +24,7 @@ func _ready() -> void:
 	max_hp = 30
 	current_hp = max_hp
 	move_speed = 96.0  # Slightly slower than militia
-	# Use single SVG for now (no 8-dir sprites available)
-	_load_static_sprite(ARCHER_TEXTURE)
+	_load_directional_animations("res://assets/sprites/units/archer_frames", "Archerstand", 52)
 	_apply_researched_upgrades()
 	_store_base_stats()
 	apply_tech_bonuses()

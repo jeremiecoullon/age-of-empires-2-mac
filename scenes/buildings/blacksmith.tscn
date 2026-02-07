@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://cblacksm00001"]
 
 [ext_resource type="Script" path="res://scripts/buildings/blacksmith.gd" id="1_blacksmith"]
-[ext_resource type="Texture2D" path="res://assets/sprites/buildings/blacksmith.svg" id="2_texture"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/blacksmith_aoe.png" id="2_texture"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_blacksmith"]
 size = Vector2(96, 96)

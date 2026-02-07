@@ -667,6 +667,7 @@ Imperial techs and upgrades deferred to Phase 9.
 | Farm auto-rebuild | Mechanic | Right-click expired farm to queue automatic rebuild |
 | Building damage visuals | Art | Buildings flame when damaged |
 | In-game tech tree | UI | View full technology tree during game |
+| Unit animations | Art | Walk/Attack/Die/Rot for Archer, Spearman, Skirmisher, Scout Cavalry, Cavalry Archer, Knight, Trade Cart. Building age/civ variants. Trade Cart empty variant. |
 | Visual upgrade | Art | Sprites, animations |
 | Sound effects | Audio | Feedback for actions, combat, UI |
 | Larger maps | Map | 120x120, 200x200 options |

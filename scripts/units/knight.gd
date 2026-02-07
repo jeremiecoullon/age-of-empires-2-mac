@@ -10,8 +10,6 @@ enum State { IDLE, MOVING, ATTACKING }
 @export var attack_range: float = 30.0
 @export var attack_cooldown: float = 1.8
 
-const KNIGHT_TEXTURE: Texture2D = preload("res://assets/sprites/units/knight.svg")
-
 var current_state: State = State.IDLE
 var attack_target: Node2D = null  # Can be Unit or Building
 var attack_timer: float = 0.0
@@ -30,8 +28,7 @@ func _ready() -> void:
 	move_speed = 140.0  # Fast cavalry
 	melee_armor = 2
 	pierce_armor = 2
-	if KNIGHT_TEXTURE:
-		_load_static_sprite(KNIGHT_TEXTURE)
+	_load_directional_animations("res://assets/sprites/units/knight_frames", "Knightstand", 50)
 	_apply_researched_upgrades()
 	_store_base_stats()
 	apply_tech_bonuses()
