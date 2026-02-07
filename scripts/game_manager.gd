@@ -48,6 +48,7 @@ const BUILDING_AGE_REQUIREMENTS: Dictionary = {
 	"gate": AGE_FEUDAL,
 	"monastery": AGE_CASTLE,
 	"university": AGE_CASTLE,
+	"siege_workshop": AGE_CASTLE,
 }
 
 const UNIT_AGE_REQUIREMENTS: Dictionary = {
@@ -59,6 +60,9 @@ const UNIT_AGE_REQUIREMENTS: Dictionary = {
 	"cavalry_archer": AGE_CASTLE,
 	"knight": AGE_CASTLE,
 	"monk": AGE_CASTLE,
+	"battering_ram": AGE_CASTLE,
+	"mangonel": AGE_CASTLE,
+	"scorpion": AGE_CASTLE,
 }
 
 # Age state per player
@@ -201,6 +205,31 @@ const TECHNOLOGIES: Dictionary = {
 		"type": "unit_upgrade", "from_group": "scout_cavalry", "to_group": "light_cavalry",
 		"to_name": "Light Cavalry",
 		"new_stats": {"max_hp": 60, "attack_damage": 7, "melee_armor": 0, "pierce_armor": 2}
+	},
+	# ===== SIEGE WORKSHOP UNIT UPGRADES =====
+	"capped_ram": {
+		"name": "Capped Ram", "age": AGE_CASTLE, "building": "siege_workshop",
+		"cost": {"food": 300}, "research_time": 50.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "battering_rams", "to_group": "capped_rams",
+		"to_name": "Capped Ram",
+		"new_stats": {"max_hp": 200, "attack_damage": 3, "pierce_armor": 190}
+	},
+	"onager": {
+		"name": "Onager", "age": AGE_IMPERIAL, "building": "siege_workshop",
+		"cost": {"food": 800, "gold": 500}, "research_time": 75.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "mangonels", "to_group": "onagers",
+		"to_name": "Onager",
+		"new_stats": {"max_hp": 60, "attack_damage": 50, "pierce_armor": 7, "attack_range": 256.0}
+	},
+	"heavy_scorpion": {
+		"name": "Heavy Scorpion", "age": AGE_IMPERIAL, "building": "siege_workshop",
+		"cost": {"food": 1000, "wood": 800}, "research_time": 75.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "scorpions", "to_group": "heavy_scorpions",
+		"to_name": "Heavy Scorpion",
+		"new_stats": {"max_hp": 50, "attack_damage": 16, "pierce_armor": 7}
 	},
 	# ===== MONASTERY TECHNOLOGIES =====
 	"fervor": {

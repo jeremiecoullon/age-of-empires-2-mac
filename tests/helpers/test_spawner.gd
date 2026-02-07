@@ -20,6 +20,9 @@ const SKIRMISHER_SCENE = preload("res://scenes/units/skirmisher.tscn")
 const CAVALRY_ARCHER_SCENE = preload("res://scenes/units/cavalry_archer.tscn")
 const KNIGHT_SCENE = preload("res://scenes/units/knight.tscn")
 const MONK_SCENE = preload("res://scenes/units/monk.tscn")
+const BATTERING_RAM_SCENE = preload("res://scenes/units/battering_ram.tscn")
+const MANGONEL_SCENE = preload("res://scenes/units/mangonel.tscn")
+const SCORPION_SCENE = preload("res://scenes/units/scorpion.tscn")
 
 # Scene paths - Buildings
 const TOWN_CENTER_SCENE = preload("res://scenes/buildings/town_center.tscn")
@@ -37,6 +40,7 @@ const MONASTERY_SCENE = preload("res://scenes/buildings/monastery.tscn")
 const UNIVERSITY_SCENE = preload("res://scenes/buildings/university.tscn")
 const WATCH_TOWER_SCENE = preload("res://scenes/buildings/watch_tower.tscn")
 const STONE_WALL_SCENE = preload("res://scenes/buildings/stone_wall.tscn")
+const SIEGE_WORKSHOP_SCENE = preload("res://scenes/buildings/siege_workshop.tscn")
 
 # Scene paths - Resources
 const TREE_SCENE = preload("res://scenes/resources/tree.tscn")
@@ -291,6 +295,42 @@ func spawn_monk(position: Vector2, team: int = 0) -> Node:
 	units_container.add_child(monk)
 	spawned_entities.append(monk)
 	return monk
+
+
+func spawn_battering_ram(position: Vector2, team: int = 0) -> Node:
+	var ram = BATTERING_RAM_SCENE.instantiate()
+	ram.global_position = position
+	ram.team = team
+	units_container.add_child(ram)
+	spawned_entities.append(ram)
+	return ram
+
+
+func spawn_mangonel(position: Vector2, team: int = 0) -> Node:
+	var mango = MANGONEL_SCENE.instantiate()
+	mango.global_position = position
+	mango.team = team
+	units_container.add_child(mango)
+	spawned_entities.append(mango)
+	return mango
+
+
+func spawn_scorpion(position: Vector2, team: int = 0) -> Node:
+	var scorp = SCORPION_SCENE.instantiate()
+	scorp.global_position = position
+	scorp.team = team
+	units_container.add_child(scorp)
+	spawned_entities.append(scorp)
+	return scorp
+
+
+func spawn_siege_workshop(position: Vector2, team: int = 0) -> Node:
+	var sw = SIEGE_WORKSHOP_SCENE.instantiate()
+	sw.global_position = position
+	sw.team = team
+	buildings_container.add_child(sw)
+	spawned_entities.append(sw)
+	return sw
 
 
 func spawn_tree(position: Vector2, amount: int = 100) -> Node:

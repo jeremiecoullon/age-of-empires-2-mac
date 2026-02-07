@@ -539,3 +539,27 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Masonry `building_los` effect**: The LOS bonus (+3 tiles = +96px) must be applied in `apply_building_tech_bonuses()` using `_base_sight_range`. Easy to forget since the other Masonry effects (HP%, armor) were the obvious ones.
 
 - **University follows Blacksmith pattern exactly**: Research-only building with `_process_research()` in `_process()`, `cancel_research()` in `_destroy()`, and `get_available_techs()` for HUD/AI queries. No training, no garrison.
+
+## Phase 8B: Siege Workshop + Siege Units
+
+- **Siege units use single-direction animation**: Unlike all other units which use `_load_directional_animations()` for 8 directions, siege units (Ram, Mangonel, Scorpion) use `_load_animation_frames()` with a single animation. They have 5 frames and don't rotate visually. The Mangonel sprite folder is named `Onager/` in the source assets (no Mangonel directory exists).
+
+- **Ram garrison is separate from building garrison**: Battering Ram has its own garrison system (`can_garrison_in_ram()`, `garrison_in_ram()`, `ungarrison_all_from_ram()`) that's independent of the building garrison system in `building.gd`. Only infantry can garrison in rams (no cavalry, siege, or monks). The ram `die()` method must call `ungarrison_all_from_ram()` before `super.die()`.
+
+- **Siege units excluded from building garrison**: Added `is_in_group("siege")` check to `building.gd:can_garrison()` to prevent rams/mangonels/scorpions from entering buildings.
+
+- **Siege units don't benefit from Blacksmith upgrades**: `apply_tech_bonuses()` in each siege unit calls `super.apply_tech_bonuses()` only. The base Unit class `apply_tech_bonuses()` is a no-op, so Blacksmith attack/armor bonuses skip siege.
+
+- **Ram only attacks buildings and siege**: `command_attack()` rejects targets not in the "buildings" or "siege" groups. Auto-aggro (`_find_closest_enemy()`) only searches buildings.
+
+- **Mangonel has minimum range**: If target is within 96px (3 tiles), mangonel goes IDLE instead of attacking. It does NOT try to move away.
+
+- **Mangonel splash has friendly fire**: Area damage (48px radius) hits ALL units including friendlies. Splash damage is 50% of base damage. This is AoE2-accurate.
+
+- **Scorpion pass-through has no friendly fire**: The bolt line damages all enemies along its path but skips same-team units. Extends 100px past the primary target with 20px hit width.
+
+- **Pierce armor 180 on rams is intentional**: Makes rams nearly immune to arrow damage (archers, towers, TCs). This is AoE2-accurate — rams are designed to be vulnerable to melee damage but shrug off pierce.
+
+- **Siege Workshop requires Blacksmith prerequisite**: Both in HUD (build button disabled with "Requires Blacksmith" text) and AI (`get_can_build_reason()` checks for functional blacksmith). This matches AoE2's tech tree.
+
+- **Imperial-age upgrades (Onager, Heavy Scorpion) are visible but locked**: The upgrade buttons appear in the Siege Workshop panel but show "Requires Imperial Age" tooltip. These will unlock in Phase 9 when Imperial Age advancement is added.

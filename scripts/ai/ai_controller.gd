@@ -489,6 +489,49 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if game_state.get_building_count("barracks") < 1:
 				return "need_barracks_first"
 			return game_state.get_can_build_reason("palisade_wall")
+		"build_siege_workshop":
+			if game_state.get_building_count("siege_workshop") > 0:
+				return "already_have_siege_workshop"
+			var swq = rule.get("_siege_workshop_queued_at") if rule else null
+			if swq is float and swq > 0.0:
+				return "already_queued"
+			if game_state.get_building_count("blacksmith") < 1:
+				return "need_blacksmith_first"
+			var sw_pop = game_state.get_civilian_population()
+			if sw_pop < 15:
+				return "need_15_villagers_have_%d" % sw_pop
+			return game_state.get_can_build_reason("siege_workshop")
+		"train_battering_ram":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("siege_workshop") < 1:
+				return "no_siege_workshop"
+			var ram_count = game_state.get_unit_count("battering_ram")
+			if ram_count >= 2:
+				return "ram_limit_%d" % ram_count
+			return game_state.get_can_train_reason("battering_ram")
+		"train_mangonel":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("siege_workshop") < 1:
+				return "no_siege_workshop"
+			var mango_count = game_state.get_unit_count("mangonel")
+			if mango_count >= 2:
+				return "mangonel_limit_%d" % mango_count
+			if game_state.get_military_population() < 5:
+				return "need_5_military_have_%d" % game_state.get_military_population()
+			return game_state.get_can_train_reason("mangonel")
+		"train_scorpion":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("siege_workshop") < 1:
+				return "no_siege_workshop"
+			var scorp_count = game_state.get_unit_count("scorpion")
+			if scorp_count >= 2:
+				return "scorpion_limit_%d" % scorp_count
+			if game_state.get_military_population() < 5:
+				return "need_5_military_have_%d" % game_state.get_military_population()
+			return game_state.get_can_train_reason("scorpion")
 		"garrison_under_attack":
 			if not game_state.is_under_attack():
 				return "not_under_attack"
@@ -532,7 +575,9 @@ func _get_rule_blockers() -> Dictionary:
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
 		"build_monastery", "build_university", "build_mill", "build_lumber_camp",
 		"build_outpost", "build_watch_tower", "build_palisade_wall",
+		"build_siege_workshop",
 		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
+		"train_battering_ram", "train_mangonel", "train_scorpion",
 		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech", "research_university_tech",
 		"garrison_under_attack", "ungarrison_when_safe",
 		"advance_to_feudal", "advance_to_castle",

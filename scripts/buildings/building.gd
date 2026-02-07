@@ -419,8 +419,10 @@ func can_garrison(unit: Node) -> bool:
 		return false
 	if unit.is_garrisoned():
 		return false
-	# Only foot units can garrison (no cavalry, no trade carts)
+	# Only foot units can garrison (no cavalry, no trade carts, no siege)
 	if unit.is_in_group("cavalry"):
+		return false
+	if unit.is_in_group("siege"):
 		return false
 	return true
 

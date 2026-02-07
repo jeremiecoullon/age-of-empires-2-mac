@@ -896,7 +896,7 @@ class ResearchLoomRule extends AIRule:
 
 
 class ResearchUnitUpgradeRule extends AIRule:
-	## Researches unit upgrades at training buildings (barracks, archery range, stable).
+	## Researches unit upgrades at training buildings (barracks, archery range, stable, siege workshop).
 	## Picks the best upgrade based on current army composition — upgrade the unit type
 	## the AI has the most of first.
 
@@ -927,6 +927,10 @@ class ResearchUnitUpgradeRule extends AIRule:
 			["elite_skirmisher", gs.get_unit_count("skirmisher")],
 			["heavy_cavalry_archer", gs.get_unit_count("cavalry_archer")],
 			["light_cavalry", gs.get_unit_count("scout_cavalry")],
+			# Siege upgrades (Phase 8B)
+			["capped_ram", gs.get_unit_count("battering_ram")],
+			["onager", gs.get_unit_count("mangonel")],
+			["heavy_scorpion", gs.get_unit_count("scorpion")],
 		]
 
 		# Sort by unit count descending — upgrade what we have most of
@@ -1311,6 +1315,96 @@ class AttackRule extends AIRule:
 
 
 # =============================================================================
+# SIEGE WORKSHOP + SIEGE UNITS (Phase 8B)
+# =============================================================================
+
+class BuildSiegeWorkshopRule extends AIRule:
+	var _siege_workshop_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_siege_workshop"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("siege_workshop") > 0:
+			_siege_workshop_queued_at = -1.0
+			return false
+
+		if _siege_workshop_queued_at > 0.0 and gs.get_game_time() - _siege_workshop_queued_at > QUEUE_TIMEOUT:
+			_siege_workshop_queued_at = -1.0
+
+		# Castle Age, have blacksmith, decent economy
+		return _siege_workshop_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 15 \
+			and gs.get_building_count("blacksmith") >= 1 \
+			and gs.can_build("siege_workshop")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("siege_workshop")
+		_siege_workshop_queued_at = gs.get_game_time()
+
+
+class TrainBatteringRamRule extends AIRule:
+	func _init():
+		rule_name = "train_battering_ram"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("siege_workshop") < 1:
+			return false
+		# Limit to 2 rams
+		if gs.get_unit_count("battering_ram") >= 2:
+			return false
+		return gs.can_train("battering_ram")
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("battering_ram")
+
+
+class TrainMangonelRule extends AIRule:
+	func _init():
+		rule_name = "train_mangonel"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("siege_workshop") < 1:
+			return false
+		# Limit to 2 mangonels
+		if gs.get_unit_count("mangonel") >= 2:
+			return false
+		# Only train mangonels if we already have some military
+		if gs.get_military_population() < 5:
+			return false
+		return gs.can_train("mangonel")
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("mangonel")
+
+
+class TrainScorpionRule extends AIRule:
+	func _init():
+		rule_name = "train_scorpion"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("siege_workshop") < 1:
+			return false
+		# Limit to 2 scorpions
+		if gs.get_unit_count("scorpion") >= 2:
+			return false
+		# Only train scorpions if we already have some military
+		if gs.get_military_population() < 5:
+			return false
+		return gs.can_train("scorpion")
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("scorpion")
+
+
+# =============================================================================
 # FACTORY METHOD
 # =============================================================================
 
@@ -1370,6 +1464,11 @@ static func create_all_rules() -> Array:
 		BuildPalisadeWallRule.new(),
 		GarrisonUnderAttackRule.new(),
 		UngarrisonWhenSafeRule.new(),
+		# Siege Workshop + siege units (Phase 8B)
+		BuildSiegeWorkshopRule.new(),
+		TrainBatteringRamRule.new(),
+		TrainMangonelRule.new(),
+		TrainScorpionRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)

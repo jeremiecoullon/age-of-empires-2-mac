@@ -40,6 +40,7 @@ extends CanvasLayer
 @onready var build_palisade_wall_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildPalisadeWallButton
 @onready var build_stone_wall_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStoneWallButton
 @onready var build_gate_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildGateButton
+@onready var build_siege_workshop_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildSiegeWorkshopButton
 
 # Gate button
 @onready var lock_gate_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/LockGateButton
@@ -60,6 +61,9 @@ extends CanvasLayer
 @onready var train_cavalry_archer_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton
 @onready var train_knight_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainKnightButton
 @onready var train_monk_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMonkButton
+@onready var train_battering_ram_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainBatteringRamButton
+@onready var train_mangonel_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMangonelButton
+@onready var train_scorpion_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScorpionButton
 
 # Market buttons
 @onready var buy_wood_btn: Button = $BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton
@@ -102,7 +106,7 @@ var relic_countdown_label: Label = null
 
 # Currently selected building (for training)
 var selected_building: Building = null
-var selected_building_type: String = ""  # "tc", "barracks", "market", "archery_range", "stable", "blacksmith", "monastery", "university"
+var selected_building_type: String = ""  # "tc", "barracks", "market", "archery_range", "stable", "blacksmith", "monastery", "university", "siege_workshop"
 
 # Track selected entity for info panel updates
 var selected_info_entity: Node = null
@@ -127,6 +131,8 @@ var blacksmith_buttons: Array[Button] = []  # Dynamically created tech research 
 var monastery_buttons: Array[Button] = []
 var monastery_tech_buttons: Array[Button] = []  # Dynamically created monastery tech buttons
 var university_tech_buttons: Array[Button] = []  # Dynamically created university tech buttons
+var siege_workshop_buttons: Array[Button] = []
+var siege_workshop_upgrade_buttons: Array[Button] = []
 var barracks_upgrade_buttons: Array[Button] = []  # Dynamically created upgrade buttons
 var archery_range_upgrade_buttons: Array[Button] = []
 var stable_upgrade_buttons: Array[Button] = []
@@ -152,7 +158,9 @@ func _ready() -> void:
 					 build_lumber_camp_btn, build_mining_camp_btn, build_market_btn,
 					 build_archery_range_btn, build_stable_btn, build_blacksmith_btn,
 					 build_monastery_btn, build_university_btn, build_outpost_btn, build_watch_tower_btn,
-					 build_palisade_wall_btn, build_stone_wall_btn, build_gate_btn]
+					 build_palisade_wall_btn, build_stone_wall_btn, build_gate_btn,
+					 build_siege_workshop_btn]
+	siege_workshop_buttons = [train_battering_ram_btn, train_mangonel_btn, train_scorpion_btn]
 	monastery_buttons = [train_monk_btn]
 	tc_buttons = [train_villager_btn, advance_age_btn, loom_btn]
 	barracks_buttons = [train_militia_btn, train_spearman_btn]
@@ -266,6 +274,17 @@ func _update_production_progress() -> void:
 			cancel_btn.visible = false
 			return
 
+	# Tech research progress (Siege Workshop)
+	if selected_building is SiegeWorkshop:
+		var sw = selected_building as SiegeWorkshop
+		if sw.is_researching:
+			train_progress.value = sw.get_research_progress() * 100
+			train_progress.visible = true
+			var tech_name = GameManager.TECHNOLOGIES.get(sw.current_research_id, {}).get("name", "?")
+			queue_label.text = tech_name
+			cancel_btn.visible = true
+			return
+
 	# Research progress for training buildings (Barracks, Archery Range, Stable)
 	if (selected_building is Barracks or selected_building is ArcheryRange or selected_building is Stable) and selected_building.is_researching:
 		train_progress.value = selected_building.get_research_progress() * 100
@@ -307,6 +326,12 @@ func _hide_all_action_buttons() -> void:
 		btn.visible = false
 	for btn in blacksmith_buttons:
 		btn.visible = false
+	for btn in siege_workshop_buttons:
+		btn.visible = false
+	for btn in siege_workshop_upgrade_buttons:
+		if is_instance_valid(btn):
+			btn.queue_free()
+	siege_workshop_upgrade_buttons.clear()
 	for btn in monastery_buttons:
 		btn.visible = false
 	for btn in monastery_tech_buttons:
@@ -451,6 +476,20 @@ func _show_university_buttons(university: University) -> void:
 	cancel_btn.visible = university.is_researching
 
 
+func _show_siege_workshop_buttons(siege_workshop: SiegeWorkshop) -> void:
+	_hide_all_action_buttons()
+	for btn in siege_workshop_buttons:
+		btn.visible = true
+	action_title.text = "Siege Workshop"
+	selected_building = siege_workshop
+	selected_building_type = "siege_workshop"
+	_create_upgrade_buttons("siege_workshop", ["capped_ram", "onager", "heavy_scorpion"], siege_workshop_upgrade_buttons)
+	cancel_btn.visible = siege_workshop.is_researching or siege_workshop.get_queue_size() > 0
+	if siege_workshop.get_garrisoned_count() > 0:
+		ungarrison_btn.visible = true
+		ungarrison_btn.text = "Ungarrison All (%d)" % siege_workshop.get_garrisoned_count()
+
+
 func _update_market_prices() -> void:
 	buy_wood_btn.text = "Buy Wood: %dg" % GameManager.get_market_buy_price("wood")
 	buy_food_btn.text = "Buy Food: %dg" % GameManager.get_market_buy_price("food")
@@ -496,6 +535,16 @@ func _update_build_button_states() -> void:
 
 	# Walls - Dark Age
 	build_palisade_wall_btn.disabled = false
+
+	# Siege Workshop - Castle Age + requires Blacksmith
+	if not GameManager.is_building_unlocked("siege_workshop"):
+		_set_button_age_locked(build_siege_workshop_btn, true, GameManager.get_required_age_name("siege_workshop", true), "Siege Workshop (200W)")
+	elif get_tree().get_nodes_in_group("blacksmiths").filter(func(b): return b.team == 0 and b.is_functional()).is_empty():
+		build_siege_workshop_btn.text = "Siege Workshop (Req: Blacksmith)"
+		build_siege_workshop_btn.disabled = true
+	else:
+		build_siege_workshop_btn.text = "Siege Workshop (200W)"
+		build_siege_workshop_btn.disabled = false
 
 	# Stone Wall and Gate - Feudal Age
 	_set_button_age_locked(build_stone_wall_btn, not GameManager.is_building_unlocked("stone_wall"), GameManager.get_required_age_name("stone_wall", true), "Stone Wall (5S)")
@@ -598,6 +647,8 @@ func _on_upgrade_tech_pressed(tech_id: String) -> void:
 			_show_archery_range_buttons(selected_building as ArcheryRange)
 		elif selected_building_type == "stable":
 			_show_stable_buttons(selected_building as Stable)
+		elif selected_building_type == "siege_workshop":
+			_show_siege_workshop_buttons(selected_building as SiegeWorkshop)
 		if _game_logger:
 			_game_logger.log_action("research", {"tech": tech_id})
 	else:
@@ -626,6 +677,8 @@ func _refresh_current_panel() -> void:
 		_create_monastery_tech_buttons()
 	elif selected_building_type == "university":
 		_create_university_tech_buttons()
+	elif selected_building_type == "siege_workshop":
+		_create_upgrade_buttons("siege_workshop", ["capped_ram", "onager", "heavy_scorpion"], siege_workshop_upgrade_buttons)
 
 	# Also refresh build buttons if a villager is selected
 	if selected_info_entity is Villager and selected_info_entity.team == 0:
@@ -665,6 +718,17 @@ func show_info(entity: Node) -> void:
 		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Spearman")
 	elif entity is Monk:
 		_show_monk_info(entity)
+	elif entity is BatteringRam:
+		var ram_name = entity.unit_display_name if entity.unit_display_name != "" else "Battering Ram"
+		_show_military_info(entity, ram_name)
+		var garr_text = ""
+		if entity.get_garrisoned_count() > 0:
+			garr_text = "\nGarrisoned: %d/%d" % [entity.get_garrisoned_count(), entity.RAM_GARRISON_CAPACITY]
+		info_details.text = info_details.text + garr_text
+	elif entity is Mangonel:
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Mangonel")
+	elif entity is Scorpion:
+		_show_military_info(entity, entity.unit_display_name if entity.unit_display_name != "" else "Scorpion")
 	elif entity is Sheep:
 		_show_animal_info(entity, "Sheep", "Herdable. First to spot owns it.")
 	elif entity is Deer:
@@ -732,6 +796,10 @@ func show_info(entity: Node) -> void:
 		_show_building_info("University", "Researches building upgrades", entity)
 		if entity.team == 0 and entity.is_functional():
 			_show_university_buttons(entity)
+	elif entity is SiegeWorkshop:
+		_show_building_info("Siege Workshop", "Trains siege units", entity)
+		if entity.team == 0 and entity.is_functional():
+			_show_siege_workshop_buttons(entity)
 	elif entity is Gate:
 		var gate_details = "Armor: %d/%d" % [entity.melee_armor, entity.pierce_armor]
 		if entity.is_open:
@@ -1536,6 +1604,60 @@ func _on_build_gate_pressed() -> void:
 		return
 	get_parent().start_gate_placement()
 
+func _on_build_siege_workshop_pressed() -> void:
+	if not GameManager.is_building_unlocked("siege_workshop"):
+		_show_error("Requires %s!" % GameManager.get_required_age_name("siege_workshop", true))
+		return
+	if get_tree().get_nodes_in_group("blacksmiths").filter(func(b): return b.team == 0 and b.is_functional()).is_empty():
+		_show_error("Requires Blacksmith!")
+		return
+	if not GameManager.can_afford("wood", 200):
+		_show_error("Need 200 wood!")
+		return
+	get_parent().start_siege_workshop_placement()
+
+func _on_train_battering_ram_pressed() -> void:
+	if selected_building is SiegeWorkshop:
+		var sw = selected_building as SiegeWorkshop
+		if sw.train_battering_ram():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "battering_ram"})
+		else:
+			if not GameManager.can_afford("wood", SiegeWorkshop.BATTERING_RAM_WOOD_COST):
+				_show_error("Need 160 wood!")
+			elif not GameManager.can_afford("gold", SiegeWorkshop.BATTERING_RAM_GOLD_COST):
+				_show_error("Need 75 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_mangonel_pressed() -> void:
+	if selected_building is SiegeWorkshop:
+		var sw = selected_building as SiegeWorkshop
+		if sw.train_mangonel():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "mangonel"})
+		else:
+			if not GameManager.can_afford("wood", SiegeWorkshop.MANGONEL_WOOD_COST):
+				_show_error("Need 160 wood!")
+			elif not GameManager.can_afford("gold", SiegeWorkshop.MANGONEL_GOLD_COST):
+				_show_error("Need 135 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
+func _on_train_scorpion_pressed() -> void:
+	if selected_building is SiegeWorkshop:
+		var sw = selected_building as SiegeWorkshop
+		if sw.train_scorpion():
+			if _game_logger:
+				_game_logger.log_action("train", {"unit": "scorpion"})
+		else:
+			if not GameManager.can_afford("wood", SiegeWorkshop.SCORPION_WOOD_COST):
+				_show_error("Need 75 wood!")
+			elif not GameManager.can_afford("gold", SiegeWorkshop.SCORPION_GOLD_COST):
+				_show_error("Need 75 gold!")
+			elif not GameManager.can_add_population():
+				_show_error("Pop cap reached!")
+
 func _on_train_monk_pressed() -> void:
 	if not GameManager.is_unit_unlocked("monk"):
 		_show_error("Requires %s!" % GameManager.get_required_age_name("monk"))
@@ -1766,6 +1888,15 @@ func hide_university_panel() -> void:
 		selected_building = null
 		selected_building_type = ""
 
+func show_siege_workshop_panel(siege_workshop: SiegeWorkshop) -> void:
+	show_info(siege_workshop)
+
+func hide_siege_workshop_panel() -> void:
+	if selected_building_type == "siege_workshop":
+		_hide_all_action_buttons()
+		selected_building = null
+		selected_building_type = ""
+
 
 func _on_cancel_pressed() -> void:
 	if selected_building and is_instance_valid(selected_building):
@@ -1799,6 +1930,12 @@ func _on_cancel_pressed() -> void:
 			selected_building.cancel_research()
 			_show_notification("Research cancelled")
 			_show_monastery_buttons(selected_building as Monastery)
+			return
+		# Cancel siege workshop research
+		if selected_building is SiegeWorkshop and selected_building.is_researching:
+			selected_building.cancel_research()
+			_show_notification("Research cancelled")
+			_show_siege_workshop_buttons(selected_building as SiegeWorkshop)
 			return
 		# Cancel research on training buildings (barracks, archery range, stable)
 		if (selected_building is Barracks or selected_building is ArcheryRange or selected_building is Stable) and selected_building.is_researching:

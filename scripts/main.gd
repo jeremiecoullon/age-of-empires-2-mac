@@ -16,13 +16,14 @@ const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
 const UNIVERSITY_SCENE_PATH = "res://scenes/buildings/university.tscn"
 const OUTPOST_SCENE_PATH = "res://scenes/buildings/outpost.tscn"
 const WATCH_TOWER_SCENE_PATH = "res://scenes/buildings/watch_tower.tscn"
+const SIEGE_WORKSHOP_SCENE_PATH = "res://scenes/buildings/siege_workshop.tscn"
 const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
 const STONE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/stone_wall.tscn")
 const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
 const RELIC_SCENE: PackedScene = preload("res://scenes/objects/relic.tscn")
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, UNIVERSITY, OUTPOST, WATCH_TOWER, PALISADE_WALL, STONE_WALL, GATE }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, UNIVERSITY, OUTPOST, WATCH_TOWER, PALISADE_WALL, STONE_WALL, GATE, SIEGE_WORKSHOP }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -196,6 +197,9 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is University:
 			hud.show_university_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is SiegeWorkshop:
+			hud.show_siege_workshop_panel(clicked_building)
+			hud.show_info(clicked_building)
 		elif clicked_building is Gate:
 			hud.show_gate_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -322,6 +326,21 @@ func _issue_command(world_pos: Vector2) -> void:
 		if has_monks:
 			if _game_logger:
 				_game_logger.log_action("heal", {"target": "unit"})
+			return
+
+	# Check if clicking on a friendly battering ram (garrison infantry)
+	if target_unit and target_unit.team == 0 and target_unit is BatteringRam:
+		var garrisoned_any = false
+		for unit in GameManager.selected_units:
+			if unit == target_unit:
+				continue
+			if target_unit.can_garrison_in_ram(unit):
+				target_unit.garrison_in_ram(unit)
+				garrisoned_any = true
+		if garrisoned_any:
+			GameManager.clear_selection()
+			if _game_logger:
+				_game_logger.log_action("garrison_ram", {})
 			return
 
 	# Check if clicking on a building
@@ -562,6 +581,17 @@ func start_university_placement() -> void:
 
 	current_building_type = BuildingType.UNIVERSITY
 	GameManager.start_building_placement(load(UNIVERSITY_SCENE_PATH), building_ghost)
+
+func start_siege_workshop_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.5, 0.3, 0.25, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.SIEGE_WORKSHOP
+	GameManager.start_building_placement(load(SIEGE_WORKSHOP_SCENE_PATH), building_ghost)
 
 func start_outpost_placement() -> void:
 	if building_ghost:
@@ -936,6 +966,8 @@ func _get_building_size(type: BuildingType) -> Vector2:
 			return Vector2(32, 32)
 		BuildingType.GATE:
 			return Vector2(32, 32)
+		BuildingType.SIEGE_WORKSHOP:
+			return Vector2(96, 96)
 		_:
 			return Vector2(64, 64)
 

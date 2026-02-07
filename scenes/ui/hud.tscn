@@ -343,6 +343,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(100, 25)
 text = "Gate (30S)"
 
+[node name="BuildSiegeWorkshopButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Siege Workshop (200W)"
+
 [node name="LockGateButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
 layout_mode = 2
@@ -426,6 +432,24 @@ visible = false
 layout_mode = 2
 custom_minimum_size = Vector2(120, 25)
 text = "Monk (100G)"
+
+[node name="TrainBatteringRamButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Battering Ram (160W, 75G)"
+
+[node name="TrainMangonelButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Mangonel (160W, 135G)"
+
+[node name="TrainScorpionButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Scorpion (75W, 75G)"
 
 [node name="BuyWoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
@@ -599,6 +623,7 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildPalisadeWallButton" to="." method="_on_build_palisade_wall_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStoneWallButton" to="." method="_on_build_stone_wall_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildGateButton" to="." method="_on_build_gate_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildSiegeWorkshopButton" to="." method="_on_build_siege_workshop_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/LockGateButton" to="." method="_on_lock_gate_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/UngarrisonButton" to="." method="_on_ungarrison_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TownBellButton" to="." method="_on_town_bell_pressed"]
@@ -613,6 +638,9 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainKnightButton" to="." method="_on_train_knight_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMonkButton" to="." method="_on_train_monk_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainBatteringRamButton" to="." method="_on_train_battering_ram_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMangonelButton" to="." method="_on_train_mangonel_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScorpionButton" to="." method="_on_train_scorpion_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyFoodButton" to="." method="_on_buy_food_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyStoneButton" to="." method="_on_buy_stone_pressed"]

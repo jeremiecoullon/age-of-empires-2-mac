@@ -88,6 +88,12 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 		"cavalry_archer": 0,
 		"heavy_cavalry_archer": 0,
 		"knight": 0,
+		"battering_ram": 0,
+		"capped_ram": 0,
+		"mangonel": 0,
+		"onager": 0,
+		"scorpion": 0,
+		"heavy_scorpion": 0,
 	}
 
 	# Iterate military group once and classify with elif chain.
@@ -126,6 +132,18 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 			result["pikeman"] += 1
 		elif unit.is_in_group("spearmen"):
 			result["spearman"] += 1
+		elif unit.is_in_group("capped_rams"):
+			result["capped_ram"] += 1
+		elif unit.is_in_group("battering_rams"):
+			result["battering_ram"] += 1
+		elif unit.is_in_group("onagers"):
+			result["onager"] += 1
+		elif unit.is_in_group("mangonels"):
+			result["mangonel"] += 1
+		elif unit.is_in_group("heavy_scorpions"):
+			result["heavy_scorpion"] += 1
+		elif unit.is_in_group("scorpions"):
+			result["scorpion"] += 1
 		else:
 			push_warning("GameStateSnapshot: unclassified military unit '%s' in team %d" % [unit.name, team])
 
@@ -152,6 +170,7 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"palisade_wall": 0,
 		"stone_wall": 0,
 		"gate": 0,
+		"siege_workshop": 0,
 	}
 
 	# Map group names to result keys
@@ -174,6 +193,7 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"palisade_walls": "palisade_wall",
 		"stone_walls": "stone_wall",
 		"gates": "gate",
+		"siege_workshops": "siege_workshop",
 	}
 
 	for group_name in groups:

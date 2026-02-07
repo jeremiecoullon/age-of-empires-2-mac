@@ -38,6 +38,9 @@ var milestones: Dictionary = {
 	"first_relic_garrisoned": null,
 	"first_conversion": null,
 	"first_university": null,
+	"first_siege_workshop": null,
+	"first_battering_ram": null,
+	"first_mangonel": null,
 	"first_outpost": null,
 	"first_watch_tower": null,
 	"first_palisade_wall": null,
@@ -209,6 +212,28 @@ func _check_milestones(game_time: float, state) -> void:
 		if uni_count > 0 and prev_uni_count == 0:
 			milestones["first_university"] = game_time
 	_prev_building_counts["university"] = state.get_building_count("university")
+
+	# Siege Workshop milestone
+	if milestones["first_siege_workshop"] == null:
+		var sw_count = state.get_building_count("siege_workshop")
+		var prev_sw_count = _prev_building_counts.get("siege_workshop", 0)
+		if sw_count > 0 and prev_sw_count == 0:
+			milestones["first_siege_workshop"] = game_time
+	_prev_building_counts["siege_workshop"] = state.get_building_count("siege_workshop")
+
+	# Battering Ram milestone
+	if milestones["first_battering_ram"] == null:
+		for unit in scene_tree.get_nodes_in_group("battering_rams"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				milestones["first_battering_ram"] = game_time
+				break
+
+	# Mangonel milestone
+	if milestones["first_mangonel"] == null:
+		for unit in scene_tree.get_nodes_in_group("mangonels"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				milestones["first_mangonel"] = game_time
+				break
 
 	# Monk milestone
 	if milestones["first_monk"] == null:

@@ -34,6 +34,7 @@ const WATCH_TOWER_SCENE: PackedScene = preload("res://scenes/buildings/watch_tow
 const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
 const STONE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/stone_wall.tscn")
 const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
+var SIEGE_WORKSHOP_SCENE: PackedScene = null  # Loaded at init (new scene)
 
 # Building costs
 const BUILDING_COSTS: Dictionary = {
@@ -53,7 +54,8 @@ const BUILDING_COSTS: Dictionary = {
 	"watch_tower": {"wood": 25, "stone": 125},
 	"palisade_wall": {"wood": 2},
 	"stone_wall": {"stone": 5},
-	"gate": {"stone": 30}
+	"gate": {"stone": 30},
+	"siege_workshop": {"wood": 200}
 }
 
 # Building sizes (in pixels)
@@ -74,7 +76,8 @@ const BUILDING_SIZES: Dictionary = {
 	"watch_tower": Vector2(32, 32),
 	"palisade_wall": Vector2(32, 32),
 	"stone_wall": Vector2(32, 32),
-	"gate": Vector2(32, 32)
+	"gate": Vector2(32, 32),
+	"siege_workshop": Vector2(96, 96)
 }
 
 # Reference to controller (for accessing strategic numbers, timers, etc.)
@@ -101,6 +104,7 @@ var _pending_researches: Dictionary = {}  # tech_id -> building_type ("blacksmit
 func initialize(ai_controller: Node, tree: SceneTree) -> void:
 	controller = ai_controller
 	scene_tree = tree
+	SIEGE_WORKSHOP_SCENE = load("res://scenes/buildings/siege_workshop.tscn")
 
 
 func refresh() -> void:
@@ -212,6 +216,12 @@ func get_can_research_reason(tech_id: String) -> String:
 			return "no_university"
 		if uni.is_researching:
 			return "building_busy"
+	elif building_type == "siege_workshop":
+		var sw = _get_ai_siege_workshop()
+		if not sw:
+			return "no_siege_workshop"
+		if sw.is_researching:
+			return "building_busy"
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if not bldg:
@@ -259,6 +269,14 @@ func _get_ai_university() -> University:
 	for uni in scene_tree.get_nodes_in_group("universities"):
 		if uni.team == AI_TEAM and uni.is_functional():
 			return uni
+	return null
+
+
+func _get_ai_siege_workshop() -> SiegeWorkshop:
+	## Returns first functional AI siege workshop, or null
+	for sw in scene_tree.get_nodes_in_group("siege_workshops"):
+		if sw.team == AI_TEAM and sw.is_functional():
+			return sw
 	return null
 
 
@@ -342,6 +360,12 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "knights"
 		"monk":
 			group_name = "monks"
+		"battering_ram":
+			group_name = "battering_rams"
+		"mangonel":
+			group_name = "mangonels"
+		"scorpion":
+			group_name = "scorpions"
 		"infantry":
 			# Count all infantry: militia + spearmen
 			var count = 0
@@ -410,6 +434,8 @@ func get_building_count(building_type: String) -> int:
 			group_name = "stone_walls"
 		"gate":
 			group_name = "gates"
+		"siege_workshop":
+			group_name = "siege_workshops"
 		"town_center":
 			group_name = "town_centers"
 
@@ -627,6 +653,48 @@ func get_can_train_reason(unit_type: String) -> String:
 				return "insufficient_gold"
 			return "ok"
 
+		"battering_ram":
+			var sw = _get_ai_siege_workshop()
+			if not sw:
+				return "no_siege_workshop"
+			if not sw.is_functional():
+				return "siege_workshop_not_functional"
+			if sw.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", SiegeWorkshop.BATTERING_RAM_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", SiegeWorkshop.BATTERING_RAM_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
+		"mangonel":
+			var sw = _get_ai_siege_workshop()
+			if not sw:
+				return "no_siege_workshop"
+			if not sw.is_functional():
+				return "siege_workshop_not_functional"
+			if sw.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", SiegeWorkshop.MANGONEL_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", SiegeWorkshop.MANGONEL_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
+		"scorpion":
+			var sw = _get_ai_siege_workshop()
+			if not sw:
+				return "no_siege_workshop"
+			if not sw.is_functional():
+				return "siege_workshop_not_functional"
+			if sw.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", SiegeWorkshop.SCORPION_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", SiegeWorkshop.SCORPION_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
 	return "unknown_unit_type"
 
 
@@ -644,6 +712,11 @@ func get_can_build_reason(building_type: String) -> String:
 	if not GameManager.is_building_unlocked(building_type, AI_TEAM):
 		var required_age = GameManager.BUILDING_AGE_REQUIREMENTS.get(building_type, GameManager.AGE_DARK)
 		return "requires_%s" % GameManager.AGE_NAMES[required_age].to_lower().replace(" ", "_")
+
+	# Siege workshop requires a blacksmith
+	if building_type == "siege_workshop":
+		if get_building_count("blacksmith") == 0:
+			return "requires_blacksmith"
 
 	# Check resources
 	var costs = BUILDING_COSTS[building_type]
@@ -961,6 +1034,18 @@ func _do_train(unit_type: String) -> void:
 			var monastery = _get_ai_monastery()
 			if monastery and monastery.is_functional():
 				success = monastery.train_monk()
+		"battering_ram":
+			var sw = _get_ai_siege_workshop()
+			if sw and sw.is_functional():
+				success = sw.train_battering_ram()
+		"mangonel":
+			var sw = _get_ai_siege_workshop()
+			if sw and sw.is_functional():
+				success = sw.train_mangonel()
+		"scorpion":
+			var sw = _get_ai_siege_workshop()
+			if sw and sw.is_functional():
+				success = sw.train_scorpion()
 
 	if success:
 		_log_action("train", {"unit": unit_type})
@@ -1105,6 +1190,11 @@ func _do_research(tech_id: String) -> void:
 		if uni and not uni.is_researching:
 			if uni.start_research(tech_id):
 				_log_action("research", {"tech": tech_id})
+	elif building_type == "siege_workshop":
+		var sw = _get_ai_siege_workshop()
+		if sw and not sw.is_researching:
+			if sw.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if bldg and not bldg.is_researching:
@@ -1151,6 +1241,8 @@ func _get_ai_building(building_type: String) -> Node:
 			group_name = "monasteries"
 		"university":
 			group_name = "universities"
+		"siege_workshop":
+			group_name = "siege_workshops"
 		"outpost":
 			group_name = "outposts"
 		"watch_tower":
@@ -1305,6 +1397,8 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return STONE_WALL_SCENE
 		"gate":
 			return GATE_SCENE
+		"siege_workshop":
+			return SIEGE_WORKSHOP_SCENE
 	return null
 
 
