@@ -506,7 +506,7 @@ This phase re-implements the AI using independent rules that fire when condition
 | Cavalier | Imperial | 300F, 300G | Stable |
 | Paladin | Imperial | 1300F, 750G | Stable |
 
-**Blacksmith Techs:** See Technology Appendix
+**Blacksmith Techs:** See `docs/AoE_manual/AoE_manual.txt` for costs and effects
 
 **AI updates:** AI researches upgrades based on army composition.
 
@@ -528,7 +528,7 @@ This phase re-implements the AI using independent rules that fire when condition
 | Relics | Object | Spawn on map (5 per game), only monks can carry |
 | Relic garrisoning | Mechanic | Garrison in Monastery for +0.5 gold/sec |
 | Relic victory | Victory | Control all relics for 200 years (game time) |
-| Monk technologies | Tech | See Technology Appendix |
+| Monk technologies | Tech | See `docs/AoE_manual/AoE_manual.txt` for costs and effects |
 
 **AI updates:** AI trains monks, collects relics, attempts conversions on high-value targets.
 
@@ -590,7 +590,7 @@ This phase re-implements the AI using independent rules that fire when condition
 | Heavy Scorpion | Unit | Scorpion upgrade |
 | Garrison (advanced) | Mechanic | Siege units garrison in rams for protection |
 
-**University Techs:** See Technology Appendix
+**University Techs:** See `docs/AoE_manual/AoE_manual.txt` for costs and effects
 
 **AI updates:** AI builds siege to break player walls, protects siege with infantry.
 
@@ -699,7 +699,7 @@ This phase re-implements the AI using independent rules that fire when condition
 | Elite Cannon Galleon | Unit | Cannon Galleon upgrade |
 | Water maps | Map | Islands, Archipelago, Coastal, Baltic, etc. |
 
-**Ship Techs:** Careening, Dry Dock, Shipwright (see Appendix)
+**Ship Techs:** Careening, Dry Dock, Shipwright (see `docs/AoE_manual/AoE_manual.txt`)
 
 **AI updates:** AI builds navy on water maps, controls sea.
 
@@ -788,259 +788,3 @@ This phase re-implements the AI using independent rules that fire when condition
 4. Add to group
 5. Add training logic to building
 6. Update info panel in hud.gd
-
----
-
-## Technology Appendix
-
-All technologies organized by building and phase.
-
-### Town Center Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Loom | Dark | 50G | +15 villager HP, +1/+1 armor | 5 |
-| Town Watch | Feudal | 75F | +4 building LOS | 5 |
-| Town Patrol | Castle | 300F, 200G | +4 building LOS | 8 |
-| Wheelbarrow | Feudal | 175F, 50W | +10% villager speed, +25% carry | 5 |
-| Hand Cart | Castle | 300F, 200W | +10% villager speed, +50% carry | 8 |
-
-### Mill Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Horse Collar | Feudal | 75F, 75W | Farm +75 food | 5 |
-| Heavy Plow | Castle | 125F, 125W | Farm +125 food, +1 carry | 8 |
-| Crop Rotation | Imperial | 250F, 250W | Farm +175 food | 9 |
-
-### Lumber Camp Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Double-Bit Axe | Feudal | 100F, 50W | +20% wood chopping | 5 |
-| Bow Saw | Castle | 150F, 100W | +20% wood chopping | 8 |
-| Two-Man Saw | Imperial | 300F, 200W | +10% wood chopping | 9 |
-
-### Mining Camp Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Gold Mining | Feudal | 100F, 75W | +15% gold mining | 5 |
-| Stone Mining | Feudal | 100F, 75W | +15% stone mining | 5 |
-| Gold Shaft Mining | Castle | 200F, 150W | +15% gold mining | 8 |
-| Stone Shaft Mining | Castle | 200F, 150W | +15% stone mining | 8 |
-
-### Market Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Coinage | Feudal | 150F, 50G | Tribute fee 30% → 20% | 5 |
-| Banking | Castle | 200F, 100G | No tribute fee | 8 |
-| Guilds | Imperial | 300F, 200G | Trading fee → 15% | 9 |
-| Cartography | Feudal | 100F, 100G | Share ally exploration | 5 |
-
-### Blacksmith Technologies (Infantry)
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Forging | Feudal | 150F | +1 infantry/cavalry attack | 5 |
-| Iron Casting | Castle | 220F, 120G | +1 infantry/cavalry attack | 8 |
-| Blast Furnace | Imperial | 275F, 225G | +2 infantry/cavalry attack | 9 |
-| Scale Mail Armor | Feudal | 100F | +1/+1P infantry armor | 5 |
-| Chain Mail Armor | Castle | 200F, 100G | +1/+1P infantry armor | 8 |
-| Plate Mail Armor | Imperial | 300F, 150G | +1/+2P infantry armor | 9 |
-
-### Blacksmith Technologies (Archers)
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Fletching | Feudal | 100F, 50G | +1 attack/range for archers, towers | 5 |
-| Bodkin Arrow | Castle | 200F, 100G | +1 attack/range for archers, towers | 8 |
-| Bracer | Imperial | 300F, 200G | +1 attack/range for archers, towers | 9 |
-| Padded Archer Armor | Feudal | 100F | +1/+1P archer armor | 5 |
-| Leather Archer Armor | Castle | 150F, 150G | +1/+1P archer armor | 8 |
-| Ring Archer Armor | Imperial | 250F, 250G | +1/+2P archer armor | 9 |
-
-### Blacksmith Technologies (Cavalry)
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Scale Barding Armor | Feudal | 150F | +1/+1P cavalry armor | 5 |
-| Chain Barding Armor | Castle | 250F, 150G | +1/+1P cavalry armor | 8 |
-| Plate Barding Armor | Imperial | 350F, 200G | +1/+2P cavalry armor | 9 |
-
-### Barracks Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Tracking | Feudal | 75F | +2 infantry LOS | 5 |
-| Squires | Castle | 200F | +10% infantry speed | 8 |
-
-### Stable Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Husbandry | Castle | 250F | +10% cavalry speed | 8 |
-
-### University Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Masonry | Castle | 175W, 150S | Building HP/armor + | 8 |
-| Architecture | Imperial | 200W, 300S | Building HP/armor ++ | 9 |
-| Ballistics | Castle | 300W, 175G | Archers/towers track moving targets | 8 |
-| Murder Holes | Castle | 200F, 200S | No minimum tower/Castle range | 8 |
-| Heated Shot | Castle | 350F, 100G | +50% tower attack vs ships | 11 |
-| Chemistry | Imperial | 300F, 200G | +1 missile attack, enables gunpowder | 9 |
-| Siege Engineers | Imperial | 500F, 600W | +1 siege range, +20% vs buildings | 9 |
-| Treadmill Crane | Castle | 200W, 300S | +20% villager build speed | 8 |
-| Guard Tower | Castle | 100F, 250S | Upgrade Watch Tower | 8 |
-| Keep | Imperial | 500F, 350S | Upgrade Guard Tower | 9 |
-| Fortified Wall | Castle | 200F, 100S | Upgrade Stone Wall | 8 |
-| Bombard Tower | Imperial | 800F, 400W | Enables Bombard Tower | 9 |
-
-### Monastery Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Redemption | Castle | 475G | Convert buildings, siege | 6 |
-| Atonement | Castle | 325G | Convert enemy Monks | 6 |
-| Fervor | Castle | 140G | +15% Monk speed | 6 |
-| Sanctity | Castle | 120G | +50% Monk HP | 6 |
-| Illumination | Imperial | 120G | +50% rejuvenation speed | 9 |
-| Block Printing | Imperial | 200G | +3 conversion range | 9 |
-| Faith | Imperial | 750F, 1000G | +50% conversion resistance | 9 |
-
-### Castle Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Hoardings | Imperial | 400W, 400S | +1000 Castle HP | 9 |
-| Conscription | Imperial | 150F, 150G | +33% military creation speed | 9 |
-| Sappers | Imperial | 400F, 200G | Villagers +15 attack vs buildings | 9 |
-| Spies/Treason | Imperial | 200G/enemy villager | See enemy LOS | 9 |
-
-### Dock Technologies
-
-| Tech | Age | Cost | Effect | Phase |
-|------|-----|------|--------|-------|
-| Careening | Castle | 250F, 150G | +1P ship armor, +5 Transport capacity | 11 |
-| Dry Dock | Imperial | 600F, 400G | +15% ship speed, +10 Transport capacity | 12 |
-| Shipwright | Imperial | 1000F, 300G | -20% ship wood cost | 12 |
-
----
-
-## Unit Stats Reference
-
-### Infantry
-
-| Unit | Cost | HP | Attack | Armor | Range | Speed |
-|------|------|-----|--------|-------|-------|-------|
-| Militia | 60F, 20G | 40 | 4 | 0/0 | 0 | Slow |
-| Man-at-Arms | 60F, 20G | 45 | 6 | 0/0 | 0 | Med |
-| Long Swordsman | 60F, 20G | 55 | 9 | 0/0 | 0 | Med |
-| Two-Handed Swordsman | 60F, 20G | 60 | 11 | 0/0 | 0 | Slow |
-| Champion | 60F, 20G | 70 | 13 | 1/0 | 0 | Slow |
-| Spearman | 35F, 25W | 45 | 3 | 0/0 | 0 | Med |
-| Pikeman | 35F, 25W | 55 | 4 | 1/0 | 0 | Med |
-
-### Archers
-
-| Unit | Cost | HP | Attack | Armor | Range | Speed |
-|------|------|-----|--------|-------|-------|-------|
-| Archer | 25W, 45G | 30 | 4 | 0/0 | 4 | Med |
-| Crossbowman | 25W, 45G | 35 | 5 | 0/0 | 5 | Med |
-| Arbalester | 25W, 45G | 40 | 6 | 0/0 | 5 | Med |
-| Skirmisher | 25F, 35W | 30 | 2 | 0/3 | 4 | Med |
-| Elite Skirmisher | 25F, 35W | 35 | 3 | 0/4 | 5 | Med |
-| Cavalry Archer | 40W, 70G | 50 | 6 | 0/0 | 3 | Fast |
-| Heavy Cav Archer | 40W, 70G | 60 | 7 | 1/0 | 4 | Fast |
-| Hand Cannoneer | 45F, 50G | 35 | 17 | 1/0 | 7 | Med |
-
-### Cavalry
-
-| Unit | Cost | HP | Attack | Armor | Range | Speed |
-|------|------|-----|--------|-------|-------|-------|
-| Scout Cavalry | 80F | 45 | 3 | 0/2 | 0 | Med |
-| Light Cavalry | 80F | 60 | 7 | 0/2 | 0 | Fast |
-| Knight | 60F, 75G | 100 | 10 | 2/2 | 0 | Fast |
-| Cavalier | 60F, 75G | 120 | 12 | 2/2 | 0 | Fast |
-| Paladin | 60F, 75G | 160 | 14 | 2/3 | 0 | Fast |
-| Camel | 55F, 60G | 100 | 5 | 0/0 | 0 | Fast |
-| Heavy Camel | 55F, 60G | 120 | 7 | 0/0 | 0 | Fast |
-
-### Siege
-
-| Unit | Cost | HP | Attack | Armor | Range | Speed |
-|------|------|-----|--------|-------|-------|-------|
-| Battering Ram | 160W, 75G | 175 | 2 | 0/180 | 0 | Slow |
-| Capped Ram | 160W, 75G | 200 | 3 | 0/190 | 0 | Slow |
-| Siege Ram | 160W, 75G | 270 | 4 | 0/195 | 0 | Slow |
-| Mangonel | 160W, 135G | 50 | 40 | 0/6 | 7 | Slow |
-| Onager | 160W, 135G | 60 | 50 | 0/7 | 8 | Slow |
-| Siege Onager | 160W, 135G | 70 | 75 | 0/8 | 8 | Slow |
-| Scorpion | 75W, 75G | 40 | 12 | 0/6 | 5 | Slow |
-| Heavy Scorpion | 75W, 75G | 50 | 16 | 0/7 | 5 | Slow |
-| Bombard Cannon | 225W, 225G | 50 | 40 | 2/5 | 12 | Slow |
-| Trebuchet | 200W, 200G | 150 | 200 | 1/150 | 16 | Slow |
-
-### Other
-
-| Unit | Cost | HP | Attack | Armor | Range | Speed |
-|------|------|-----|--------|-------|-------|-------|
-| Villager | 50F | 25 | 3 | 0/0 | 0 | Slow |
-| Monk | 100G | 30 | 0 | 0/0 | 9 | Slow |
-| Trade Cart | 100W, 50G | 70 | 0 | 0/0 | 0 | Med |
-
-### Ships
-
-| Unit | Cost | HP | Attack | Armor | Range | Speed |
-|------|------|-----|--------|-------|-------|-------|
-| Fishing Ship | 75W | 60 | 0 | 0/4 | 0 | Med |
-| Trade Cog | 100W, 50G | 80 | 0 | 0/6 | 0 | Fast |
-| Transport Ship | 125W | 100 | 0 | 4/8 | 0 | Fast |
-| Galley | 90W, 30G | 120 | 6 | 0/6 | 5 | Fast |
-| War Galley | 90W, 30G | 135 | 7 | 0/6 | 6 | Fast |
-| Galleon | 90W, 30G | 165 | 8 | 0/8 | 7 | Fast |
-| Fire Ship | 75W, 45G | 100 | 2 | 0/6 | 2 | Fast |
-| Fast Fire Ship | 75W, 45G | 120 | 3 | 0/8 | 2 | Fast |
-| Demolition Ship | 70W, 50G | 50 | 110 | 0/3 | 0 | Fast |
-| Heavy Demo Ship | 70W, 50G | 60 | 140 | 0/5 | 0 | Fast |
-| Cannon Galleon | 200W, 150G | 120 | 35 | 0/6 | 13 | Med |
-| Elite Cannon Galleon | 200W, 150G | 150 | 45 | 0/8 | 15 | Med |
-
----
-
-## Building Stats Reference
-
-| Building | Age | Cost | HP | Attack | Garrison | Range |
-|----------|-----|------|-----|--------|----------|-------|
-| Town Center | Castle* | 275W | 2400 | 5 | 15 | 6 |
-| House | Dark | 30W | 900 | 0 | 0 | 0 |
-| Mill | Dark | 100W | 1000 | 0 | 0 | 0 |
-| Mining Camp | Dark | 100W | 1000 | 0 | 0 | 0 |
-| Lumber Camp | Dark | 100W | 1000 | 0 | 0 | 0 |
-| Farm | Dark | 60W | 480 | 0 | 0 | 0 |
-| Dock | Dark | 150W | 1800 | 0 | 10 | 0 |
-| Fish Trap | Feudal | 100W | 50 | 0 | 0 | 0 |
-| Market | Feudal | 175W | 2100 | 0 | 0 | 0 |
-| Blacksmith | Feudal | 150W | 2100 | 0 | 0 | 0 |
-| Monastery | Castle | 175W | 2100 | 0 | 10 | 0 |
-| University | Castle | 200W | 2100 | 0 | 0 | 0 |
-| Wonder | Imperial | 1000W,S,G | 4800 | 0 | 0 | 0 |
-| Barracks | Dark | 175W | 1200 | 0 | 10 | 0 |
-| Archery Range | Feudal | 175W | 1500 | 0 | 10 | 0 |
-| Stable | Feudal | 175W | 1500 | 0 | 10 | 0 |
-| Siege Workshop | Castle | 200W | 2100 | 0 | 10 | 0 |
-| Castle | Castle | 650S | 4800 | 11 | 20 | 8 |
-| Outpost | Dark | 25W, 25S | 500 | 0 | 0 | 0 |
-| Palisade Wall | Dark | 2W | 250 | 0 | 0 | 0 |
-| Stone Wall | Feudal | 5S | 1800 | 0 | 0 | 0 |
-| Fortified Wall | Castle | 5S | 3000 | 0 | 0 | 0 |
-| Gate | Feudal | 30S | 2750 | 0 | 0 | 0 |
-| Watch Tower | Feudal | 125S, 25W | 1020 | 5 | 5 | 8 |
-| Guard Tower | Castle | 125S, 25W | 1500 | 6 | 5 | 8 |
-| Keep | Imperial | 125S, 25W | 2250 | 7 | 5 | 8 |
-| Bombard Tower | Imperial | 125S, 100G | 2220 | 120 | 5 | 8 |
-
-*\*Town Center: Players start with one TC in Dark Age (free). Additional TCs can only be built in Castle Age. TC attack (5 damage, range 6) only activates when garrisoned with archers/villagers, or automatically in Castle Age+.*
