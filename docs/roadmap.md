@@ -639,6 +639,13 @@ Imperial techs and upgrades deferred to Phase 9.
 
 **Done when:** Full 4-age progression. Late-game feels powerful and distinct.
 
+### Sub-phase breakdown (approved 2026-02-07)
+
+- **9A**: Imperial Age Advancement + 5 Imperial Blacksmith techs + 6 deferred unit upgrades (Two-Handed Swordsman, Champion, Arbalester, Cavalier, Paladin, Siege Ram) + AI rules + HUD — *Complete*
+- **9B**: Castle building (650S, 4800HP, trains Trebuchets) + Trebuchet unit (pack/unpack) + Keep upgrade (Guard Tower → Keep)
+- **9C**: Chemistry tech (University, enables gunpowder) + Bombard Cannon + Hand Cannoneer + Camel + Heavy Camel
+- **9D**: Bombard Tower + Wonder + Wonder Victory + Forest cutting (Siege Onager/Trebuchet destroy trees)
+
 ---
 
 ## Phase 10: Polish & UX

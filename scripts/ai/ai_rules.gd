@@ -711,6 +711,29 @@ class AdvanceToCastleAgeRule extends AIRule:
 		gs.research_age(GameManager.AGE_CASTLE)
 
 
+class AdvanceToImperialAgeRule extends AIRule:
+	## Advance to Imperial Age when Castle economy is running
+	## Requirements: Castle Age, 20+ villagers, 2 qualifying Castle buildings, 1000 food + 800 gold
+
+	func _init():
+		rule_name = "advance_to_imperial"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_age() != GameManager.AGE_CASTLE:
+			return false
+		if gs.get_civilian_population() < 20:
+			return false
+		var target_age = GameManager.AGE_IMPERIAL
+		if gs.get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+			return false
+		if not gs.can_advance_age():
+			return false
+		return true
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_age(GameManager.AGE_IMPERIAL)
+
+
 # =============================================================================
 # DEFENSE (Phase 3.1C)
 # =============================================================================
@@ -836,38 +859,39 @@ class ResearchBlacksmithTechRule extends AIRule:
 		var archer_count = gs.get_unit_count("ranged")
 
 		# Attack upgrades first (highest impact)
-		# Forging/Iron Casting affect both infantry and cavalry
+		# Forging/Iron Casting/Blast Furnace affect both infantry and cavalry
 		if infantry_count + cavalry_count > 0:
-			for tech_id in ["forging", "iron_casting"]:
+			for tech_id in ["forging", "iron_casting", "blast_furnace"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
-		# Fletching/Bodkin for archers
+		# Fletching/Bodkin/Bracer for archers
 		if archer_count > 0:
-			for tech_id in ["fletching", "bodkin_arrow"]:
+			for tech_id in ["fletching", "bodkin_arrow", "bracer"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		# Armor upgrades (lower priority)
 		if infantry_count > 0:
-			for tech_id in ["scale_mail_armor", "chain_mail_armor"]:
+			for tech_id in ["scale_mail_armor", "chain_mail_armor", "plate_mail_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		if cavalry_count > 0:
-			for tech_id in ["scale_barding_armor", "chain_barding_armor"]:
+			for tech_id in ["scale_barding_armor", "chain_barding_armor", "plate_barding_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		if archer_count > 0:
-			for tech_id in ["padded_archer_armor", "leather_archer_armor"]:
+			for tech_id in ["padded_archer_armor", "leather_archer_armor", "ring_archer_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		# If we have any military, try whatever's available
 		if infantry_count + cavalry_count + archer_count > 0:
 			for tech_id in ["forging", "fletching", "scale_mail_armor", "scale_barding_armor", "padded_archer_armor",
-							"iron_casting", "bodkin_arrow", "chain_mail_armor", "chain_barding_armor", "leather_archer_armor"]:
+							"iron_casting", "bodkin_arrow", "chain_mail_armor", "chain_barding_armor", "leather_archer_armor",
+							"blast_furnace", "bracer", "plate_mail_armor", "plate_barding_armor", "ring_archer_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
@@ -922,13 +946,19 @@ class ResearchUnitUpgradeRule extends AIRule:
 			# [tech_id, relevant_unit_count]
 			["man_at_arms", gs.get_unit_count("militia") + gs.get_unit_count("infantry")],
 			["long_swordsman", gs.get_unit_count("infantry")],
+			["two_handed_swordsman", gs.get_unit_count("infantry")],
+			["champion", gs.get_unit_count("infantry")],
 			["pikeman", gs.get_unit_count("spearman")],
 			["crossbowman", gs.get_unit_count("archer")],
+			["arbalester", gs.get_unit_count("archer")],
 			["elite_skirmisher", gs.get_unit_count("skirmisher")],
 			["heavy_cavalry_archer", gs.get_unit_count("cavalry_archer")],
 			["light_cavalry", gs.get_unit_count("scout_cavalry")],
-			# Siege upgrades (Phase 8B)
+			["cavalier", gs.get_unit_count("knight")],
+			["paladin", gs.get_unit_count("cavalier")],
+			# Siege upgrades (Phase 8B + 9A)
 			["capped_ram", gs.get_unit_count("battering_ram")],
+			["siege_ram", gs.get_unit_count("capped_ram")],
 			["onager", gs.get_unit_count("mangonel")],
 			["heavy_scorpion", gs.get_unit_count("scorpion")],
 		]
@@ -1453,6 +1483,7 @@ static func create_all_rules() -> Array:
 		# Age advancement (Phase 4A)
 		AdvanceToFeudalAgeRule.new(),
 		AdvanceToCastleAgeRule.new(),
+		AdvanceToImperialAgeRule.new(),
 		# Technology research (Phase 5A)
 		ResearchLoomRule.new(),
 		ResearchBlacksmithTechRule.new(),

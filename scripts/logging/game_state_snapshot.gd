@@ -77,10 +77,13 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 		"militia": 0,
 		"man_at_arms": 0,
 		"long_swordsman": 0,
+		"two_handed_swordsman": 0,
+		"champion": 0,
 		"spearman": 0,
 		"pikeman": 0,
 		"archer": 0,
 		"crossbowman": 0,
+		"arbalester": 0,
 		"skirmisher": 0,
 		"elite_skirmisher": 0,
 		"scout_cavalry": 0,
@@ -88,8 +91,11 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 		"cavalry_archer": 0,
 		"heavy_cavalry_archer": 0,
 		"knight": 0,
+		"cavalier": 0,
+		"paladin": 0,
 		"battering_ram": 0,
 		"capped_ram": 0,
+		"siege_ram": 0,
 		"mangonel": 0,
 		"onager": 0,
 		"scorpion": 0,
@@ -116,12 +122,22 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 			result["light_cavalry"] += 1
 		elif unit.is_in_group("scout_cavalry"):
 			result["scout_cavalry"] += 1
+		elif unit.is_in_group("paladins"):
+			result["paladin"] += 1
+		elif unit.is_in_group("cavaliers"):
+			result["cavalier"] += 1
 		elif unit.is_in_group("knights"):
 			result["knight"] += 1
+		elif unit.is_in_group("arbalesters"):
+			result["arbalester"] += 1
 		elif unit.is_in_group("crossbowmen"):
 			result["crossbowman"] += 1
 		elif unit.is_in_group("archers") or unit.is_in_group("archers_line"):
 			result["archer"] += 1
+		elif unit.is_in_group("champions"):
+			result["champion"] += 1
+		elif unit.is_in_group("two_handed_swordsmen"):
+			result["two_handed_swordsman"] += 1
 		elif unit.is_in_group("long_swordsmen"):
 			result["long_swordsman"] += 1
 		elif unit.is_in_group("man_at_arms"):
@@ -132,6 +148,8 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 			result["pikeman"] += 1
 		elif unit.is_in_group("spearmen"):
 			result["spearman"] += 1
+		elif unit.is_in_group("siege_rams"):
+			result["siege_ram"] += 1
 		elif unit.is_in_group("capped_rams"):
 			result["capped_ram"] += 1
 		elif unit.is_in_group("battering_rams"):

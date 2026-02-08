@@ -71,7 +71,7 @@ var ai_age: int = AGE_DARK
 
 # ===== TECHNOLOGY SYSTEM =====
 
-# Technology definitions (Feudal + Castle only; Imperial deferred to Phase 9)
+# Technology definitions (all ages: Dark through Imperial)
 # Effects: keys map to bonus categories applied to units via apply_tech_bonuses()
 const TECHNOLOGIES: Dictionary = {
 	# Loom (Town Center, Dark Age)
@@ -94,6 +94,12 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"infantry_attack": 1, "cavalry_attack": 1},
 		"requires": "forging"
 	},
+	"blast_furnace": {
+		"name": "Blast Furnace", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 275, "gold": 225}, "research_time": 75.0,
+		"effects": {"infantry_attack": 2, "cavalry_attack": 2},
+		"requires": "iron_casting"
+	},
 	# Blacksmith - Infantry Armor line
 	"scale_mail_armor": {
 		"name": "Scale Mail Armor", "age": AGE_FEUDAL, "building": "blacksmith",
@@ -106,6 +112,12 @@ const TECHNOLOGIES: Dictionary = {
 		"cost": {"food": 200, "gold": 100}, "research_time": 55.0,
 		"effects": {"infantry_melee_armor": 1, "infantry_pierce_armor": 1},
 		"requires": "scale_mail_armor"
+	},
+	"plate_mail_armor": {
+		"name": "Plate Mail Armor", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 300, "gold": 150}, "research_time": 75.0,
+		"effects": {"infantry_melee_armor": 1, "infantry_pierce_armor": 2},
+		"requires": "chain_mail_armor"
 	},
 	# Blacksmith - Cavalry Armor line
 	"scale_barding_armor": {
@@ -120,6 +132,12 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"cavalry_melee_armor": 1, "cavalry_pierce_armor": 1},
 		"requires": "scale_barding_armor"
 	},
+	"plate_barding_armor": {
+		"name": "Plate Barding Armor", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 350, "gold": 200}, "research_time": 75.0,
+		"effects": {"cavalry_melee_armor": 1, "cavalry_pierce_armor": 2},
+		"requires": "chain_barding_armor"
+	},
 	# Blacksmith - Archer Attack line (Fletching also affects TCs/towers in future)
 	"fletching": {
 		"name": "Fletching", "age": AGE_FEUDAL, "building": "blacksmith",
@@ -133,6 +151,12 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"archer_attack": 1, "archer_range": 1},
 		"requires": "fletching"
 	},
+	"bracer": {
+		"name": "Bracer", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 300, "gold": 200}, "research_time": 75.0,
+		"effects": {"archer_attack": 1, "archer_range": 1},
+		"requires": "bodkin_arrow"
+	},
 	# Blacksmith - Archer Armor line
 	"padded_archer_armor": {
 		"name": "Padded Archer Armor", "age": AGE_FEUDAL, "building": "blacksmith",
@@ -145,6 +169,12 @@ const TECHNOLOGIES: Dictionary = {
 		"cost": {"food": 150, "gold": 150}, "research_time": 55.0,
 		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 1},
 		"requires": "padded_archer_armor"
+	},
+	"ring_archer_armor": {
+		"name": "Ring Archer Armor", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 250, "gold": 250}, "research_time": 75.0,
+		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 2},
+		"requires": "leather_archer_armor"
 	},
 	# ===== UNIT UPGRADES =====
 	# Barracks line
@@ -164,6 +194,22 @@ const TECHNOLOGIES: Dictionary = {
 		"to_name": "Long Swordsman",
 		"new_stats": {"max_hp": 55, "attack_damage": 9, "melee_armor": 0, "pierce_armor": 0}
 	},
+	"two_handed_swordsman": {
+		"name": "Two-Handed Swordsman", "age": AGE_IMPERIAL, "building": "barracks",
+		"cost": {"food": 300, "gold": 100}, "research_time": 75.0,
+		"effects": {}, "requires": "long_swordsman",
+		"type": "unit_upgrade", "from_group": "long_swordsmen", "to_group": "two_handed_swordsmen",
+		"to_name": "Two-Handed Swordsman",
+		"new_stats": {"max_hp": 60, "attack_damage": 11, "melee_armor": 0, "pierce_armor": 0}
+	},
+	"champion": {
+		"name": "Champion", "age": AGE_IMPERIAL, "building": "barracks",
+		"cost": {"food": 750, "gold": 350}, "research_time": 100.0,
+		"effects": {}, "requires": "two_handed_swordsman",
+		"type": "unit_upgrade", "from_group": "two_handed_swordsmen", "to_group": "champions",
+		"to_name": "Champion",
+		"new_stats": {"max_hp": 70, "attack_damage": 13, "melee_armor": 1, "pierce_armor": 0}
+	},
 	"pikeman": {
 		"name": "Pikeman", "age": AGE_CASTLE, "building": "barracks",
 		"cost": {"food": 215, "gold": 90}, "research_time": 45.0,
@@ -180,6 +226,14 @@ const TECHNOLOGIES: Dictionary = {
 		"type": "unit_upgrade", "from_group": "archers_line", "to_group": "crossbowmen",
 		"to_name": "Crossbowman",
 		"new_stats": {"max_hp": 35, "attack_damage": 5, "attack_range": 160.0}
+	},
+	"arbalester": {
+		"name": "Arbalester", "age": AGE_IMPERIAL, "building": "archery_range",
+		"cost": {"food": 350, "gold": 300}, "research_time": 75.0,
+		"effects": {}, "requires": "crossbowman",
+		"type": "unit_upgrade", "from_group": "crossbowmen", "to_group": "arbalesters",
+		"to_name": "Arbalester",
+		"new_stats": {"max_hp": 40, "attack_damage": 6, "attack_range": 160.0}
 	},
 	"elite_skirmisher": {
 		"name": "Elite Skirmisher", "age": AGE_CASTLE, "building": "archery_range",
@@ -206,6 +260,22 @@ const TECHNOLOGIES: Dictionary = {
 		"to_name": "Light Cavalry",
 		"new_stats": {"max_hp": 60, "attack_damage": 7, "melee_armor": 0, "pierce_armor": 2}
 	},
+	"cavalier": {
+		"name": "Cavalier", "age": AGE_IMPERIAL, "building": "stable",
+		"cost": {"food": 300, "gold": 300}, "research_time": 100.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "knights", "to_group": "cavaliers",
+		"to_name": "Cavalier",
+		"new_stats": {"max_hp": 120, "attack_damage": 12, "melee_armor": 2, "pierce_armor": 2}
+	},
+	"paladin": {
+		"name": "Paladin", "age": AGE_IMPERIAL, "building": "stable",
+		"cost": {"food": 1300, "gold": 750}, "research_time": 170.0,
+		"effects": {}, "requires": "cavalier",
+		"type": "unit_upgrade", "from_group": "cavaliers", "to_group": "paladins",
+		"to_name": "Paladin",
+		"new_stats": {"max_hp": 160, "attack_damage": 14, "melee_armor": 2, "pierce_armor": 3}
+	},
 	# ===== SIEGE WORKSHOP UNIT UPGRADES =====
 	"capped_ram": {
 		"name": "Capped Ram", "age": AGE_CASTLE, "building": "siege_workshop",
@@ -214,6 +284,14 @@ const TECHNOLOGIES: Dictionary = {
 		"type": "unit_upgrade", "from_group": "battering_rams", "to_group": "capped_rams",
 		"to_name": "Capped Ram",
 		"new_stats": {"max_hp": 200, "attack_damage": 3, "pierce_armor": 190}
+	},
+	"siege_ram": {
+		"name": "Siege Ram", "age": AGE_IMPERIAL, "building": "siege_workshop",
+		"cost": {"food": 1000, "gold": 800}, "research_time": 75.0,
+		"effects": {}, "requires": "capped_ram",
+		"type": "unit_upgrade", "from_group": "capped_rams", "to_group": "siege_rams",
+		"to_name": "Siege Ram",
+		"new_stats": {"max_hp": 270, "attack_damage": 4, "pierce_armor": 195}
 	},
 	"onager": {
 		"name": "Onager", "age": AGE_IMPERIAL, "building": "siege_workshop",

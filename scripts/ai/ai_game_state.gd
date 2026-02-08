@@ -137,7 +137,13 @@ func should_save_for_age() -> bool:
 		return false
 	var target_age = current_age + 1
 	# Check non-resource conditions
-	var min_vills = 10 if target_age == GameManager.AGE_FEUDAL else 15
+	var min_vills: int
+	if target_age == GameManager.AGE_FEUDAL:
+		min_vills = 10
+	elif target_age == GameManager.AGE_CASTLE:
+		min_vills = 15
+	else:
+		min_vills = 20  # Imperial
 	if get_civilian_population() < min_vills:
 		return false
 	if get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
@@ -358,6 +364,20 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "cavalry_archers"
 		"knight":
 			group_name = "knights"
+		"cavalier":
+			group_name = "cavaliers"
+		"paladin":
+			group_name = "paladins"
+		"two_handed_swordsman":
+			group_name = "two_handed_swordsmen"
+		"champion":
+			group_name = "champions"
+		"arbalester":
+			group_name = "arbalesters"
+		"capped_ram":
+			group_name = "capped_rams"
+		"siege_ram":
+			group_name = "siege_rams"
 		"monk":
 			group_name = "monks"
 		"battering_ram":
@@ -366,6 +386,10 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "mangonels"
 		"scorpion":
 			group_name = "scorpions"
+		"onager":
+			group_name = "onagers"
+		"heavy_scorpion":
+			group_name = "heavy_scorpions"
 		"infantry":
 			# Count all infantry: militia + spearmen
 			var count = 0

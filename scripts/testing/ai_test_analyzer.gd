@@ -30,6 +30,8 @@ var milestones: Dictionary = {
 	"first_attack": null,
 	"reached_feudal_age": null,
 	"reached_castle_age": null,
+	"reached_imperial_age": null,
+	"first_imperial_upgrade": null,
 	"first_knight": null,
 	"first_unit_upgrade": null,
 	"first_monastery": null,
@@ -148,6 +150,8 @@ func _check_milestones(game_time: float, state) -> void:
 		milestones["reached_feudal_age"] = game_time
 	if milestones["reached_castle_age"] == null and current_age >= GameManager.AGE_CASTLE:
 		milestones["reached_castle_age"] = game_time
+	if milestones["reached_imperial_age"] == null and current_age >= GameManager.AGE_IMPERIAL:
+		milestones["reached_imperial_age"] = game_time
 
 	# Tech milestones
 	if milestones["first_tech_researched"] == null:
@@ -170,6 +174,16 @@ func _check_milestones(game_time: float, state) -> void:
 			var tech = GameManager.TECHNOLOGIES[tech_id]
 			if tech.get("type", "") == "unit_upgrade" and GameManager.has_tech(tech_id, AI_TEAM):
 				milestones["first_unit_upgrade"] = game_time
+				break
+
+	# Imperial upgrade milestone (any Imperial-age unit_upgrade or blacksmith tech)
+	if milestones["first_imperial_upgrade"] == null:
+		var imperial_techs = ["blast_furnace", "plate_mail_armor", "plate_barding_armor", "bracer", "ring_archer_armor",
+			"two_handed_swordsman", "champion", "arbalester", "cavalier", "paladin", "siege_ram",
+			"onager", "heavy_scorpion"]
+		for tech_id in imperial_techs:
+			if GameManager.has_tech(tech_id, AI_TEAM):
+				milestones["first_imperial_upgrade"] = game_time
 				break
 
 	# Outpost milestone

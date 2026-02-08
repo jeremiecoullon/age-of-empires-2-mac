@@ -396,7 +396,7 @@ func _show_barracks_buttons(barracks: Barracks) -> void:
 	selected_building = barracks
 	selected_building_type = "barracks"
 	_update_barracks_button_states()
-	_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "pikeman"], barracks_upgrade_buttons)
+	_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "two_handed_swordsman", "champion", "pikeman"], barracks_upgrade_buttons)
 	cancel_btn.visible = barracks.is_researching or barracks.get_queue_size() > 0
 	if barracks.get_garrisoned_count() > 0:
 		ungarrison_btn.visible = true
@@ -411,7 +411,7 @@ func _show_archery_range_buttons(archery_range: ArcheryRange) -> void:
 	selected_building = archery_range
 	selected_building_type = "archery_range"
 	_update_archery_range_button_states()
-	_create_upgrade_buttons("archery_range", ["crossbowman", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
+	_create_upgrade_buttons("archery_range", ["crossbowman", "arbalester", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
 	cancel_btn.visible = archery_range.is_researching or archery_range.get_queue_size() > 0
 	if archery_range.get_garrisoned_count() > 0:
 		ungarrison_btn.visible = true
@@ -426,7 +426,7 @@ func _show_stable_buttons(stable: Stable) -> void:
 	selected_building = stable
 	selected_building_type = "stable"
 	_update_stable_button_states()
-	_create_upgrade_buttons("stable", ["light_cavalry"], stable_upgrade_buttons)
+	_create_upgrade_buttons("stable", ["light_cavalry", "cavalier", "paladin"], stable_upgrade_buttons)
 	cancel_btn.visible = stable.is_researching or stable.get_queue_size() > 0
 	if stable.get_garrisoned_count() > 0:
 		ungarrison_btn.visible = true
@@ -483,7 +483,7 @@ func _show_siege_workshop_buttons(siege_workshop: SiegeWorkshop) -> void:
 	action_title.text = "Siege Workshop"
 	selected_building = siege_workshop
 	selected_building_type = "siege_workshop"
-	_create_upgrade_buttons("siege_workshop", ["capped_ram", "onager", "heavy_scorpion"], siege_workshop_upgrade_buttons)
+	_create_upgrade_buttons("siege_workshop", ["capped_ram", "siege_ram", "onager", "heavy_scorpion"], siege_workshop_upgrade_buttons)
 	cancel_btn.visible = siege_workshop.is_researching or siege_workshop.get_queue_size() > 0
 	if siege_workshop.get_garrisoned_count() > 0:
 		ungarrison_btn.visible = true
@@ -662,13 +662,13 @@ func _refresh_current_panel() -> void:
 		_update_advance_age_button()
 	elif selected_building_type == "barracks":
 		_update_barracks_button_states()
-		_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "pikeman"], barracks_upgrade_buttons)
+		_create_upgrade_buttons("barracks", ["man_at_arms", "long_swordsman", "two_handed_swordsman", "champion", "pikeman"], barracks_upgrade_buttons)
 	elif selected_building_type == "archery_range":
 		_update_archery_range_button_states()
-		_create_upgrade_buttons("archery_range", ["crossbowman", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
+		_create_upgrade_buttons("archery_range", ["crossbowman", "arbalester", "elite_skirmisher", "heavy_cavalry_archer"], archery_range_upgrade_buttons)
 	elif selected_building_type == "stable":
 		_update_stable_button_states()
-		_create_upgrade_buttons("stable", ["light_cavalry"], stable_upgrade_buttons)
+		_create_upgrade_buttons("stable", ["light_cavalry", "cavalier", "paladin"], stable_upgrade_buttons)
 	elif selected_building_type == "market":
 		_update_market_button_states()
 	elif selected_building_type == "blacksmith":
@@ -678,7 +678,7 @@ func _refresh_current_panel() -> void:
 	elif selected_building_type == "university":
 		_create_university_tech_buttons()
 	elif selected_building_type == "siege_workshop":
-		_create_upgrade_buttons("siege_workshop", ["capped_ram", "onager", "heavy_scorpion"], siege_workshop_upgrade_buttons)
+		_create_upgrade_buttons("siege_workshop", ["capped_ram", "siege_ram", "onager", "heavy_scorpion"], siege_workshop_upgrade_buttons)
 
 	# Also refresh build buttons if a villager is selected
 	if selected_info_entity is Villager and selected_info_entity.team == 0:
@@ -1697,11 +1697,11 @@ func _create_blacksmith_tech_buttons() -> void:
 
 	# Ordered tech lines for display
 	var tech_lines: Array[Array] = [
-		["forging", "iron_casting"],  # Attack (infantry + cavalry)
-		["scale_mail_armor", "chain_mail_armor"],  # Infantry armor
-		["scale_barding_armor", "chain_barding_armor"],  # Cavalry armor
-		["fletching", "bodkin_arrow"],  # Archer attack + range
-		["padded_archer_armor", "leather_archer_armor"],  # Archer armor
+		["forging", "iron_casting", "blast_furnace"],  # Attack (infantry + cavalry)
+		["scale_mail_armor", "chain_mail_armor", "plate_mail_armor"],  # Infantry armor
+		["scale_barding_armor", "chain_barding_armor", "plate_barding_armor"],  # Cavalry armor
+		["fletching", "bodkin_arrow", "bracer"],  # Archer attack + range
+		["padded_archer_armor", "leather_archer_armor", "ring_archer_armor"],  # Archer armor
 	]
 
 	for line in tech_lines:

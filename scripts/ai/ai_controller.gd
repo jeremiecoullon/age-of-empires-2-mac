@@ -359,6 +359,20 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, castle_qualifying]
 			if not game_state.can_advance_age():
 				return "cannot_afford"
+		"advance_to_imperial":
+			if game_state.get_age() != GameManager.AGE_CASTLE:
+				return "not_castle_age"
+			var imperial_vills = game_state.get_civilian_population()
+			if imperial_vills < 20:
+				return "need_20_villagers_have_%d" % imperial_vills
+			var imperial_tc = game_state._get_ai_town_center()
+			if imperial_tc and imperial_tc.is_researching_age:
+				return "already_researching"
+			var imperial_qualifying = game_state.get_qualifying_building_count(GameManager.AGE_IMPERIAL)
+			if imperial_qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, imperial_qualifying]
+			if not game_state.can_advance_age():
+				return "cannot_afford"
 		"defend_base":
 			if not game_state.is_under_attack():
 				return "not_under_attack"
@@ -580,7 +594,7 @@ func _get_rule_blockers() -> Dictionary:
 		"train_battering_ram", "train_mangonel", "train_scorpion",
 		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech", "research_university_tech",
 		"garrison_under_attack", "ungarrison_when_safe",
-		"advance_to_feudal", "advance_to_castle",
+		"advance_to_feudal", "advance_to_castle", "advance_to_imperial",
 		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
 		"defend_base", "attack"
 	]
@@ -908,7 +922,7 @@ func _get_current_research_name() -> String:
 	if uni and uni.is_researching:
 		return GameManager.TECHNOLOGIES.get(uni.current_research_id, {}).get("name", uni.current_research_id)
 	# Check training buildings for unit upgrade research
-	for building_type in ["barracks", "archery_range", "stable"]:
+	for building_type in ["barracks", "archery_range", "stable", "siege_workshop"]:
 		var bldg = game_state._get_ai_building(building_type)
 		if bldg and bldg.is_researching:
 			return GameManager.TECHNOLOGIES.get(bldg.current_research_id, {}).get("name", bldg.current_research_id)

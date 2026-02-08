@@ -563,3 +563,17 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Siege Workshop requires Blacksmith prerequisite**: Both in HUD (build button disabled with "Requires Blacksmith" text) and AI (`get_can_build_reason()` checks for functional blacksmith). This matches AoE2's tech tree.
 
 - **Imperial-age upgrades (Onager, Heavy Scorpion) are visible but locked**: The upgrade buttons appear in the Siege Workshop panel but show "Requires Imperial Age" tooltip. These will unlock in Phase 9 when Imperial Age advancement is added.
+
+## Phase 9A: Imperial Age Advancement + Blacksmith Techs + Unit Upgrades
+
+- **Blast Furnace gives +2 attack (not +1)**: Unlike Forging (+1) and Iron Casting (+1), Blast Furnace gives +2 infantry and cavalry attack. The effect value in TECHNOLOGIES is the raw bonus per tech, and `_recalculate_tech_bonuses()` sums all researched tech effects. Total attack line = 1+1+2 = 4.
+
+- **Plate armor techs are asymmetric (+1 melee / +2 pierce)**: Unlike earlier tiers which give +1/+1, the Imperial tier (Plate Mail, Plate Barding, Ring Archer) gives +1 melee / +2 pierce. This is handled naturally by separate effect keys (`infantry_melee_armor` vs `infantry_pierce_armor`).
+
+- **Cavalier has no tech prerequisite**: `requires: ""` is correct — Cavalier just needs Imperial Age, no prior upgrade tech. The Knight is the base unit, and the upgrade system's `from_group: "knights"` ensures only knights get upgraded. This is different from Paladin which `requires: "cavalier"`.
+
+- **Siege Ram upgrade costs food AND gold**: The original plan had food-only, but spec-check caught that AoE2 wiki lists 1000F + 800G. Fixed during post-phase.
+
+- **Category groups survive unit upgrades**: The upgrade system only swaps specific line groups (e.g., "archers_line" → "crossbowmen" → "arbalesters"). Broad category groups like "archers", "infantry", "cavalry" added in `_ready()` are NOT touched. This means `get_unit_count("ranged")` correctly counts upgraded units because they're still in the "archers" group. This is by design but non-obvious.
+
+- **Stale comments need updating when adding deferred content**: The TECHNOLOGIES comment said "Feudal + Castle only; Imperial deferred to Phase 9" which became stale when Imperial was actually added. Always update these when implementing deferred features.
