@@ -359,6 +359,20 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, castle_qualifying]
 			if not game_state.can_advance_age():
 				return "cannot_afford"
+		"advance_to_imperial":
+			if game_state.get_age() != GameManager.AGE_CASTLE:
+				return "not_castle_age"
+			var imperial_vills = game_state.get_civilian_population()
+			if imperial_vills < 20:
+				return "need_20_villagers_have_%d" % imperial_vills
+			var imperial_tc = game_state._get_ai_town_center()
+			if imperial_tc and imperial_tc.is_researching_age:
+				return "already_researching"
+			var imperial_qualifying = game_state.get_qualifying_building_count(GameManager.AGE_IMPERIAL)
+			if imperial_qualifying < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+				return "need_%d_qualifying_have_%d" % [GameManager.AGE_REQUIRED_QUALIFYING_COUNT, imperial_qualifying]
+			if not game_state.can_advance_age():
+				return "cannot_afford"
 		"defend_base":
 			if not game_state.is_under_attack():
 				return "not_under_attack"
@@ -381,6 +395,71 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if game_state.get_military_population() < 2:
 				return "need_2_military_have_%d" % game_state.get_military_population()
 			return game_state.get_can_build_reason("blacksmith")
+		"build_monastery":
+			if game_state.get_building_count("monastery") > 0:
+				return "already_have_monastery"
+			var monq = rule.get("_monastery_queued_at") if rule else null
+			if monq is float and monq > 0.0:
+				return "already_queued"
+			var mon_pop = game_state.get_civilian_population()
+			if mon_pop < 15:
+				return "need_15_villagers_have_%d" % mon_pop
+			return game_state.get_can_build_reason("monastery")
+		"train_monk":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("monastery") < 1:
+				return "no_monastery"
+			var monk_count = game_state.get_unit_count("monk")
+			if monk_count >= 3:
+				return "monk_limit_%d" % monk_count
+			return game_state.get_can_train_reason("monk")
+		"collect_relics":
+			if game_state.get_building_count("monastery") < 1:
+				return "no_monastery"
+			if not game_state.get_idle_monk():
+				return "no_idle_monks"
+			if game_state.get_uncollected_relics().is_empty():
+				return "no_uncollected_relics"
+		"garrison_relic":
+			if game_state.get_building_count("monastery") < 1:
+				return "no_monastery"
+			if not game_state.get_monk_carrying_relic():
+				return "no_monks_with_relics"
+		"convert_high_value":
+			var idle_monk = game_state.get_idle_monk()
+			if not idle_monk:
+				return "no_idle_monks"
+			if not game_state.get_enemy_high_value_target(idle_monk.global_position):
+				return "no_convertible_targets"
+		"research_monastery_tech":
+			if game_state.get_building_count("monastery") == 0:
+				return "no_monastery"
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			var mon = game_state._get_ai_monastery()
+			if mon and mon.is_researching:
+				return "monastery_busy"
+			return "all_techs_researched"
+		"build_university":
+			if game_state.get_building_count("university") > 0:
+				return "already_have_university"
+			var uniq = rule.get("_university_queued_at") if rule else null
+			if uniq is float and uniq > 0.0:
+				return "already_queued"
+			var uni_pop = game_state.get_civilian_population()
+			if uni_pop < 15:
+				return "need_15_villagers_have_%d" % uni_pop
+			return game_state.get_can_build_reason("university")
+		"research_university_tech":
+			if game_state.get_building_count("university") == 0:
+				return "no_university"
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			var uni = game_state._get_ai_university()
+			if uni and uni.is_researching:
+				return "university_busy"
+			return "no_available_techs"
 		"research_blacksmith_tech":
 			if game_state.get_building_count("blacksmith") == 0:
 				return "no_blacksmith"
@@ -401,6 +480,78 @@ func _get_rule_skip_reason(rule_name: String, rule = null) -> String:
 			if tc.is_researching_age or tc.is_researching or tc.is_training:
 				return "tc_busy"
 			return game_state.get_can_research_reason("loom")
+		"build_outpost":
+			if game_state.get_building_count("outpost") > 0:
+				return "already_have_outpost"
+			var op = game_state.get_civilian_population()
+			if op < 8:
+				return "need_8_villagers_have_%d" % op
+			return game_state.get_can_build_reason("outpost")
+		"build_watch_tower":
+			if game_state.get_building_count("watch_tower") >= 2:
+				return "have_enough_towers"
+			if game_state.get_building_count("barracks") < 1:
+				return "need_barracks_first"
+			if game_state.get_resource("stone") < 125:
+				return "need_125_stone_have_%d" % game_state.get_resource("stone")
+			return game_state.get_can_build_reason("watch_tower")
+		"build_palisade_wall":
+			if game_state.get_building_count("palisade_wall") >= 5:
+				return "have_enough_walls"
+			if game_state.get_game_time() < 180.0:
+				return "too_early"
+			if game_state.get_building_count("barracks") < 1:
+				return "need_barracks_first"
+			return game_state.get_can_build_reason("palisade_wall")
+		"build_siege_workshop":
+			if game_state.get_building_count("siege_workshop") > 0:
+				return "already_have_siege_workshop"
+			var swq = rule.get("_siege_workshop_queued_at") if rule else null
+			if swq is float and swq > 0.0:
+				return "already_queued"
+			if game_state.get_building_count("blacksmith") < 1:
+				return "need_blacksmith_first"
+			var sw_pop = game_state.get_civilian_population()
+			if sw_pop < 15:
+				return "need_15_villagers_have_%d" % sw_pop
+			return game_state.get_can_build_reason("siege_workshop")
+		"train_battering_ram":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("siege_workshop") < 1:
+				return "no_siege_workshop"
+			var ram_count = game_state.get_unit_count("battering_ram")
+			if ram_count >= 2:
+				return "ram_limit_%d" % ram_count
+			return game_state.get_can_train_reason("battering_ram")
+		"train_mangonel":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("siege_workshop") < 1:
+				return "no_siege_workshop"
+			var mango_count = game_state.get_unit_count("mangonel")
+			if mango_count >= 2:
+				return "mangonel_limit_%d" % mango_count
+			if game_state.get_military_population() < 5:
+				return "need_5_military_have_%d" % game_state.get_military_population()
+			return game_state.get_can_train_reason("mangonel")
+		"train_scorpion":
+			if game_state.should_save_for_age():
+				return "saving_for_age"
+			if game_state.get_building_count("siege_workshop") < 1:
+				return "no_siege_workshop"
+			var scorp_count = game_state.get_unit_count("scorpion")
+			if scorp_count >= 2:
+				return "scorpion_limit_%d" % scorp_count
+			if game_state.get_military_population() < 5:
+				return "need_5_military_have_%d" % game_state.get_military_population()
+			return game_state.get_can_train_reason("scorpion")
+		"garrison_under_attack":
+			if not game_state.is_under_attack():
+				return "not_under_attack"
+		"ungarrison_when_safe":
+			if game_state.is_under_attack():
+				return "under_attack"
 		"attack":
 			var min_military = game_state.get_sn("sn_minimum_attack_group_size")
 			var current_military = game_state.get_military_population()
@@ -436,9 +587,14 @@ func _get_rule_blockers() -> Dictionary:
 	# Check key economy/military rules
 	var key_rules = [
 		"build_barracks", "build_archery_range", "build_stable", "build_blacksmith",
-		"build_mill", "build_lumber_camp",
-		"train_militia", "train_archer", "train_scout_cavalry", "train_knight",
-		"advance_to_feudal", "advance_to_castle",
+		"build_monastery", "build_university", "build_mill", "build_lumber_camp",
+		"build_outpost", "build_watch_tower", "build_palisade_wall",
+		"build_siege_workshop",
+		"train_militia", "train_archer", "train_scout_cavalry", "train_knight", "train_monk",
+		"train_battering_ram", "train_mangonel", "train_scorpion",
+		"collect_relics", "garrison_relic", "convert_high_value", "research_monastery_tech", "research_university_tech",
+		"garrison_under_attack", "ungarrison_when_safe",
+		"advance_to_feudal", "advance_to_castle", "advance_to_imperial",
 		"research_loom", "research_blacksmith_tech", "research_unit_upgrade",
 		"defend_base", "attack"
 	]
@@ -609,6 +765,7 @@ func _print_debug_state() -> void:
 	var scout_count = game_state.get_unit_count("scout_cavalry")
 	var cav_archer_count = game_state.get_unit_count("cavalry_archer")
 	var knight_count = game_state.get_unit_count("knight")
+	var monk_count = game_state.get_unit_count("monk")
 
 	# Get building counts
 	var tc_count = game_state.get_building_count("town_center")
@@ -622,6 +779,13 @@ func _print_debug_state() -> void:
 	var mining_camp_count = game_state.get_building_count("mining_camp")
 	var market_count = game_state.get_building_count("market")
 	var blacksmith_count = game_state.get_building_count("blacksmith")
+	var monastery_count = game_state.get_building_count("monastery")
+	var university_count = game_state.get_building_count("university")
+	var outpost_count = game_state.get_building_count("outpost")
+	var watch_tower_count = game_state.get_building_count("watch_tower")
+	var palisade_wall_count = game_state.get_building_count("palisade_wall")
+	var stone_wall_count = game_state.get_building_count("stone_wall")
+	var gate_count = game_state.get_building_count("gate")
 
 	# Format timers as dict
 	var timers_remaining: Dictionary = {}
@@ -680,6 +844,7 @@ func _print_debug_state() -> void:
 			"scout": scout_count,
 			"cav_archer": cav_archer_count,
 			"knight": knight_count,
+			"monk": monk_count,
 		},
 		"buildings": {
 			"town_center": tc_count,
@@ -693,6 +858,13 @@ func _print_debug_state() -> void:
 			"mining_camp": mining_camp_count,
 			"market": market_count,
 			"blacksmith": blacksmith_count,
+			"monastery": monastery_count,
+			"university": university_count,
+			"outpost": outpost_count,
+			"watch_tower": watch_tower_count,
+			"palisade_wall": palisade_wall_count,
+			"stone_wall": stone_wall_count,
+			"gate": gate_count,
 		},
 		"tech": {
 			"researched_count": game_state._count_researched_techs(),
@@ -743,8 +915,14 @@ func _get_current_research_name() -> String:
 	var tc = game_state._get_ai_town_center()
 	if tc and tc.is_researching:
 		return GameManager.TECHNOLOGIES.get(tc.current_research_id, {}).get("name", tc.current_research_id)
+	var mon = game_state._get_ai_monastery()
+	if mon and mon.is_researching:
+		return GameManager.TECHNOLOGIES.get(mon.current_research_id, {}).get("name", mon.current_research_id)
+	var uni = game_state._get_ai_university()
+	if uni and uni.is_researching:
+		return GameManager.TECHNOLOGIES.get(uni.current_research_id, {}).get("name", uni.current_research_id)
 	# Check training buildings for unit upgrade research
-	for building_type in ["barracks", "archery_range", "stable"]:
+	for building_type in ["barracks", "archery_range", "stable", "siege_workshop"]:
 		var bldg = game_state._get_ai_building(building_type)
 		if bldg and bldg.is_researching:
 			return GameManager.TECHNOLOGIES.get(bldg.current_research_id, {}).get("name", bldg.current_research_id)

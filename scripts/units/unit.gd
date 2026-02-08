@@ -32,6 +32,10 @@ var is_selected: bool = false
 var current_hp: int
 var is_dead: bool = false
 var current_direction: int = Direction.S  # Default facing south
+var garrisoned_in: Node = null  # Building this unit is garrisoned in
+
+func is_garrisoned() -> bool:
+	return garrisoned_in != null
 
 signal died
 signal damaged(amount: int, attacker: Node2D)  # Emitted when unit takes damage

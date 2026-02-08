@@ -102,7 +102,10 @@ class AdjustGathererPercentagesRule extends AIRule:
 		if current_phase == 0 and vill_count >= 10 and has_barracks and has_gold_needs:
 			return true
 
-		# Future: Phase 2 transitions can be added here
+		# Phase 2: Add stone gathering for defensive buildings (outpost, watch tower)
+		# Trigger when Feudal Age + military buildings exist
+		if current_phase == 1 and gs.get_age() >= GameManager.AGE_FEUDAL and has_barracks:
+			return true
 
 		return false
 
@@ -117,6 +120,13 @@ class AdjustGathererPercentagesRule extends AIRule:
 			gs.set_sn("sn_gold_gatherer_percentage", 15)
 			gs.set_sn("sn_stone_gatherer_percentage", 0)
 			gs.set_goal(GOAL_ECONOMY_PHASE, 1)
+		elif current_phase == 1:
+			# Add stone gathering for defensive buildings
+			gs.set_sn("sn_food_gatherer_percentage", 45)
+			gs.set_sn("sn_wood_gatherer_percentage", 30)
+			gs.set_sn("sn_gold_gatherer_percentage", 15)
+			gs.set_sn("sn_stone_gatherer_percentage", 10)
+			gs.set_goal(GOAL_ECONOMY_PHASE, 2)
 
 
 # =============================================================================
@@ -701,6 +711,29 @@ class AdvanceToCastleAgeRule extends AIRule:
 		gs.research_age(GameManager.AGE_CASTLE)
 
 
+class AdvanceToImperialAgeRule extends AIRule:
+	## Advance to Imperial Age when Castle economy is running
+	## Requirements: Castle Age, 20+ villagers, 2 qualifying Castle buildings, 1000 food + 800 gold
+
+	func _init():
+		rule_name = "advance_to_imperial"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_age() != GameManager.AGE_CASTLE:
+			return false
+		if gs.get_civilian_population() < 20:
+			return false
+		var target_age = GameManager.AGE_IMPERIAL
+		if gs.get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
+			return false
+		if not gs.can_advance_age():
+			return false
+		return true
+
+	func actions(gs: AIGameState) -> void:
+		gs.research_age(GameManager.AGE_IMPERIAL)
+
+
 # =============================================================================
 # DEFENSE (Phase 3.1C)
 # =============================================================================
@@ -826,38 +859,39 @@ class ResearchBlacksmithTechRule extends AIRule:
 		var archer_count = gs.get_unit_count("ranged")
 
 		# Attack upgrades first (highest impact)
-		# Forging/Iron Casting affect both infantry and cavalry
+		# Forging/Iron Casting/Blast Furnace affect both infantry and cavalry
 		if infantry_count + cavalry_count > 0:
-			for tech_id in ["forging", "iron_casting"]:
+			for tech_id in ["forging", "iron_casting", "blast_furnace"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
-		# Fletching/Bodkin for archers
+		# Fletching/Bodkin/Bracer for archers
 		if archer_count > 0:
-			for tech_id in ["fletching", "bodkin_arrow"]:
+			for tech_id in ["fletching", "bodkin_arrow", "bracer"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		# Armor upgrades (lower priority)
 		if infantry_count > 0:
-			for tech_id in ["scale_mail_armor", "chain_mail_armor"]:
+			for tech_id in ["scale_mail_armor", "chain_mail_armor", "plate_mail_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		if cavalry_count > 0:
-			for tech_id in ["scale_barding_armor", "chain_barding_armor"]:
+			for tech_id in ["scale_barding_armor", "chain_barding_armor", "plate_barding_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		if archer_count > 0:
-			for tech_id in ["padded_archer_armor", "leather_archer_armor"]:
+			for tech_id in ["padded_archer_armor", "leather_archer_armor", "ring_archer_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
 		# If we have any military, try whatever's available
 		if infantry_count + cavalry_count + archer_count > 0:
 			for tech_id in ["forging", "fletching", "scale_mail_armor", "scale_barding_armor", "padded_archer_armor",
-							"iron_casting", "bodkin_arrow", "chain_mail_armor", "chain_barding_armor", "leather_archer_armor"]:
+							"iron_casting", "bodkin_arrow", "chain_mail_armor", "chain_barding_armor", "leather_archer_armor",
+							"blast_furnace", "bracer", "plate_mail_armor", "plate_barding_armor", "ring_archer_armor"]:
 				if gs.can_research(tech_id):
 					return tech_id
 
@@ -886,7 +920,7 @@ class ResearchLoomRule extends AIRule:
 
 
 class ResearchUnitUpgradeRule extends AIRule:
-	## Researches unit upgrades at training buildings (barracks, archery range, stable).
+	## Researches unit upgrades at training buildings (barracks, archery range, stable, siege workshop).
 	## Picks the best upgrade based on current army composition — upgrade the unit type
 	## the AI has the most of first.
 
@@ -912,11 +946,21 @@ class ResearchUnitUpgradeRule extends AIRule:
 			# [tech_id, relevant_unit_count]
 			["man_at_arms", gs.get_unit_count("militia") + gs.get_unit_count("infantry")],
 			["long_swordsman", gs.get_unit_count("infantry")],
+			["two_handed_swordsman", gs.get_unit_count("infantry")],
+			["champion", gs.get_unit_count("infantry")],
 			["pikeman", gs.get_unit_count("spearman")],
 			["crossbowman", gs.get_unit_count("archer")],
+			["arbalester", gs.get_unit_count("archer")],
 			["elite_skirmisher", gs.get_unit_count("skirmisher")],
 			["heavy_cavalry_archer", gs.get_unit_count("cavalry_archer")],
 			["light_cavalry", gs.get_unit_count("scout_cavalry")],
+			["cavalier", gs.get_unit_count("knight")],
+			["paladin", gs.get_unit_count("cavalier")],
+			# Siege upgrades (Phase 8B + 9A)
+			["capped_ram", gs.get_unit_count("battering_ram")],
+			["siege_ram", gs.get_unit_count("capped_ram")],
+			["onager", gs.get_unit_count("mangonel")],
+			["heavy_scorpion", gs.get_unit_count("scorpion")],
 		]
 
 		# Sort by unit count descending — upgrade what we have most of
@@ -939,6 +983,346 @@ class ResearchUnitUpgradeRule extends AIRule:
 		return ""
 
 
+# =============================================================================
+# BUILDING - MONASTERY (Phase 6A)
+# =============================================================================
+
+class BuildMonasteryRule extends AIRule:
+	var _monastery_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_monastery"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") > 0:
+			_monastery_queued_at = -1.0
+			return false
+
+		if _monastery_queued_at > 0.0 and gs.get_game_time() - _monastery_queued_at > QUEUE_TIMEOUT:
+			_monastery_queued_at = -1.0
+
+		# Build monastery in Castle Age with decent economy
+		return _monastery_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 15 \
+			and gs.can_build("monastery")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("monastery")
+		_monastery_queued_at = gs.get_game_time()
+
+
+# =============================================================================
+# MONK TRAINING (Phase 6A)
+# =============================================================================
+
+class TrainMonkRule extends AIRule:
+	func _init():
+		rule_name = "train_monk"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("monastery") < 1:
+			return false
+		if not gs.can_train("monk"):
+			return false
+		# Limit to 3 monks
+		return gs.get_unit_count("monk") < 3
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("monk")
+
+
+# =============================================================================
+# RELIC COLLECTION (Phase 6B)
+# =============================================================================
+
+class CollectRelicsRule extends AIRule:
+	## Send idle monks to pick up uncollected relics
+	func _init():
+		rule_name = "collect_relics"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") < 1:
+			return false
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return false
+		var relics = gs.get_uncollected_relics()
+		return relics.size() > 0
+
+	func actions(gs: AIGameState) -> void:
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return
+		var relics = gs.get_uncollected_relics()
+		if relics.is_empty():
+			return
+		# Pick nearest relic
+		var nearest_relic: Node = null
+		var nearest_dist: float = INF
+		for relic in relics:
+			var dist = monk.global_position.distance_to(relic.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest_relic = relic
+		if nearest_relic:
+			gs.command_monk_pickup_relic(monk, nearest_relic)
+
+
+class GarrisonRelicRule extends AIRule:
+	## Send monks carrying relics to garrison at monastery
+	func _init():
+		rule_name = "garrison_relic"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") < 1:
+			return false
+		return gs.get_monk_carrying_relic() != null
+
+	func actions(gs: AIGameState) -> void:
+		var monk = gs.get_monk_carrying_relic()
+		if not monk:
+			return
+		var monastery = gs._get_ai_monastery()
+		if not monastery:
+			return
+		gs.command_monk_garrison_relic(monk, monastery)
+
+
+class ConvertHighValueTargetRule extends AIRule:
+	## Send idle monks to convert expensive enemy units
+	func _init():
+		rule_name = "convert_high_value"
+
+	func conditions(gs: AIGameState) -> bool:
+		# Relic collection takes priority over conversion
+		if gs.get_uncollected_relics().size() > 0:
+			return false
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return false
+		var target = gs.get_enemy_high_value_target(monk.global_position)
+		return target != null
+
+	func actions(gs: AIGameState) -> void:
+		var monk = gs.get_idle_monk()
+		if not monk:
+			return
+		var target = gs.get_enemy_high_value_target(monk.global_position)
+		if target:
+			gs.command_monk_convert(monk, target)
+
+
+class ResearchMonasteryTechRule extends AIRule:
+	## Research monastery techs in priority order
+	func _init():
+		rule_name = "research_monastery_tech"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("monastery") == 0:
+			return false
+		if gs.should_save_for_age():
+			return false
+		var mon = gs._get_ai_monastery()
+		if not mon or mon.is_researching:
+			return false
+		return _get_best_tech(gs) != ""
+
+	func actions(gs: AIGameState) -> void:
+		var tech_id = _get_best_tech(gs)
+		if tech_id != "":
+			gs.research_tech(tech_id)
+
+	func _get_best_tech(gs: AIGameState) -> String:
+		# Priority: Sanctity > Fervor > Redemption > Atonement
+		# Imperial techs are auto-excluded by age gate
+		var tech_priority = ["sanctity", "fervor", "redemption", "atonement",
+							 "illumination", "faith", "block_printing"]
+		for tech_id in tech_priority:
+			if gs.can_research(tech_id):
+				return tech_id
+		return ""
+
+
+# =============================================================================
+# UNIVERSITY (Phase 8A)
+# =============================================================================
+
+class BuildUniversityRule extends AIRule:
+	var _university_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_university"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("university") > 0:
+			_university_queued_at = -1.0
+			return false
+
+		if _university_queued_at > 0.0 and gs.get_game_time() - _university_queued_at > QUEUE_TIMEOUT:
+			_university_queued_at = -1.0
+
+		# Build university in Castle Age with decent economy
+		return _university_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 15 \
+			and gs.can_build("university")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("university")
+		_university_queued_at = gs.get_game_time()
+
+
+class ResearchUniversityTechRule extends AIRule:
+	## Research university techs in priority order
+	func _init():
+		rule_name = "research_university_tech"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("university") == 0:
+			return false
+		if gs.should_save_for_age():
+			return false
+		var uni = gs._get_ai_university()
+		if not uni or uni.is_researching:
+			return false
+		return _get_best_tech(gs) != ""
+
+	func actions(gs: AIGameState) -> void:
+		var tech_id = _get_best_tech(gs)
+		if tech_id != "":
+			gs.research_tech(tech_id)
+
+	func _get_best_tech(gs: AIGameState) -> String:
+		# Priority: Masonry > Murder Holes > Guard Tower > Ballistics > Treadmill Crane > Fortified Wall
+		var tech_priority = ["masonry", "murder_holes", "guard_tower", "ballistics",
+							 "treadmill_crane", "fortified_wall"]
+		for tech_id in tech_priority:
+			if gs.can_research(tech_id):
+				return tech_id
+		return ""
+
+
+# =============================================================================
+# DEFENSIVE BUILDINGS (Phase 7A)
+# =============================================================================
+
+class BuildOutpostRule extends AIRule:
+	var _outpost_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_outpost"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("outpost") > 0:
+			_outpost_queued_at = -1.0
+			return false
+
+		if _outpost_queued_at > 0.0 and gs.get_game_time() - _outpost_queued_at > QUEUE_TIMEOUT:
+			_outpost_queued_at = -1.0
+
+		# Build outpost with 8+ vills and some economy going
+		return _outpost_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 8 \
+			and gs.can_build("outpost")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("outpost")
+		_outpost_queued_at = gs.get_game_time()
+
+
+class BuildWatchTowerRule extends AIRule:
+	var _tower_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_watch_tower"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("watch_tower") >= 2:
+			_tower_queued_at = -1.0
+			return false
+
+		if _tower_queued_at > 0.0 and gs.get_game_time() - _tower_queued_at > QUEUE_TIMEOUT:
+			_tower_queued_at = -1.0
+
+		# Build watch tower in Feudal+ with military buildings and decent stone
+		return _tower_queued_at < 0.0 \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.get_resource("stone") >= 125 \
+			and gs.can_build("watch_tower")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("watch_tower")
+		_tower_queued_at = gs.get_game_time()
+
+
+class BuildPalisadeWallRule extends AIRule:
+	var _wall_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+	const MAX_WALLS: int = 5
+
+	func _init():
+		rule_name = "build_palisade_wall"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("palisade_wall") >= MAX_WALLS:
+			_wall_queued_at = -1.0
+			return false
+
+		if _wall_queued_at > 0.0 and gs.get_game_time() - _wall_queued_at > QUEUE_TIMEOUT:
+			_wall_queued_at = -1.0
+
+		# Build palisade walls after 3 min with a barracks
+		return _wall_queued_at < 0.0 \
+			and gs.get_game_time() >= 180.0 \
+			and gs.get_building_count("barracks") >= 1 \
+			and gs.can_build("palisade_wall")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("palisade_wall")
+		_wall_queued_at = gs.get_game_time()
+
+
+class GarrisonUnderAttackRule extends AIRule:
+	func _init():
+		rule_name = "garrison_under_attack"
+
+	func conditions(gs: AIGameState) -> bool:
+		return gs.is_under_attack()
+
+	func actions(gs: AIGameState) -> void:
+		var count = gs.garrison_villagers_under_attack()
+		if count > 0:
+			gs._log_action("garrison_villagers", {"count": count})
+
+
+class UngarrisonWhenSafeRule extends AIRule:
+	func _init():
+		rule_name = "ungarrison_when_safe"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.is_under_attack():
+			return false
+		# Check if any AI buildings have garrisoned units
+		for building in gs.scene_tree.get_nodes_in_group("buildings"):
+			if building.team == AIGameState.AI_TEAM and building.garrisoned_units.size() > 0:
+				return true
+		return false
+
+	func actions(gs: AIGameState) -> void:
+		var count = 0
+		for building in gs.scene_tree.get_nodes_in_group("buildings"):
+			if building.team == AIGameState.AI_TEAM and building.garrisoned_units.size() > 0:
+				count += building.garrisoned_units.size()
+				building.ungarrison_all()
+		if count > 0:
+			gs._log_action("ungarrison_safe", {"count": count})
+
+
 class AttackRule extends AIRule:
 	func _init():
 		rule_name = "attack"
@@ -958,6 +1342,96 @@ class AttackRule extends AIRule:
 		# Reset attack timer for next attack
 		gs.disable_timer(TIMER_ATTACK)
 		gs.enable_timer(TIMER_ATTACK, 90)  # Attack again in 90 seconds
+
+
+# =============================================================================
+# SIEGE WORKSHOP + SIEGE UNITS (Phase 8B)
+# =============================================================================
+
+class BuildSiegeWorkshopRule extends AIRule:
+	var _siege_workshop_queued_at: float = -1.0
+	const QUEUE_TIMEOUT: float = 30.0
+
+	func _init():
+		rule_name = "build_siege_workshop"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.get_building_count("siege_workshop") > 0:
+			_siege_workshop_queued_at = -1.0
+			return false
+
+		if _siege_workshop_queued_at > 0.0 and gs.get_game_time() - _siege_workshop_queued_at > QUEUE_TIMEOUT:
+			_siege_workshop_queued_at = -1.0
+
+		# Castle Age, have blacksmith, decent economy
+		return _siege_workshop_queued_at < 0.0 \
+			and gs.get_civilian_population() >= 15 \
+			and gs.get_building_count("blacksmith") >= 1 \
+			and gs.can_build("siege_workshop")
+
+	func actions(gs: AIGameState) -> void:
+		gs.build("siege_workshop")
+		_siege_workshop_queued_at = gs.get_game_time()
+
+
+class TrainBatteringRamRule extends AIRule:
+	func _init():
+		rule_name = "train_battering_ram"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("siege_workshop") < 1:
+			return false
+		# Limit to 2 rams
+		if gs.get_unit_count("battering_ram") >= 2:
+			return false
+		return gs.can_train("battering_ram")
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("battering_ram")
+
+
+class TrainMangonelRule extends AIRule:
+	func _init():
+		rule_name = "train_mangonel"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("siege_workshop") < 1:
+			return false
+		# Limit to 2 mangonels
+		if gs.get_unit_count("mangonel") >= 2:
+			return false
+		# Only train mangonels if we already have some military
+		if gs.get_military_population() < 5:
+			return false
+		return gs.can_train("mangonel")
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("mangonel")
+
+
+class TrainScorpionRule extends AIRule:
+	func _init():
+		rule_name = "train_scorpion"
+
+	func conditions(gs: AIGameState) -> bool:
+		if gs.should_save_for_age():
+			return false
+		if gs.get_building_count("siege_workshop") < 1:
+			return false
+		# Limit to 2 scorpions
+		if gs.get_unit_count("scorpion") >= 2:
+			return false
+		# Only train scorpions if we already have some military
+		if gs.get_military_population() < 5:
+			return false
+		return gs.can_train("scorpion")
+
+	func actions(gs: AIGameState) -> void:
+		gs.train("scorpion")
 
 
 # =============================================================================
@@ -995,14 +1469,37 @@ static func create_all_rules() -> Array:
 		TrainKnightRule.new(),
 		# Blacksmith (Phase 5A)
 		BuildBlacksmithRule.new(),
+		# Monastery (Phase 6A)
+		BuildMonasteryRule.new(),
+		TrainMonkRule.new(),
+		# Relic collection and monk behavior (Phase 6B)
+		CollectRelicsRule.new(),
+		GarrisonRelicRule.new(),
+		ConvertHighValueTargetRule.new(),
+		ResearchMonasteryTechRule.new(),
+		# University (Phase 8A)
+		BuildUniversityRule.new(),
+		ResearchUniversityTechRule.new(),
 		# Age advancement (Phase 4A)
 		AdvanceToFeudalAgeRule.new(),
 		AdvanceToCastleAgeRule.new(),
+		AdvanceToImperialAgeRule.new(),
 		# Technology research (Phase 5A)
 		ResearchLoomRule.new(),
 		ResearchBlacksmithTechRule.new(),
 		# Unit upgrades (Phase 5B)
 		ResearchUnitUpgradeRule.new(),
+		# Defensive buildings (Phase 7A/7B)
+		BuildOutpostRule.new(),
+		BuildWatchTowerRule.new(),
+		BuildPalisadeWallRule.new(),
+		GarrisonUnderAttackRule.new(),
+		UngarrisonWhenSafeRule.new(),
+		# Siege Workshop + siege units (Phase 8B)
+		BuildSiegeWorkshopRule.new(),
+		TrainBatteringRamRule.new(),
+		TrainMangonelRule.new(),
+		TrainScorpionRule.new(),
 		# Defense (Phase 3.1C)
 		DefendBaseRule.new(),
 		# Scouting (Phase 3.1C)

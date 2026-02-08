@@ -39,8 +39,11 @@ func _ready() -> void:
 	size = Vector2i(3, 3)
 	wood_cost = 175  # AoE2 spec
 	build_time = 50.0
+	garrison_capacity = 10
 
 func _process(delta: float) -> void:
+	if is_functional():
+		_process_garrison_healing(delta)
 	if is_researching:
 		_process_research(delta)
 		return  # Research blocks training

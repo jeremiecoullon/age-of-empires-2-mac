@@ -30,8 +30,23 @@ var milestones: Dictionary = {
 	"first_attack": null,
 	"reached_feudal_age": null,
 	"reached_castle_age": null,
+	"reached_imperial_age": null,
+	"first_imperial_upgrade": null,
 	"first_knight": null,
 	"first_unit_upgrade": null,
+	"first_monastery": null,
+	"first_monk": null,
+	"first_relic_collected": null,
+	"first_relic_garrisoned": null,
+	"first_conversion": null,
+	"first_university": null,
+	"first_siege_workshop": null,
+	"first_battering_ram": null,
+	"first_mangonel": null,
+	"first_outpost": null,
+	"first_watch_tower": null,
+	"first_palisade_wall": null,
+	"first_garrison": null,
 }
 
 # Previous state for change detection
@@ -103,7 +118,7 @@ func record_attack() -> void:
 
 func _check_milestones(game_time: float, state) -> void:
 	# Building milestones
-	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith"]
+	var building_types = ["house", "barracks", "farm", "lumber_camp", "mill", "mining_camp", "archery_range", "stable", "market", "blacksmith", "outpost", "watch_tower", "palisade_wall"]
 	for building_type in building_types:
 		var milestone_key = "first_" + building_type
 		if milestones[milestone_key] == null:
@@ -135,6 +150,8 @@ func _check_milestones(game_time: float, state) -> void:
 		milestones["reached_feudal_age"] = game_time
 	if milestones["reached_castle_age"] == null and current_age >= GameManager.AGE_CASTLE:
 		milestones["reached_castle_age"] = game_time
+	if milestones["reached_imperial_age"] == null and current_age >= GameManager.AGE_IMPERIAL:
+		milestones["reached_imperial_age"] = game_time
 
 	# Tech milestones
 	if milestones["first_tech_researched"] == null:
@@ -158,6 +175,103 @@ func _check_milestones(game_time: float, state) -> void:
 			if tech.get("type", "") == "unit_upgrade" and GameManager.has_tech(tech_id, AI_TEAM):
 				milestones["first_unit_upgrade"] = game_time
 				break
+
+	# Imperial upgrade milestone (any Imperial-age unit_upgrade or blacksmith tech)
+	if milestones["first_imperial_upgrade"] == null:
+		var imperial_techs = ["blast_furnace", "plate_mail_armor", "plate_barding_armor", "bracer", "ring_archer_armor",
+			"two_handed_swordsman", "champion", "arbalester", "cavalier", "paladin", "siege_ram",
+			"onager", "heavy_scorpion"]
+		for tech_id in imperial_techs:
+			if GameManager.has_tech(tech_id, AI_TEAM):
+				milestones["first_imperial_upgrade"] = game_time
+				break
+
+	# Outpost milestone
+	if milestones["first_outpost"] == null:
+		var outpost_count = state.get_building_count("outpost")
+		if outpost_count > 0:
+			milestones["first_outpost"] = game_time
+
+	# Watch Tower milestone
+	if milestones["first_watch_tower"] == null:
+		var tower_count = state.get_building_count("watch_tower")
+		if tower_count > 0:
+			milestones["first_watch_tower"] = game_time
+
+	# Palisade Wall milestone
+	if milestones["first_palisade_wall"] == null:
+		var wall_count = state.get_building_count("palisade_wall")
+		if wall_count > 0:
+			milestones["first_palisade_wall"] = game_time
+
+	# Garrison milestone — detect any AI unit garrisoned in a building
+	if milestones["first_garrison"] == null:
+		for building in scene_tree.get_nodes_in_group("buildings"):
+			if building.team == AI_TEAM and building.garrisoned_units.size() > 0:
+				milestones["first_garrison"] = game_time
+				break
+
+	# Monastery milestone
+	if milestones["first_monastery"] == null:
+		var mon_count = state.get_building_count("monastery")
+		var prev_mon_count = _prev_building_counts.get("monastery", 0)
+		if mon_count > 0 and prev_mon_count == 0:
+			milestones["first_monastery"] = game_time
+	_prev_building_counts["monastery"] = state.get_building_count("monastery")
+
+	# University milestone
+	if milestones["first_university"] == null:
+		var uni_count = state.get_building_count("university")
+		var prev_uni_count = _prev_building_counts.get("university", 0)
+		if uni_count > 0 and prev_uni_count == 0:
+			milestones["first_university"] = game_time
+	_prev_building_counts["university"] = state.get_building_count("university")
+
+	# Siege Workshop milestone
+	if milestones["first_siege_workshop"] == null:
+		var sw_count = state.get_building_count("siege_workshop")
+		var prev_sw_count = _prev_building_counts.get("siege_workshop", 0)
+		if sw_count > 0 and prev_sw_count == 0:
+			milestones["first_siege_workshop"] = game_time
+	_prev_building_counts["siege_workshop"] = state.get_building_count("siege_workshop")
+
+	# Battering Ram milestone
+	if milestones["first_battering_ram"] == null:
+		for unit in scene_tree.get_nodes_in_group("battering_rams"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				milestones["first_battering_ram"] = game_time
+				break
+
+	# Mangonel milestone
+	if milestones["first_mangonel"] == null:
+		for unit in scene_tree.get_nodes_in_group("mangonels"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				milestones["first_mangonel"] = game_time
+				break
+
+	# Monk milestone
+	if milestones["first_monk"] == null:
+		var monk_count = state.get_unit_count("monk")
+		if monk_count > 0:
+			milestones["first_monk"] = game_time
+
+	# Relic milestones
+	if milestones["first_relic_collected"] == null or milestones["first_relic_garrisoned"] == null:
+		for relic in scene_tree.get_nodes_in_group("relics"):
+			if relic.is_carried and is_instance_valid(relic.carrier) and relic.carrier.team == AI_TEAM:
+				if milestones["first_relic_collected"] == null:
+					milestones["first_relic_collected"] = game_time
+			if relic.is_garrisoned and is_instance_valid(relic.garrison_building) and relic.garrison_building.team == AI_TEAM:
+				if milestones["first_relic_garrisoned"] == null:
+					milestones["first_relic_garrisoned"] = game_time
+
+	# Conversion milestone — detect AI monk actively converting
+	if milestones["first_conversion"] == null:
+		for unit in scene_tree.get_nodes_in_group("monks"):
+			if unit.team == AI_TEAM and not unit.is_dead:
+				if unit.current_state == 3:  # CONVERTING
+					milestones["first_conversion"] = game_time
+					break
 
 	# Attack milestone (set via record_attack())
 	if milestones["first_attack"] == null and attack_issued:
@@ -405,6 +519,8 @@ func generate_summary(test_duration: float, time_scale: float, game_time: float,
 			"lumber_camp": state.get_building_count("lumber_camp"),
 			"mining_camp": state.get_building_count("mining_camp"),
 			"blacksmith": state.get_building_count("blacksmith"),
+			"outpost": state.get_building_count("outpost"),
+			"watch_tower": state.get_building_count("watch_tower"),
 		},
 		"technologies": {
 			"researched_count": state._count_researched_techs(),

@@ -11,8 +11,11 @@ static func capture(scene_tree: SceneTree, team: int) -> Dictionary:
 		"population": _capture_population(team),
 		"villagers": _capture_villagers(scene_tree, team),
 		"military": _capture_military(scene_tree, team),
+		"monks": _capture_monks(scene_tree, team),
 		"buildings": _capture_buildings(scene_tree, team),
+		"garrison": _capture_garrison(scene_tree, team),
 		"technologies": _capture_technologies(team),
+		"relics": _capture_relics(scene_tree, team),
 	}
 
 
@@ -74,10 +77,13 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 		"militia": 0,
 		"man_at_arms": 0,
 		"long_swordsman": 0,
+		"two_handed_swordsman": 0,
+		"champion": 0,
 		"spearman": 0,
 		"pikeman": 0,
 		"archer": 0,
 		"crossbowman": 0,
+		"arbalester": 0,
 		"skirmisher": 0,
 		"elite_skirmisher": 0,
 		"scout_cavalry": 0,
@@ -85,6 +91,15 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 		"cavalry_archer": 0,
 		"heavy_cavalry_archer": 0,
 		"knight": 0,
+		"cavalier": 0,
+		"paladin": 0,
+		"battering_ram": 0,
+		"capped_ram": 0,
+		"siege_ram": 0,
+		"mangonel": 0,
+		"onager": 0,
+		"scorpion": 0,
+		"heavy_scorpion": 0,
 	}
 
 	# Iterate military group once and classify with elif chain.
@@ -107,12 +122,22 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 			result["light_cavalry"] += 1
 		elif unit.is_in_group("scout_cavalry"):
 			result["scout_cavalry"] += 1
+		elif unit.is_in_group("paladins"):
+			result["paladin"] += 1
+		elif unit.is_in_group("cavaliers"):
+			result["cavalier"] += 1
 		elif unit.is_in_group("knights"):
 			result["knight"] += 1
+		elif unit.is_in_group("arbalesters"):
+			result["arbalester"] += 1
 		elif unit.is_in_group("crossbowmen"):
 			result["crossbowman"] += 1
 		elif unit.is_in_group("archers") or unit.is_in_group("archers_line"):
 			result["archer"] += 1
+		elif unit.is_in_group("champions"):
+			result["champion"] += 1
+		elif unit.is_in_group("two_handed_swordsmen"):
+			result["two_handed_swordsman"] += 1
 		elif unit.is_in_group("long_swordsmen"):
 			result["long_swordsman"] += 1
 		elif unit.is_in_group("man_at_arms"):
@@ -123,6 +148,20 @@ static func _capture_military(scene_tree: SceneTree, team: int) -> Dictionary:
 			result["pikeman"] += 1
 		elif unit.is_in_group("spearmen"):
 			result["spearman"] += 1
+		elif unit.is_in_group("siege_rams"):
+			result["siege_ram"] += 1
+		elif unit.is_in_group("capped_rams"):
+			result["capped_ram"] += 1
+		elif unit.is_in_group("battering_rams"):
+			result["battering_ram"] += 1
+		elif unit.is_in_group("onagers"):
+			result["onager"] += 1
+		elif unit.is_in_group("mangonels"):
+			result["mangonel"] += 1
+		elif unit.is_in_group("heavy_scorpions"):
+			result["heavy_scorpion"] += 1
+		elif unit.is_in_group("scorpions"):
+			result["scorpion"] += 1
 		else:
 			push_warning("GameStateSnapshot: unclassified military unit '%s' in team %d" % [unit.name, team])
 
@@ -142,6 +181,14 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"mining_camp": 0,
 		"market": 0,
 		"blacksmith": 0,
+		"monastery": 0,
+		"university": 0,
+		"outpost": 0,
+		"watch_tower": 0,
+		"palisade_wall": 0,
+		"stone_wall": 0,
+		"gate": 0,
+		"siege_workshop": 0,
 	}
 
 	# Map group names to result keys
@@ -157,6 +204,14 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 		"mining_camps": "mining_camp",
 		"markets": "market",
 		"blacksmiths": "blacksmith",
+		"monasteries": "monastery",
+		"universities": "university",
+		"outposts": "outpost",
+		"watch_towers": "watch_tower",
+		"palisade_walls": "palisade_wall",
+		"stone_walls": "stone_wall",
+		"gates": "gate",
+		"siege_workshops": "siege_workshop",
 	}
 
 	for group_name in groups:
@@ -165,6 +220,52 @@ static func _capture_buildings(scene_tree: SceneTree, team: int) -> Dictionary:
 			if building.team == team and building.is_functional():
 				result[key] += 1
 
+	return result
+
+
+static func _capture_garrison(scene_tree: SceneTree, team: int) -> Dictionary:
+	var total_garrisoned = 0
+	var buildings_with_garrison = 0
+	for building in scene_tree.get_nodes_in_group("buildings"):
+		if building.team == team and building.garrisoned_units.size() > 0:
+			total_garrisoned += building.garrisoned_units.size()
+			buildings_with_garrison += 1
+	return {
+		"total_garrisoned": total_garrisoned,
+		"buildings_with_garrison": buildings_with_garrison,
+	}
+
+
+static func _capture_monks(scene_tree: SceneTree, team: int) -> Dictionary:
+	var result = {"total": 0, "idle": 0, "healing": 0, "converting": 0, "carrying_relic": 0, "rejuvenating": 0}
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team != team or unit.is_dead:
+			continue
+		result["total"] += 1
+		if unit.carrying_relic:
+			result["carrying_relic"] += 1
+		elif unit.is_rejuvenating:
+			result["rejuvenating"] += 1
+		elif unit.current_state == 0:  # IDLE
+			result["idle"] += 1
+		elif unit.current_state == 2:  # HEALING
+			result["healing"] += 1
+		elif unit.current_state == 3:  # CONVERTING
+			result["converting"] += 1
+	return result
+
+
+static func _capture_relics(scene_tree: SceneTree, team: int) -> Dictionary:
+	var result = {"on_ground": 0, "carried": 0, "garrisoned": 0}
+	for relic in scene_tree.get_nodes_in_group("relics"):
+		if relic.is_garrisoned:
+			if is_instance_valid(relic.garrison_building) and relic.garrison_building.team == team:
+				result["garrisoned"] += 1
+		elif relic.is_carried:
+			if is_instance_valid(relic.carrier) and relic.carrier.team == team:
+				result["carried"] += 1
+		else:
+			result["on_ground"] += 1
 	return result
 
 

@@ -429,3 +429,151 @@ The original Phase 3 (procedural AI) was scrapped due to architectural issues. T
 - **Militia stat fix is a prerequisite for Man-at-Arms**: Militia was 50HP/5atk (MVP placeholder). AoE2 spec is 40HP/4atk. Without fixing this first, Man-at-Arms (45HP/6atk) would be an HP *downgrade*, making the upgrade chain feel broken.
 
 - **Research blocks training in all training buildings**: Barracks, Archery Range, and Stable all check `if is_researching: _process_research(delta); return` in `_process()`. This matches AoE2 behavior where unit upgrades pause training.
+
+---
+
+## Phase 6A: Monastery + Monk + Healing + Conversion
+
+- **Healing accumulator pattern required**: `heal_rate * delta` with `ceil()` gives 1 HP/frame (60 HP/sec at 60fps), not 1 HP/sec. Must use a float accumulator: track fractional HP, only apply when >= 1.0. Same pattern as building repair. Reset accumulator on target change/idle.
+
+- **Conversion `_store_base_stats()` causes stat drift**: After converting a unit, do NOT call `_store_base_stats()` before `apply_tech_bonuses()`. The base stats store the *current* values (which include old team's tech bonuses), so re-storing captures boosted values as the new base. Just call `apply_tech_bonuses()` which recalculates from existing `_base_*` fields.
+
+- **Monks are NOT in "military" group**: Monks join "monks" group only. They don't count for AI attack thresholds, don't get sent with attack waves, and use `stance = NO_ATTACK`. This is correct for Phase 6A but means the AI doesn't actively command monks. Phase 6B adds AI monk behavior.
+
+- **avoidance_enabled must be false in scene files**: Monk scene initially had `avoidance_enabled = true`. Base Unit._ready() sets it false, but the NavigationServer can process avoidance before first _physics_process, causing push-on-spawn. Same bug fixed for all other units — must also be caught for new units.
+
+- **Building conversion state is incomplete**: Converting buildings (via Redemption) changes team and color but doesn't handle training queues (paid by old team), house population cap transfer, or building deselection from old owner. Acceptable for Phase 6A since Redemption requires explicit use; deferred to Phase 6B.
+
+- **Monastery `_process()` needs `is_destroyed` and `is_constructed` guards**: Training/research timers can fire in the 1-frame gap between `_destroy()` and `queue_free()`, or before construction completes. Add both guards at top of `_process()`.
+
+- **Use `preload()` after initial import**: MONASTERY_SCENE and MONK_SCENE initially used `load()` because scenes weren't imported yet. After running `godot --headless --import`, switch to `preload()` as constants. This applies to all new scene references — use `load()` only during initial development, then convert.
+
+- **Illumination multiplier precision**: "+50% faster rejuvenation" means `base / 1.5`, not `base * 0.67`. The difference is 0.2 seconds (41.33 vs 41.54) but `/1.5` is mathematically exact.
+
+---
+
+## Phase 6B: Relics + Relic Victory + Full AI Monk Behavior
+
+- **Relics are NOT resources — use "relics" group only**: Relics must not be in the "resources" group or villagers will try to gather from them. They use a separate "relics" group and have their own click detection (`_get_relic_at_position()`), separate from the resource system.
+
+- **Relic is StaticBody2D, not Area2D**: Relics need click detection (collision_layer=4) but no physics response. Using StaticBody2D with `collision_layer = 4` and `collision_mask = 0` gives clickability without pushing units around.
+
+- **Relic command dispatch ordering matters**: In `_issue_command()`, the relic pickup check goes after the enemy unit check but before the friendly wounded heal check. The monastery garrison check goes at the start of the building section, before enemy building attack. Getting the order wrong means monks try to heal/attack instead of picking up relics.
+
+- **Monk carrying relic blocks heal AND convert**: Both `command_heal()` and `command_convert()` need `if carrying_relic: return` guards. Also block `_check_auto_heal()` — otherwise monks auto-heal while carrying relics, which isn't allowed in AoE2.
+
+- **Relic victory needs continuous `_process()` checking**: Unlike TC destruction (event-driven via `check_victory()`), relic victory uses a timer that counts up while all 5 relics are garrisoned by one team. Added `_process(delta)` to GameManager for `_check_relic_victory()`.
+
+- **Gold accumulator pattern for relic income**: Same fractional accumulator as repair/healing — `_gold_accumulator += rate * count * delta`, then extract integer gold when >= 1.0. Don't use `ceil()` or round per-frame, that gives 1 gold/frame instead of 0.5 gold/sec/relic.
+
+- **Monastery destruction must eject relics**: `eject_relics()` in `_destroy()` drops all garrisoned relics near the monastery position with small offsets. Relics are indestructible — they must reappear on the ground when their container is destroyed.
+
+- **Monk sprite swap on relic carry**: When a monk picks up a relic, swap SpriteFrames to monk-with-relic sprites. When they drop/garrison the relic, swap back to normal. The relic-carrying sprites are single-direction (5 frames), not 8-directional like normal monk.
+
+- **`garrison_target` pattern for relic delivery**: Rather than adding a new state, monks reuse the MOVING state with a `garrison_target` variable. When `_process_moving()` detects nav finished AND `garrison_target` is set AND monk is `carrying_relic`, it calls `_garrison_relic_at()`. Clear `garrison_target` on `move_to()` and all state transitions.
+
+- **AI monk commands are direct, not batch**: Unlike villager gathering (assign all idle vills), monk commands target individual monks to individual relics/targets. `get_idle_monk()` returns one monk, `get_monk_carrying_relic()` returns one monk. Each rule fires once per tick cycle, handling one monk at a time.
+
+- **`first_conversion` milestone has no tracking code**: The milestone is defined in the milestones dict but lacks a check in `_check_milestones()`. Conversion tracking would require signals or scanning all military units for team changes, which is complex. Left as `null` for now — the relic milestones are more important for 6B.
+
+- **Relic spawning separation**: Relics spawn at semi-random positions in the mid-map area (400-1400 range), with 300px minimum separation between relics, and distance checks against buildings and resources. This prevents relics from spawning inside bases or on top of resources.
+
+---
+
+## Phase 7A: Garrison System + Outpost + Watch Tower + Town Bell
+
+- **Garrison hides units, doesn't reparent**: `garrison_unit()` sets `visible = false`, `process_mode = PROCESS_MODE_DISABLED`, disables collision shape. Simpler than removing from scene tree and avoids group membership issues. Garrisoned units stay in the scene tree but are invisible and non-processing.
+
+- **`_stop_and_stay()` must be called BEFORE disabling process_mode**: If you disable processing first and then call `_stop_and_stay()`, property assignments still work (they're direct), but if `_stop_and_stay()` ever needs to emit signals or use deferred calls, it would fail silently. Always stop the unit while it's still active.
+
+- **Training buildings need explicit `_process_garrison_healing()` calls**: Barracks, Archery Range, Stable, and Monastery all have `garrison_capacity = 10` but their `_process()` methods don't automatically get garrison healing from the base Building class. Each must call `_process_garrison_healing(delta)` explicitly. TC and Watch Tower already do this. Healing should run regardless of training/research state.
+
+- **TC/tower idle target scanning must be throttled**: When no enemies are in range, `_find_attack_target()` scans all units in the scene every frame. Set `_attack_cooldown_timer = 0.5` when no target is found, so idle buildings only scan twice per second instead of 60 times.
+
+- **Town Bell instantly garrisons villagers (simplified)**: AoE2 makes villagers walk to the nearest building; our implementation instantly teleports them inside. AoE2 also restores villager state on "All Clear" (back to what they were doing before); our implementation ungarrisons them idle. Both are acceptable simplifications — full behavior deferred to Phase 10 polish.
+
+- **`_bell_garrisoned` tracks which villagers the bell garrisoned**: So "All Clear" only releases bell-garrisoned villagers, not manually garrisoned ones. This is critical — without it, a player who manually garrisons archers in a TC would lose them when clicking All Clear.
+
+- **AI needs UngarrisonWhenSafeRule**: The `GarrisonUnderAttackRule` garrisons villagers but nothing releases them when the threat passes. Without `UngarrisonWhenSafeRule`, garrisoned AI villagers would stay inside forever, permanently removing them from the economy. The only other exits are building destruction or 20% HP ejection.
+
+- **AI stone gathering must be enabled for defensive buildings**: The `AdjustGathererPercentagesRule` initially had no Phase 2 transition. Stone gathering stayed at 0% forever, blocking outpost (25S) and watch tower (125S) construction. Added Phase 2 transition: 10% stone, triggered when Feudal Age + barracks.
+
+- **Watch Tower attack doesn't target enemy buildings (TC does)**: TC's `_find_attack_target()` scans both units and buildings; Watch Tower only scans units. Minor inconsistency — towers won't shoot at enemy buildings within range. Will be fixed when extracting shared attack logic to base class (Phase 8, when Guard Tower/Keep need it too).
+
+- **Multi-resource building costs**: `_place_building()` in main.gd now handles wood/food/stone/gold costs. The building is instantiated to read its cost properties, then all resources are checked before any are spent (all-or-nothing). Same pattern used in repair cost calculation.
+
+---
+
+## Phase 7B: Walls + Gates + Wall Dragging + AI Defense
+
+- **Wall segments are individual buildings**: Each wall tile is a separate Building instance. A 10-tile wall = 10 nodes. This is simple and correct for a 60x60 map. No shared wall "line" object needed.
+
+- **Wall drag is a separate input code path**: `is_wall_placement` flag routes to `_handle_wall_placement_input()`. The existing `_handle_building_placement_input()` is untouched. This keeps the two systems isolated — single-click placement for gates and other buildings, drag for wall lines.
+
+- **L-shaped path: horizontal first, then vertical**: `_compute_wall_path()` always goes horizontal then vertical. No diagonal ambiguity. Uses `floori()` for tile index calculation to handle negative coordinates correctly (integer division truncates toward zero, not toward negative infinity).
+
+- **Cache ghost textures during wall drag**: `_update_wall_ghosts()` is called on every mouse move. Creating new `ImageTexture` objects per call causes allocation pressure. Fix: create the texture once in `start_*_wall_placement()` and store in `_wall_ghost_texture` member variable.
+
+- **Gate collision toggle lets enemies through (known simplification)**: When a friendly unit is near an unlocked gate, the CollisionShape2D is disabled entirely. This means ALL units (including enemies) can pass through while the gate is open. AoE2 only allows friendly passage. Fixing this properly would require per-team collision layers or a pathfinding-level solution. Acceptable for now — document and revisit if exploitable in gameplay.
+
+- **Gate auto-open scan throttled at 0.3s**: Uses accumulator pattern like TC/tower idle scan. With many gates (10+), each independently scanning all units every 0.3s could add up. Acceptable for current scale; consider Area2D monitoring if performance becomes an issue.
+
+- **Wall drag cost is all-or-nothing**: Total cost = per_segment_cost × valid_positions.size(). If the player can't afford the full wall, nothing is built. No partial placement. This prevents confusing partial walls but can surprise players who don't realize the total cost.
+
+- **preload() for wall/gate scenes**: Converted from `load()` to `preload()` constants (`PALISADE_WALL_SCENE`, `STONE_WALL_SCENE`, `GATE_SCENE`) to avoid file I/O during gameplay. The rest of main.gd's building scenes still use `load()` (pre-existing tech debt).
+
+- **AI builds individual wall segments, not lines**: The AI's `BuildPalisadeWallRule` places one wall segment at a time using the expanding-ring placement system. No drag logic needed for AI — it just places segments near the base each tick cycle.
+
+---
+
+## Phase 8A: University + Building Upgrades
+
+- **Building subclass `_ready()` order matters**: All properties used by the base class `_ready()` (max_hp, melee_armor, pierce_armor, sight_range) MUST be set BEFORE calling `super._ready()`. The base class stores these as `_base_*` fields for tech bonus calculations. If set after, the base values will be 0 and tech bonuses will calculate wrong. Groups (`add_to_group()`) should go AFTER `super._ready()` since the base class also adds groups.
+
+- **Building upgrade system must update `_base_*` fields**: When `_apply_building_upgrade()` in GameManager changes a building's stats at runtime (e.g. Guard Tower upgrade), it must also update `_base_max_hp`, `_base_melee_armor`, `_base_pierce_armor` so that `apply_building_tech_bonuses()` recalculates from the upgraded base. Without this, Masonry bonuses would revert the upgrade stats. Always call `apply_building_tech_bonuses()` after applying the upgrade.
+
+- **Tower attack must be a var, not const**: `tower_base_attack` in watch_tower.gd was originally `const TOWER_BASE_ATTACK`. Since the building upgrade system uses `set()` to apply new stats, const values can't be changed at runtime. Changed to `var tower_base_attack` so Guard Tower upgrade can increase it from 5 to 6.
+
+- **`_apply_researched_building_upgrades()` vs `_apply_building_upgrade()`**: Two paths for building upgrades: (1) `_apply_researched_building_upgrades()` runs in `_ready()` for buildings placed after an upgrade was researched, (2) `_apply_building_upgrade()` runs at research completion for existing buildings. Both must maintain the same invariants (update base stats, swap groups, set name). Keep them in sync.
+
+- **Masonry `building_los` effect**: The LOS bonus (+3 tiles = +96px) must be applied in `apply_building_tech_bonuses()` using `_base_sight_range`. Easy to forget since the other Masonry effects (HP%, armor) were the obvious ones.
+
+- **University follows Blacksmith pattern exactly**: Research-only building with `_process_research()` in `_process()`, `cancel_research()` in `_destroy()`, and `get_available_techs()` for HUD/AI queries. No training, no garrison.
+
+## Phase 8B: Siege Workshop + Siege Units
+
+- **Siege units use single-direction animation**: Unlike all other units which use `_load_directional_animations()` for 8 directions, siege units (Ram, Mangonel, Scorpion) use `_load_animation_frames()` with a single animation. They have 5 frames and don't rotate visually. The Mangonel sprite folder is named `Onager/` in the source assets (no Mangonel directory exists).
+
+- **Ram garrison is separate from building garrison**: Battering Ram has its own garrison system (`can_garrison_in_ram()`, `garrison_in_ram()`, `ungarrison_all_from_ram()`) that's independent of the building garrison system in `building.gd`. Only infantry can garrison in rams (no cavalry, siege, or monks). The ram `die()` method must call `ungarrison_all_from_ram()` before `super.die()`.
+
+- **Siege units excluded from building garrison**: Added `is_in_group("siege")` check to `building.gd:can_garrison()` to prevent rams/mangonels/scorpions from entering buildings.
+
+- **Siege units don't benefit from Blacksmith upgrades**: `apply_tech_bonuses()` in each siege unit calls `super.apply_tech_bonuses()` only. The base Unit class `apply_tech_bonuses()` is a no-op, so Blacksmith attack/armor bonuses skip siege.
+
+- **Ram only attacks buildings and siege**: `command_attack()` rejects targets not in the "buildings" or "siege" groups. Auto-aggro (`_find_closest_enemy()`) only searches buildings.
+
+- **Mangonel has minimum range**: If target is within 96px (3 tiles), mangonel goes IDLE instead of attacking. It does NOT try to move away.
+
+- **Mangonel splash has friendly fire**: Area damage (48px radius) hits ALL units including friendlies. Splash damage is 50% of base damage. This is AoE2-accurate.
+
+- **Scorpion pass-through has no friendly fire**: The bolt line damages all enemies along its path but skips same-team units. Extends 100px past the primary target with 20px hit width.
+
+- **Pierce armor 180 on rams is intentional**: Makes rams nearly immune to arrow damage (archers, towers, TCs). This is AoE2-accurate — rams are designed to be vulnerable to melee damage but shrug off pierce.
+
+- **Siege Workshop requires Blacksmith prerequisite**: Both in HUD (build button disabled with "Requires Blacksmith" text) and AI (`get_can_build_reason()` checks for functional blacksmith). This matches AoE2's tech tree.
+
+- **Imperial-age upgrades (Onager, Heavy Scorpion) are visible but locked**: The upgrade buttons appear in the Siege Workshop panel but show "Requires Imperial Age" tooltip. These will unlock in Phase 9 when Imperial Age advancement is added.
+
+## Phase 9A: Imperial Age Advancement + Blacksmith Techs + Unit Upgrades
+
+- **Blast Furnace gives +2 attack (not +1)**: Unlike Forging (+1) and Iron Casting (+1), Blast Furnace gives +2 infantry and cavalry attack. The effect value in TECHNOLOGIES is the raw bonus per tech, and `_recalculate_tech_bonuses()` sums all researched tech effects. Total attack line = 1+1+2 = 4.
+
+- **Plate armor techs are asymmetric (+1 melee / +2 pierce)**: Unlike earlier tiers which give +1/+1, the Imperial tier (Plate Mail, Plate Barding, Ring Archer) gives +1 melee / +2 pierce. This is handled naturally by separate effect keys (`infantry_melee_armor` vs `infantry_pierce_armor`).
+
+- **Cavalier has no tech prerequisite**: `requires: ""` is correct — Cavalier just needs Imperial Age, no prior upgrade tech. The Knight is the base unit, and the upgrade system's `from_group: "knights"` ensures only knights get upgraded. This is different from Paladin which `requires: "cavalier"`.
+
+- **Siege Ram upgrade costs food AND gold**: The original plan had food-only, but spec-check caught that AoE2 wiki lists 1000F + 800G. Fixed during post-phase.
+
+- **Category groups survive unit upgrades**: The upgrade system only swaps specific line groups (e.g., "archers_line" → "crossbowmen" → "arbalesters"). Broad category groups like "archers", "infantry", "cavalry" added in `_ready()` are NOT touched. This means `get_unit_count("ranged")` correctly counts upgraded units because they're still in the "archers" group. This is by design but non-obvious.
+
+- **Stale comments need updating when adding deferred content**: The TECHNOLOGIES comment said "Feudal + Castle only; Imperial deferred to Phase 9" which became stale when Imperial was actually added. Always update these when implementing deferred features.

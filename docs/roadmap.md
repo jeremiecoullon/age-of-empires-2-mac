@@ -543,38 +543,35 @@ Imperial techs and upgrades deferred to Phase 9.
 
 **Done when:** Monks are viable tactical option. Relic control is strategic goal.
 
+### Sub-phase breakdown
+
+- **6A** (complete): Monastery building, Monk unit, healing mechanic, conversion mechanic, 7 monastery technologies, basic AI (build monastery, train monks), HUD integration
+- **6B**: Relic objects + map spawning, monk relic carrying, relic garrisoning in monastery (+0.5 gold/sec), relic victory condition (all relics for 200s), full AI (collect relics, convert high-value targets, research monastery techs), observability
+
 ---
 
 ## Phase 7: Walls & Basic Defense
 **Goal:** Positional play with walls and basic static defenses
 
-| Feature | Type | Notes |
-|---------|------|-------|
-| Palisade Wall | Building | 2 wood, 250 HP, Dark Age |
-| Stone Wall | Building | 5 stone, 1800 HP, Feudal Age |
-| Gate | Building | 30 stone, passable wall segment, lockable, auto-opens for allies |
-| Outpost | Building | 25W + 25S, 500 HP, long LOS, no attack, no garrison |
-| Watch Tower | Building | 125S + 25W, 1020 HP, 5 attack, range 8 |
-| Minimum range | Mechanic | Castles and towers cannot attack adjacent units (Murder Holes removes this) |
-| Garrison (basic) | Mechanic | Units inside TC/towers for protection |
-| Garrison attack bonus | Mechanic | Ranged units and villagers add arrows when garrisoned in TC/towers |
-| Garrison healing | Mechanic | Garrisoned units heal automatically over time |
-| Garrison ejection | Mechanic | Buildings auto-eject all garrisoned units when heavily damaged |
-| Allied garrison | Mechanic | Allies can garrison in each other's buildings |
-| Allied gates | Mechanic | Allies can open/close each other's gates |
-| Town Bell | Mechanic | Garrison all villagers in nearest buildings |
-| Wall dragging | Input | Click and drag to place wall segments |
+### Sub-phase 7A: Garrison System + Outpost + Watch Tower + Town Bell (COMPLETE)
+**Systems:** Garrison mechanic, TC attack, minimum range for towers, Town Bell
+**Buildings:** Outpost (Dark Age), Watch Tower (Feudal)
+**AI:** BuildOutpostRule, BuildWatchTowerRule, GarrisonUnderAttackRule, UngarrisonWhenSafeRule, Phase 2 economy (stone gathering)
+
+### Sub-phase 7B: Walls + Gates + Wall Dragging + AI Defense
+**Buildings:** Palisade Wall (Dark Age), Stone Wall (Feudal), Gate (Feudal)
+**Mechanics:** Wall drag-placement, gate auto-open/lock
+**AI:** BuildPalisadeWallRule
+**HUD:** Wall build buttons, gate controls
 
 **Garrison capacity:**
 - Town Center: 15 foot units
 - Watch Tower: 5 foot units
 - Castle: 20 units (Phase 8)
-- Barracks: 10 units (own unit types)
-- Archery Range: 10 units (own unit types)
-- Stable: 10 units (own unit types)
-- Siege Workshop: 10 siege units
-- Dock: 10 ships
-- Monastery: 10 monks
+- Barracks: 10 units
+- Archery Range: 10 units
+- Stable: 10 units
+- Monastery: 10 units
 
 **AI updates:** AI builds walls around base, uses towers at chokepoints.
 
@@ -641,6 +638,13 @@ Imperial techs and upgrades deferred to Phase 9.
 **AI updates:** AI advances to Imperial, builds Castle, uses Trebuchets, builds Wonder if ahead.
 
 **Done when:** Full 4-age progression. Late-game feels powerful and distinct.
+
+### Sub-phase breakdown (approved 2026-02-07)
+
+- **9A**: Imperial Age Advancement + 5 Imperial Blacksmith techs + 6 deferred unit upgrades (Two-Handed Swordsman, Champion, Arbalester, Cavalier, Paladin, Siege Ram) + AI rules + HUD — *Complete*
+- **9B**: Castle building (650S, 4800HP, trains Trebuchets) + Trebuchet unit (pack/unpack) + Keep upgrade (Guard Tower → Keep)
+- **9C**: Chemistry tech (University, enables gunpowder) + Bombard Cannon + Hand Cannoneer + Camel + Heavy Camel
+- **9D**: Bombard Tower + Wonder + Wonder Victory + Forest cutting (Siege Onager/Trebuchet destroy trees)
 
 ---
 

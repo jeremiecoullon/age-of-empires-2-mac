@@ -31,7 +31,7 @@ const AGE_QUALIFYING_GROUPS: Array[Array] = [
 	[],  # Dark Age (starting age)
 	["barracks", "mills", "lumber_camps", "mining_camps"],  # For Feudal
 	["archery_ranges", "stables", "markets"],  # For Castle
-	[],  # For Imperial (placeholder - Castle Age buildings not yet implemented)
+	["monasteries", "universities"],  # For Imperial - Castle Age qualifying buildings
 ]
 
 const AGE_REQUIRED_QUALIFYING_COUNT: int = 2
@@ -43,6 +43,12 @@ const BUILDING_AGE_REQUIREMENTS: Dictionary = {
 	"stable": AGE_FEUDAL,
 	"market": AGE_FEUDAL,
 	"blacksmith": AGE_FEUDAL,
+	"watch_tower": AGE_FEUDAL,
+	"stone_wall": AGE_FEUDAL,
+	"gate": AGE_FEUDAL,
+	"monastery": AGE_CASTLE,
+	"university": AGE_CASTLE,
+	"siege_workshop": AGE_CASTLE,
 }
 
 const UNIT_AGE_REQUIREMENTS: Dictionary = {
@@ -53,6 +59,10 @@ const UNIT_AGE_REQUIREMENTS: Dictionary = {
 	"trade_cart": AGE_FEUDAL,
 	"cavalry_archer": AGE_CASTLE,
 	"knight": AGE_CASTLE,
+	"monk": AGE_CASTLE,
+	"battering_ram": AGE_CASTLE,
+	"mangonel": AGE_CASTLE,
+	"scorpion": AGE_CASTLE,
 }
 
 # Age state per player
@@ -61,7 +71,7 @@ var ai_age: int = AGE_DARK
 
 # ===== TECHNOLOGY SYSTEM =====
 
-# Technology definitions (Feudal + Castle only; Imperial deferred to Phase 9)
+# Technology definitions (all ages: Dark through Imperial)
 # Effects: keys map to bonus categories applied to units via apply_tech_bonuses()
 const TECHNOLOGIES: Dictionary = {
 	# Loom (Town Center, Dark Age)
@@ -84,6 +94,12 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"infantry_attack": 1, "cavalry_attack": 1},
 		"requires": "forging"
 	},
+	"blast_furnace": {
+		"name": "Blast Furnace", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 275, "gold": 225}, "research_time": 75.0,
+		"effects": {"infantry_attack": 2, "cavalry_attack": 2},
+		"requires": "iron_casting"
+	},
 	# Blacksmith - Infantry Armor line
 	"scale_mail_armor": {
 		"name": "Scale Mail Armor", "age": AGE_FEUDAL, "building": "blacksmith",
@@ -96,6 +112,12 @@ const TECHNOLOGIES: Dictionary = {
 		"cost": {"food": 200, "gold": 100}, "research_time": 55.0,
 		"effects": {"infantry_melee_armor": 1, "infantry_pierce_armor": 1},
 		"requires": "scale_mail_armor"
+	},
+	"plate_mail_armor": {
+		"name": "Plate Mail Armor", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 300, "gold": 150}, "research_time": 75.0,
+		"effects": {"infantry_melee_armor": 1, "infantry_pierce_armor": 2},
+		"requires": "chain_mail_armor"
 	},
 	# Blacksmith - Cavalry Armor line
 	"scale_barding_armor": {
@@ -110,6 +132,12 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"cavalry_melee_armor": 1, "cavalry_pierce_armor": 1},
 		"requires": "scale_barding_armor"
 	},
+	"plate_barding_armor": {
+		"name": "Plate Barding Armor", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 350, "gold": 200}, "research_time": 75.0,
+		"effects": {"cavalry_melee_armor": 1, "cavalry_pierce_armor": 2},
+		"requires": "chain_barding_armor"
+	},
 	# Blacksmith - Archer Attack line (Fletching also affects TCs/towers in future)
 	"fletching": {
 		"name": "Fletching", "age": AGE_FEUDAL, "building": "blacksmith",
@@ -123,6 +151,12 @@ const TECHNOLOGIES: Dictionary = {
 		"effects": {"archer_attack": 1, "archer_range": 1},
 		"requires": "fletching"
 	},
+	"bracer": {
+		"name": "Bracer", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 300, "gold": 200}, "research_time": 75.0,
+		"effects": {"archer_attack": 1, "archer_range": 1},
+		"requires": "bodkin_arrow"
+	},
 	# Blacksmith - Archer Armor line
 	"padded_archer_armor": {
 		"name": "Padded Archer Armor", "age": AGE_FEUDAL, "building": "blacksmith",
@@ -135,6 +169,12 @@ const TECHNOLOGIES: Dictionary = {
 		"cost": {"food": 150, "gold": 150}, "research_time": 55.0,
 		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 1},
 		"requires": "padded_archer_armor"
+	},
+	"ring_archer_armor": {
+		"name": "Ring Archer Armor", "age": AGE_IMPERIAL, "building": "blacksmith",
+		"cost": {"food": 250, "gold": 250}, "research_time": 75.0,
+		"effects": {"archer_melee_armor": 1, "archer_pierce_armor": 2},
+		"requires": "leather_archer_armor"
 	},
 	# ===== UNIT UPGRADES =====
 	# Barracks line
@@ -154,6 +194,22 @@ const TECHNOLOGIES: Dictionary = {
 		"to_name": "Long Swordsman",
 		"new_stats": {"max_hp": 55, "attack_damage": 9, "melee_armor": 0, "pierce_armor": 0}
 	},
+	"two_handed_swordsman": {
+		"name": "Two-Handed Swordsman", "age": AGE_IMPERIAL, "building": "barracks",
+		"cost": {"food": 300, "gold": 100}, "research_time": 75.0,
+		"effects": {}, "requires": "long_swordsman",
+		"type": "unit_upgrade", "from_group": "long_swordsmen", "to_group": "two_handed_swordsmen",
+		"to_name": "Two-Handed Swordsman",
+		"new_stats": {"max_hp": 60, "attack_damage": 11, "melee_armor": 0, "pierce_armor": 0}
+	},
+	"champion": {
+		"name": "Champion", "age": AGE_IMPERIAL, "building": "barracks",
+		"cost": {"food": 750, "gold": 350}, "research_time": 100.0,
+		"effects": {}, "requires": "two_handed_swordsman",
+		"type": "unit_upgrade", "from_group": "two_handed_swordsmen", "to_group": "champions",
+		"to_name": "Champion",
+		"new_stats": {"max_hp": 70, "attack_damage": 13, "melee_armor": 1, "pierce_armor": 0}
+	},
 	"pikeman": {
 		"name": "Pikeman", "age": AGE_CASTLE, "building": "barracks",
 		"cost": {"food": 215, "gold": 90}, "research_time": 45.0,
@@ -170,6 +226,14 @@ const TECHNOLOGIES: Dictionary = {
 		"type": "unit_upgrade", "from_group": "archers_line", "to_group": "crossbowmen",
 		"to_name": "Crossbowman",
 		"new_stats": {"max_hp": 35, "attack_damage": 5, "attack_range": 160.0}
+	},
+	"arbalester": {
+		"name": "Arbalester", "age": AGE_IMPERIAL, "building": "archery_range",
+		"cost": {"food": 350, "gold": 300}, "research_time": 75.0,
+		"effects": {}, "requires": "crossbowman",
+		"type": "unit_upgrade", "from_group": "crossbowmen", "to_group": "arbalesters",
+		"to_name": "Arbalester",
+		"new_stats": {"max_hp": 40, "attack_damage": 6, "attack_range": 160.0}
 	},
 	"elite_skirmisher": {
 		"name": "Elite Skirmisher", "age": AGE_CASTLE, "building": "archery_range",
@@ -195,6 +259,140 @@ const TECHNOLOGIES: Dictionary = {
 		"type": "unit_upgrade", "from_group": "scout_cavalry", "to_group": "light_cavalry",
 		"to_name": "Light Cavalry",
 		"new_stats": {"max_hp": 60, "attack_damage": 7, "melee_armor": 0, "pierce_armor": 2}
+	},
+	"cavalier": {
+		"name": "Cavalier", "age": AGE_IMPERIAL, "building": "stable",
+		"cost": {"food": 300, "gold": 300}, "research_time": 100.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "knights", "to_group": "cavaliers",
+		"to_name": "Cavalier",
+		"new_stats": {"max_hp": 120, "attack_damage": 12, "melee_armor": 2, "pierce_armor": 2}
+	},
+	"paladin": {
+		"name": "Paladin", "age": AGE_IMPERIAL, "building": "stable",
+		"cost": {"food": 1300, "gold": 750}, "research_time": 170.0,
+		"effects": {}, "requires": "cavalier",
+		"type": "unit_upgrade", "from_group": "cavaliers", "to_group": "paladins",
+		"to_name": "Paladin",
+		"new_stats": {"max_hp": 160, "attack_damage": 14, "melee_armor": 2, "pierce_armor": 3}
+	},
+	# ===== SIEGE WORKSHOP UNIT UPGRADES =====
+	"capped_ram": {
+		"name": "Capped Ram", "age": AGE_CASTLE, "building": "siege_workshop",
+		"cost": {"food": 300}, "research_time": 50.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "battering_rams", "to_group": "capped_rams",
+		"to_name": "Capped Ram",
+		"new_stats": {"max_hp": 200, "attack_damage": 3, "pierce_armor": 190}
+	},
+	"siege_ram": {
+		"name": "Siege Ram", "age": AGE_IMPERIAL, "building": "siege_workshop",
+		"cost": {"food": 1000, "gold": 800}, "research_time": 75.0,
+		"effects": {}, "requires": "capped_ram",
+		"type": "unit_upgrade", "from_group": "capped_rams", "to_group": "siege_rams",
+		"to_name": "Siege Ram",
+		"new_stats": {"max_hp": 270, "attack_damage": 4, "pierce_armor": 195}
+	},
+	"onager": {
+		"name": "Onager", "age": AGE_IMPERIAL, "building": "siege_workshop",
+		"cost": {"food": 800, "gold": 500}, "research_time": 75.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "mangonels", "to_group": "onagers",
+		"to_name": "Onager",
+		"new_stats": {"max_hp": 60, "attack_damage": 50, "pierce_armor": 7, "attack_range": 256.0}
+	},
+	"heavy_scorpion": {
+		"name": "Heavy Scorpion", "age": AGE_IMPERIAL, "building": "siege_workshop",
+		"cost": {"food": 1000, "wood": 800}, "research_time": 75.0,
+		"effects": {}, "requires": "",
+		"type": "unit_upgrade", "from_group": "scorpions", "to_group": "heavy_scorpions",
+		"to_name": "Heavy Scorpion",
+		"new_stats": {"max_hp": 50, "attack_damage": 16, "pierce_armor": 7}
+	},
+	# ===== MONASTERY TECHNOLOGIES =====
+	"fervor": {
+		"name": "Fervor", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 140}, "research_time": 50.0,
+		"effects": {"monk_speed": 15},
+		"requires": ""
+	},
+	"sanctity": {
+		"name": "Sanctity", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 120}, "research_time": 60.0,
+		"effects": {"monk_hp": 15},
+		"requires": ""
+	},
+	"redemption": {
+		"name": "Redemption", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 475}, "research_time": 50.0,
+		"effects": {"redemption": 1},
+		"requires": ""
+	},
+	"atonement": {
+		"name": "Atonement", "age": AGE_CASTLE, "building": "monastery",
+		"cost": {"gold": 325}, "research_time": 40.0,
+		"effects": {"atonement": 1},
+		"requires": ""
+	},
+	"illumination": {
+		"name": "Illumination", "age": AGE_IMPERIAL, "building": "monastery",
+		"cost": {"gold": 120}, "research_time": 65.0,
+		"effects": {"illumination": 1},
+		"requires": ""
+	},
+	"faith": {
+		"name": "Faith", "age": AGE_IMPERIAL, "building": "monastery",
+		"cost": {"food": 750, "gold": 1000}, "research_time": 60.0,
+		"effects": {"faith": 1},
+		"requires": ""
+	},
+	"block_printing": {
+		"name": "Block Printing", "age": AGE_IMPERIAL, "building": "monastery",
+		"cost": {"gold": 200}, "research_time": 55.0,
+		"effects": {"monk_range": 96},
+		"requires": ""
+	},
+	# ===== UNIVERSITY TECHNOLOGIES =====
+	"masonry": {
+		"name": "Masonry", "age": AGE_CASTLE, "building": "university",
+		"cost": {"wood": 175, "stone": 150}, "research_time": 50.0,
+		"effects": {"building_hp_percent": 10, "building_melee_armor": 1, "building_pierce_armor": 1, "building_los": 3},
+		"requires": ""
+	},
+	"murder_holes": {
+		"name": "Murder Holes", "age": AGE_CASTLE, "building": "university",
+		"cost": {"food": 200, "stone": 200}, "research_time": 60.0,
+		"effects": {"murder_holes": 1},
+		"requires": ""
+	},
+	"treadmill_crane": {
+		"name": "Treadmill Crane", "age": AGE_CASTLE, "building": "university",
+		"cost": {"wood": 200, "stone": 300}, "research_time": 50.0,
+		"effects": {"treadmill_crane": 1},
+		"requires": ""
+	},
+	"ballistics": {
+		"name": "Ballistics", "age": AGE_CASTLE, "building": "university",
+		"cost": {"wood": 300, "gold": 175}, "research_time": 60.0,
+		"effects": {"ballistics": 1},
+		"requires": ""
+	},
+	# ===== BUILDING UPGRADES (University) =====
+	"guard_tower": {
+		"name": "Guard Tower", "age": AGE_CASTLE, "building": "university",
+		"cost": {"food": 100, "wood": 250}, "research_time": 30.0,
+		"effects": {}, "requires": "",
+		"type": "building_upgrade", "from_group": "watch_towers", "to_group": "guard_towers",
+		"to_name": "Guard Tower",
+		"new_stats": {"max_hp": 1500, "pierce_armor": 9, "tower_base_attack": 6}
+	},
+	"fortified_wall": {
+		"name": "Fortified Wall", "age": AGE_CASTLE, "building": "university",
+		"cost": {"food": 200, "stone": 100}, "research_time": 50.0,
+		"effects": {}, "requires": "",
+		"type": "building_upgrade", "from_group": "stone_walls", "to_group": "fortified_walls",
+		"to_name": "Fortified Wall",
+		"new_stats": {"max_hp": 3000, "melee_armor": 12, "pierce_armor": 12}
 	},
 }
 
@@ -257,6 +455,9 @@ func complete_tech_research(tech_id: String, team: int = 0) -> void:
 	# Apply unit upgrade if this is a unit_upgrade tech
 	if tech_id in TECHNOLOGIES and TECHNOLOGIES[tech_id].get("type", "") == "unit_upgrade":
 		_apply_unit_upgrade(tech_id, team)
+	# Apply building upgrade if this is a building_upgrade tech
+	if tech_id in TECHNOLOGIES and TECHNOLOGIES[tech_id].get("type", "") == "building_upgrade":
+		_apply_building_upgrade(tech_id, team)
 	tech_researched.emit(team, tech_id)
 
 func _apply_unit_upgrade(tech_id: String, team_id: int) -> void:
@@ -290,6 +491,45 @@ func _apply_unit_upgrade(tech_id: String, team_id: int) -> void:
 		# Re-store base stats and reapply tech bonuses
 		unit._store_base_stats()
 		unit.apply_tech_bonuses()
+
+func _apply_building_upgrade(tech_id: String, team_id: int) -> void:
+	var tech = TECHNOLOGIES[tech_id]
+	var from_group: String = tech["from_group"]
+	var to_group: String = tech["to_group"]
+	var to_name: String = tech["to_name"]
+	var new_stats: Dictionary = tech["new_stats"]
+
+	for building in get_tree().get_nodes_in_group(from_group):
+		if building.team != team_id:
+			continue
+		# Apply new stats with HP delta scaling
+		if "max_hp" in new_stats:
+			var old_max = building.max_hp
+			building.max_hp = new_stats["max_hp"]
+			building._base_max_hp = new_stats["max_hp"]
+			if building.is_constructed:
+				# Scale current HP up by the delta
+				var hp_delta = building.max_hp - old_max
+				if hp_delta > 0:
+					building.current_hp += hp_delta
+				else:
+					building.current_hp = min(building.current_hp, building.max_hp)
+		for stat_key in new_stats:
+			if stat_key == "max_hp":
+				continue
+			building.set(stat_key, new_stats[stat_key])
+			# Update base stats for armor so tech bonuses recalculate correctly
+			if stat_key == "melee_armor":
+				building._base_melee_armor = new_stats[stat_key]
+			elif stat_key == "pierce_armor":
+				building._base_pierce_armor = new_stats[stat_key]
+		# Swap groups
+		building.remove_from_group(from_group)
+		building.add_to_group(to_group)
+		# Update display name
+		building.building_name = to_name
+		# Reapply tech bonuses from updated base values
+		building.apply_building_tech_bonuses()
 
 func get_tech_bonus(bonus_key: String, team: int = 0) -> int:
 	var bonuses = player_tech_bonuses if team == 0 else ai_tech_bonuses
@@ -337,8 +577,17 @@ signal villager_idle(villager: Node, reason: String)  # Emitted when player vill
 signal market_prices_changed  # Emitted when market prices update
 signal player_under_attack(attack_type: String)  # "military", "villager", or "building"
 signal age_changed(team: int, new_age: int)  # Emitted when a player advances to a new age
+signal relic_countdown_started(team: int)
+signal relic_countdown_updated(team: int, time_remaining: float)
+signal relic_countdown_cancelled()
 
 var game_ended: bool = false
+
+# Relic victory
+const RELIC_VICTORY_TIME: float = 200.0  # Seconds to hold all relics for victory
+const TOTAL_RELICS: int = 5
+var relic_victory_timer: float = 0.0
+var relic_victory_team: int = -1
 
 # Attack notification throttling
 const ATTACK_NOTIFY_COOLDOWN: float = 5.0  # Don't spam notifications
@@ -553,6 +802,58 @@ func refund_age_cost(target_age: int, team: int = 0) -> void:
 	for resource_type in costs:
 		add_resource(resource_type, costs[resource_type], team)
 
+var _relic_check_timer: float = 0.0
+const RELIC_CHECK_INTERVAL: float = 1.0
+
+func _process(delta: float) -> void:
+	if relic_victory_team >= 0:
+		# Active countdown — check every frame for accurate timer
+		_check_relic_victory(delta)
+	else:
+		# No active countdown — throttle to 1s intervals
+		_relic_check_timer += delta
+		if _relic_check_timer >= RELIC_CHECK_INTERVAL:
+			_relic_check_timer = 0.0
+			_check_relic_victory(delta)
+
+func _check_relic_victory(delta: float) -> void:
+	if game_ended:
+		return
+	# Count garrisoned relics per team
+	var team_relic_counts: Dictionary = {}
+	for monastery in get_tree().get_nodes_in_group("monasteries"):
+		if monastery.is_destroyed:
+			continue
+		var count = monastery.get_relic_count()
+		if count > 0:
+			team_relic_counts[monastery.team] = team_relic_counts.get(monastery.team, 0) + count
+
+	# Check if any team has all relics
+	var controlling_team: int = -1
+	for team_id in team_relic_counts:
+		if team_relic_counts[team_id] >= TOTAL_RELICS:
+			controlling_team = team_id
+			break
+
+	if controlling_team >= 0:
+		if relic_victory_team != controlling_team:
+			# New team took control of all relics
+			relic_victory_team = controlling_team
+			relic_victory_timer = 0.0
+			relic_countdown_started.emit(controlling_team)
+		relic_victory_timer += delta
+		var time_remaining = RELIC_VICTORY_TIME - relic_victory_timer
+		relic_countdown_updated.emit(controlling_team, time_remaining)
+		if relic_victory_timer >= RELIC_VICTORY_TIME:
+			game_ended = true
+			game_over.emit(controlling_team)
+	else:
+		if relic_victory_team >= 0:
+			# Lost control
+			relic_victory_team = -1
+			relic_victory_timer = 0.0
+			relic_countdown_cancelled.emit()
+
 # Victory check
 func check_victory() -> void:
 	if game_ended:
@@ -624,6 +925,8 @@ func reset() -> void:
 	player_tech_bonuses.clear()
 	ai_tech_bonuses.clear()
 	game_ended = false
+	relic_victory_timer = 0.0
+	relic_victory_team = -1
 	clear_selection()
 	is_placing_building = false
 	building_to_place = null

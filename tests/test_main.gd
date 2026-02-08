@@ -32,6 +32,10 @@ const TestAgeAdvancementScript = preload("res://tests/scenarios/test_age_advance
 const TestAgeGatingScript = preload("res://tests/scenarios/test_age_gating.gd")
 const TestTechResearchScript = preload("res://tests/scenarios/test_tech_research.gd")
 const TestUnitUpgradesScript = preload("res://tests/scenarios/test_unit_upgrades.gd")
+const TestMonasteryScript = preload("res://tests/scenarios/test_monastery.gd")
+const TestPhase8AScript = preload("res://tests/scenarios/test_phase_8a.gd")
+const TestPhase8BScript = preload("res://tests/scenarios/test_phase_8b.gd")
+const TestPhase9AScript = preload("res://tests/scenarios/test_phase_9a.gd")
 
 var test_runner: TestRunner
 var camera_node: Camera2D
@@ -165,6 +169,26 @@ func _run_all_test_suites() -> void:
 	print("\n=== RUNNING UNIT UPGRADE TESTS ===\n")
 	var unit_upgrade_tests = TestUnitUpgradesScript.new(test_runner)
 	await test_runner.run_all_tests(unit_upgrade_tests.get_all_tests())
+
+	# Monastery + Monk tests (Phase 6A)
+	print("\n=== RUNNING MONASTERY TESTS ===\n")
+	var monastery_tests = TestMonasteryScript.new(test_runner)
+	await test_runner.run_all_tests(monastery_tests.get_all_tests())
+
+	# Phase 8A tests (University, Building Upgrades, University Techs)
+	print("\n=== RUNNING PHASE 8A TESTS ===\n")
+	var phase_8a_tests = TestPhase8AScript.new(test_runner)
+	await test_runner.run_all_tests(phase_8a_tests.get_all_tests())
+
+	# Phase 8B tests (Siege Workshop, Siege Units)
+	print("\n=== RUNNING PHASE 8B TESTS ===\n")
+	var phase_8b_tests = TestPhase8BScript.new(test_runner)
+	await test_runner.run_all_tests(phase_8b_tests.get_all_tests())
+
+	# Phase 9A tests (Imperial Age, Imperial Blacksmith Techs, Imperial Unit Upgrades)
+	print("\n=== RUNNING PHASE 9A TESTS ===\n")
+	var phase_9a_tests = TestPhase9AScript.new(test_runner)
+	await test_runner.run_all_tests(phase_9a_tests.get_all_tests())
 
 	# Bugfix regression tests
 	print("\n=== RUNNING BUGFIX TESTS ===\n")

@@ -301,6 +301,72 @@ layout_mode = 2
 custom_minimum_size = Vector2(100, 25)
 text = "Blacksmith (150W)"
 
+[node name="BuildMonasteryButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Monastery (175W)"
+
+[node name="BuildUniversityButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "University (200W)"
+
+[node name="BuildOutpostButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Outpost (25W, 25S)"
+
+[node name="BuildWatchTowerButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Watch Tower (25W, 125S)"
+
+[node name="BuildPalisadeWallButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Palisade Wall (2W)"
+
+[node name="BuildStoneWallButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Stone Wall (5S)"
+
+[node name="BuildGateButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Gate (30S)"
+
+[node name="BuildSiegeWorkshopButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(100, 25)
+text = "Siege Workshop (200W)"
+
+[node name="LockGateButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Lock Gate"
+
+[node name="UngarrisonButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Ungarrison All"
+
+[node name="TownBellButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Town Bell"
+
 [node name="TrainVillagerButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
 layout_mode = 2
@@ -360,6 +426,30 @@ visible = false
 layout_mode = 2
 custom_minimum_size = Vector2(120, 25)
 text = "Knight (60F, 75G)"
+
+[node name="TrainMonkButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Monk (100G)"
+
+[node name="TrainBatteringRamButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Battering Ram (160W, 75G)"
+
+[node name="TrainMangonelButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Mangonel (160W, 135G)"
+
+[node name="TrainScorpionButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(120, 25)
+text = "Scorpion (75W, 75G)"
 
 [node name="BuyWoodButton" type="Button" parent="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid"]
 visible = false
@@ -526,6 +616,17 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildArcheryRangeButton" to="." method="_on_build_archery_range_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStableButton" to="." method="_on_build_stable_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildBlacksmithButton" to="." method="_on_build_blacksmith_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildMonasteryButton" to="." method="_on_build_monastery_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildUniversityButton" to="." method="_on_build_university_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildOutpostButton" to="." method="_on_build_outpost_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildWatchTowerButton" to="." method="_on_build_watch_tower_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildPalisadeWallButton" to="." method="_on_build_palisade_wall_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildStoneWallButton" to="." method="_on_build_stone_wall_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildGateButton" to="." method="_on_build_gate_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuildSiegeWorkshopButton" to="." method="_on_build_siege_workshop_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/LockGateButton" to="." method="_on_lock_gate_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/UngarrisonButton" to="." method="_on_ungarrison_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TownBellButton" to="." method="_on_town_bell_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainVillagerButton" to="." method="_on_train_villager_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/AdvanceAgeButton" to="." method="_on_advance_age_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/LoomButton" to="." method="_on_loom_pressed"]
@@ -536,6 +637,10 @@ text = "Play Again"
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScoutCavalryButton" to="." method="_on_train_scout_cavalry_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainCavalryArcherButton" to="." method="_on_train_cavalry_archer_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainKnightButton" to="." method="_on_train_knight_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMonkButton" to="." method="_on_train_monk_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainBatteringRamButton" to="." method="_on_train_battering_ram_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainMangonelButton" to="." method="_on_train_mangonel_pressed"]
+[connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/TrainScorpionButton" to="." method="_on_train_scorpion_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyWoodButton" to="." method="_on_buy_wood_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyFoodButton" to="." method="_on_buy_food_pressed"]
 [connection signal="pressed" from="BottomPanel/BottomContent/CenterSection/ActionContainer/ActionGrid/BuyStoneButton" to="." method="_on_buy_stone_pressed"]

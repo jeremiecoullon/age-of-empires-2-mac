@@ -12,9 +12,18 @@ const MARKET_SCENE_PATH = "res://scenes/buildings/market.tscn"
 const ARCHERY_RANGE_SCENE_PATH = "res://scenes/buildings/archery_range.tscn"
 const STABLE_SCENE_PATH = "res://scenes/buildings/stable.tscn"
 const BLACKSMITH_SCENE_PATH = "res://scenes/buildings/blacksmith.tscn"
+const MONASTERY_SCENE_PATH = "res://scenes/buildings/monastery.tscn"
+const UNIVERSITY_SCENE_PATH = "res://scenes/buildings/university.tscn"
+const OUTPOST_SCENE_PATH = "res://scenes/buildings/outpost.tscn"
+const WATCH_TOWER_SCENE_PATH = "res://scenes/buildings/watch_tower.tscn"
+const SIEGE_WORKSHOP_SCENE_PATH = "res://scenes/buildings/siege_workshop.tscn"
+const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
+const STONE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/stone_wall.tscn")
+const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
+const RELIC_SCENE: PackedScene = preload("res://scenes/objects/relic.tscn")
 const TILE_SIZE = 32
 
-enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH }
+enum BuildingType { NONE, HOUSE, BARRACKS, FARM, MILL, LUMBER_CAMP, MINING_CAMP, MARKET, ARCHERY_RANGE, STABLE, BLACKSMITH, MONASTERY, UNIVERSITY, OUTPOST, WATCH_TOWER, PALISADE_WALL, STONE_WALL, GATE, SIEGE_WORKSHOP }
 var current_building_type: BuildingType = BuildingType.NONE
 
 @onready var hud: CanvasLayer = $HUD
@@ -29,6 +38,14 @@ var building_ghost: Sprite2D = null
 var cursor_manager: Node = null
 var _game_logger: GameLogger = null
 
+# Wall drag placement
+var is_wall_placement: bool = false
+var wall_drag_active: bool = false
+var wall_drag_start: Vector2 = Vector2.ZERO
+var wall_ghosts: Array[Sprite2D] = []
+var wall_scene_path: PackedScene = null
+var _wall_ghost_texture: ImageTexture = null
+
 func _ready() -> void:
 	# Initialize cursor manager
 	cursor_manager = CursorManager.new()
@@ -36,6 +53,74 @@ func _ready() -> void:
 	cursor_manager.initialize(self)
 
 	_game_logger = get_node_or_null("GameLogger") as GameLogger
+	_spawn_relics()
+
+
+func _spawn_relics() -> void:
+	var relic_positions: Array[Vector2] = []
+	var min_separation: float = 300.0
+	var map_min: float = 400.0
+	var map_max: float = 1400.0
+	var max_attempts: int = 100
+
+	for _i in range(GameManager.TOTAL_RELICS):
+		var placed = false
+		for _attempt in range(max_attempts):
+			var pos = Vector2(
+				randf_range(map_min, map_max),
+				randf_range(map_min, map_max)
+			)
+			# Check separation from other relics
+			var too_close = false
+			for existing in relic_positions:
+				if pos.distance_to(existing) < min_separation:
+					too_close = true
+					break
+			if too_close:
+				continue
+			# Check not on top of buildings/resources
+			var on_obstacle = false
+			for building in get_tree().get_nodes_in_group("buildings"):
+				if pos.distance_to(building.global_position) < 80.0:
+					on_obstacle = true
+					break
+			if not on_obstacle:
+				for resource in get_tree().get_nodes_in_group("resources"):
+					if pos.distance_to(resource.global_position) < 60.0:
+						on_obstacle = true
+						break
+			if on_obstacle:
+				continue
+			relic_positions.append(pos)
+			placed = true
+			break
+		if not placed:
+			# Fallback: place at a default position
+			relic_positions.append(Vector2(
+				map_min + (_i * (map_max - map_min) / GameManager.TOTAL_RELICS),
+				map_min + (_i * (map_max - map_min) / GameManager.TOTAL_RELICS)
+			))
+
+	for pos in relic_positions:
+		var relic = RELIC_SCENE.instantiate()
+		relic.global_position = pos
+		add_child(relic)
+
+
+func _get_relic_at_position(pos: Vector2) -> Node:
+	var relics = get_tree().get_nodes_in_group("relics")
+	var closest: Node = null
+	var closest_dist: float = 40.0
+
+	for relic in relics:
+		if not relic.visible:
+			continue
+		var dist = pos.distance_to(relic.global_position)
+		if dist < closest_dist:
+			closest_dist = dist
+			closest = relic
+
+	return closest
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
@@ -46,7 +131,10 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.is_placing_building:
-		_handle_building_placement_input(event)
+		if is_wall_placement:
+			_handle_wall_placement_input(event)
+		else:
+			_handle_building_placement_input(event)
 		return
 
 	if event is InputEventMouseButton:
@@ -73,12 +161,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	var clicked_unit = _get_unit_at_position(world_pos)
 	if clicked_unit:
 		# Unit found - skip building check, let drag/click selection handle it
-		hud.hide_tc_panel()
-		hud.hide_barracks_panel()
-		hud.hide_market_panel()
-		hud.hide_archery_range_panel()
-		hud.hide_stable_panel()
-		hud.hide_blacksmith_panel()
+		hud.hide_all_panels()
 		is_dragging = true
 		drag_start = screen_pos
 		selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -89,12 +172,7 @@ func _start_selection(screen_pos: Vector2) -> void:
 	if clicked_building:
 		GameManager.clear_selection()
 		hud.hide_info()
-		hud.hide_tc_panel()
-		hud.hide_barracks_panel()
-		hud.hide_market_panel()
-		hud.hide_archery_range_panel()
-		hud.hide_stable_panel()
-		hud.hide_blacksmith_panel()
+		hud.hide_all_panels()
 		if clicked_building is TownCenter:
 			hud.show_tc_panel(clicked_building)
 			hud.show_info(clicked_building)
@@ -113,16 +191,26 @@ func _start_selection(screen_pos: Vector2) -> void:
 		elif clicked_building is Blacksmith:
 			hud.show_blacksmith_panel(clicked_building)
 			hud.show_info(clicked_building)
+		elif clicked_building is Monastery:
+			hud.show_monastery_panel(clicked_building)
+			hud.show_info(clicked_building)
+		elif clicked_building is University:
+			hud.show_university_panel(clicked_building)
+			hud.show_info(clicked_building)
+		elif clicked_building is SiegeWorkshop:
+			hud.show_siege_workshop_panel(clicked_building)
+			hud.show_info(clicked_building)
+		elif clicked_building is Gate:
+			hud.show_gate_panel(clicked_building)
+			hud.show_info(clicked_building)
+		elif clicked_building is WatchTower:
+			hud.show_garrison_building_panel(clicked_building)
+			hud.show_info(clicked_building)
 		else:
 			hud.show_info(clicked_building)
 		return
 
-	hud.hide_tc_panel()
-	hud.hide_barracks_panel()
-	hud.hide_market_panel()
-	hud.hide_archery_range_panel()
-	hud.hide_stable_panel()
-	hud.hide_blacksmith_panel()
+	hud.hide_all_panels()
 	is_dragging = true
 	drag_start = screen_pos
 	selection_rect = Rect2(drag_start, Vector2.ZERO)
@@ -204,16 +292,71 @@ func _issue_command(world_pos: Vector2) -> void:
 	# Exclude animals — they're handled separately below via command_hunt
 	var target_unit = _get_unit_at_position(world_pos)
 	if target_unit and target_unit.team != 0 and not target_unit.is_in_group("animals"):
+		# Mixed group: monks convert, military attacks
 		for unit in GameManager.selected_units:
-			if unit.has_method("command_attack"):
+			if unit is Monk:
+				unit.command_convert(target_unit)
+			elif unit.has_method("command_attack"):
 				unit.command_attack(target_unit)
 		if _game_logger:
 			_game_logger.log_action("attack", {"target": "unit"})
 		return
 
+	# Check if clicking on a relic (for monk pickup)
+	var relic = _get_relic_at_position(world_pos)
+	if relic and not relic.is_carried and not relic.is_garrisoned:
+		var sent_monk = false
+		for unit in GameManager.selected_units:
+			if unit is Monk and not unit.carrying_relic:
+				unit.command_pickup_relic(relic)
+				sent_monk = true
+				break  # Only one monk per relic
+		if sent_monk:
+			if _game_logger:
+				_game_logger.log_action("pickup_relic", {})
+			return
+
+	# Check if clicking on a friendly wounded unit (monk heal)
+	if target_unit and target_unit.team == 0 and target_unit.current_hp < target_unit.max_hp:
+		var has_monks = false
+		for unit in GameManager.selected_units:
+			if unit is Monk:
+				unit.command_heal(target_unit)
+				has_monks = true
+		if has_monks:
+			if _game_logger:
+				_game_logger.log_action("heal", {"target": "unit"})
+			return
+
+	# Check if clicking on a friendly battering ram (garrison infantry)
+	if target_unit and target_unit.team == 0 and target_unit is BatteringRam:
+		var garrisoned_any = false
+		for unit in GameManager.selected_units:
+			if unit == target_unit:
+				continue
+			if target_unit.can_garrison_in_ram(unit):
+				target_unit.garrison_in_ram(unit)
+				garrisoned_any = true
+		if garrisoned_any:
+			GameManager.clear_selection()
+			if _game_logger:
+				_game_logger.log_action("garrison_ram", {})
+			return
+
 	# Check if clicking on a building
 	var target_building = _get_building_at_position(world_pos)
 	if target_building:
+		# Friendly monastery - garrison relic if monk is carrying one
+		if target_building.team == 0 and target_building is Monastery:
+			var sent_monk = false
+			for unit in GameManager.selected_units:
+				if unit is Monk and unit.carrying_relic:
+					unit.command_garrison_relic(target_building)
+					sent_monk = true
+			if sent_monk:
+				if _game_logger:
+					_game_logger.log_action("garrison_relic", {})
+				return
 		# Enemy building - attack
 		if target_building.team != 0:
 			for unit in GameManager.selected_units:
@@ -238,6 +381,18 @@ func _issue_command(world_pos: Vector2) -> void:
 			if _game_logger:
 				_game_logger.log_action("repair", {})
 			return
+		# Friendly functional building with garrison capacity - garrison eligible units
+		elif target_building.garrison_capacity > 0 and target_building.is_functional():
+			var garrisoned_any = false
+			for unit in GameManager.selected_units:
+				if target_building.can_garrison(unit):
+					target_building.garrison_unit(unit)
+					garrisoned_any = true
+			if garrisoned_any:
+				GameManager.clear_selection()
+				if _game_logger:
+					_game_logger.log_action("garrison", {"building": target_building.building_name})
+				return
 
 	# Check if clicking on an animal (for hunting)
 	var animal = _get_animal_at_position(world_pos)
@@ -405,6 +560,61 @@ func start_stable_placement() -> void:
 	current_building_type = BuildingType.STABLE
 	GameManager.start_building_placement(load(STABLE_SCENE_PATH), building_ghost)
 
+func start_monastery_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.7, 0.5, 0.8, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.MONASTERY
+	GameManager.start_building_placement(load(MONASTERY_SCENE_PATH), building_ghost)
+
+func start_university_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.6, 0.5, 0.7, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.UNIVERSITY
+	GameManager.start_building_placement(load(UNIVERSITY_SCENE_PATH), building_ghost)
+
+func start_siege_workshop_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(96, 96), Color(0.5, 0.3, 0.25, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.SIEGE_WORKSHOP
+	GameManager.start_building_placement(load(SIEGE_WORKSHOP_SCENE_PATH), building_ghost)
+
+func start_outpost_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.6, 0.5, 0.3, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.OUTPOST
+	GameManager.start_building_placement(load(OUTPOST_SCENE_PATH), building_ghost)
+
+func start_watch_tower_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.5, 0.5, 0.55, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.WATCH_TOWER
+	GameManager.start_building_placement(load(WATCH_TOWER_SCENE_PATH), building_ghost)
+
 func start_blacksmith_placement() -> void:
 	if building_ghost:
 		building_ghost.queue_free()
@@ -415,6 +625,219 @@ func start_blacksmith_placement() -> void:
 
 	current_building_type = BuildingType.BLACKSMITH
 	GameManager.start_building_placement(load(BLACKSMITH_SCENE_PATH), building_ghost)
+
+func start_palisade_wall_placement() -> void:
+	_cancel_building_placement()
+	is_wall_placement = true
+	wall_scene_path = PALISADE_WALL_SCENE
+	current_building_type = BuildingType.PALISADE_WALL
+	_wall_ghost_texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.5, 0.35, 0.15, 0.5))
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _wall_ghost_texture
+	add_child(building_ghost)
+
+	GameManager.start_building_placement(wall_scene_path, building_ghost)
+
+func start_stone_wall_placement() -> void:
+	_cancel_building_placement()
+	is_wall_placement = true
+	wall_scene_path = STONE_WALL_SCENE
+	current_building_type = BuildingType.STONE_WALL
+	_wall_ghost_texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.6, 0.6, 0.65, 0.5))
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _wall_ghost_texture
+	add_child(building_ghost)
+
+	GameManager.start_building_placement(wall_scene_path, building_ghost)
+
+func start_gate_placement() -> void:
+	if building_ghost:
+		building_ghost.queue_free()
+
+	building_ghost = Sprite2D.new()
+	building_ghost.texture = _create_placeholder_texture(Vector2i(32, 32), Color(0.5, 0.4, 0.3, 0.5))
+	add_child(building_ghost)
+
+	current_building_type = BuildingType.GATE
+	GameManager.start_building_placement(GATE_SCENE, building_ghost)
+
+# ============================================================================
+# Wall drag placement
+# ============================================================================
+
+func _handle_wall_placement_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var pos = get_global_mouse_position()
+		pos.x = snapped(pos.x, TILE_SIZE) + TILE_SIZE / 2
+		pos.y = snapped(pos.y, TILE_SIZE) + TILE_SIZE / 2
+
+		if wall_drag_active:
+			var path = _compute_wall_path(wall_drag_start, pos)
+			_update_wall_ghosts(path)
+		elif building_ghost:
+			building_ghost.global_position = pos
+
+	elif event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				# Start drag
+				var pos = get_global_mouse_position()
+				pos.x = snapped(pos.x, TILE_SIZE) + TILE_SIZE / 2
+				pos.y = snapped(pos.y, TILE_SIZE) + TILE_SIZE / 2
+				wall_drag_start = pos
+				wall_drag_active = true
+				# Hide the single ghost — we'll use wall_ghosts array
+				if building_ghost:
+					building_ghost.visible = false
+			else:
+				# Release — place wall segments
+				if wall_drag_active:
+					_place_wall_segments()
+				_cancel_wall_placement()
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			_cancel_wall_placement()
+
+	elif event is InputEventKey:
+		if event.keycode == KEY_ESCAPE and event.pressed:
+			_cancel_wall_placement()
+
+func _compute_wall_path(start: Vector2, end: Vector2) -> Array[Vector2]:
+	## Compute L-shaped path: horizontal first, then vertical.
+	## Positions are snapped tile-center coordinates.
+	var path: Array[Vector2] = []
+
+	var sx = floori((start.x - TILE_SIZE / 2) / TILE_SIZE)
+	var sy = floori((start.y - TILE_SIZE / 2) / TILE_SIZE)
+	var ex = floori((end.x - TILE_SIZE / 2) / TILE_SIZE)
+	var ey = floori((end.y - TILE_SIZE / 2) / TILE_SIZE)
+
+	# Horizontal segment
+	var x_step = 1 if ex >= sx else -1
+	var x = sx
+	while x != ex + x_step:
+		path.append(Vector2(x * TILE_SIZE + TILE_SIZE / 2, sy * TILE_SIZE + TILE_SIZE / 2))
+		x += x_step
+
+	# Vertical segment (skip the corner which was already added)
+	var y_step = 1 if ey >= sy else -1
+	var y = sy + y_step
+	while y != ey + y_step:
+		path.append(Vector2(ex * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2))
+		y += y_step
+
+	return path
+
+func _update_wall_ghosts(positions: Array[Vector2]) -> void:
+	# Filter out positions that already have buildings
+	var valid_positions: Array[Vector2] = []
+	for pos in positions:
+		if _is_valid_building_position(pos, Vector2(32, 32)):
+			valid_positions.append(pos)
+
+	# Reuse existing ghosts, create new ones as needed, free extras
+	while wall_ghosts.size() < valid_positions.size():
+		var ghost = Sprite2D.new()
+		ghost.texture = _wall_ghost_texture
+		add_child(ghost)
+		wall_ghosts.append(ghost)
+
+	while wall_ghosts.size() > valid_positions.size():
+		var ghost = wall_ghosts.pop_back()
+		ghost.queue_free()
+
+	for i in range(valid_positions.size()):
+		wall_ghosts[i].global_position = valid_positions[i]
+
+func _place_wall_segments() -> void:
+	if not wall_drag_active:
+		return
+
+	var end_pos = get_global_mouse_position()
+	end_pos.x = snapped(end_pos.x, TILE_SIZE) + TILE_SIZE / 2
+	end_pos.y = snapped(end_pos.y, TILE_SIZE) + TILE_SIZE / 2
+
+	var path = _compute_wall_path(wall_drag_start, end_pos)
+
+	# Filter to valid positions
+	var valid_positions: Array[Vector2] = []
+	for pos in path:
+		if _is_valid_building_position(pos, Vector2(32, 32)):
+			valid_positions.append(pos)
+
+	if valid_positions.is_empty():
+		hud._show_error("No valid positions for wall!")
+		return
+
+	# Need at least one selected villager
+	var builder_villagers: Array[Villager] = []
+	for unit in GameManager.selected_units:
+		if unit is Villager and unit.team == 0 and is_instance_valid(unit) and not unit.is_dead and not unit.is_garrisoned():
+			builder_villagers.append(unit)
+
+	if builder_villagers.is_empty():
+		hud._show_error("Select a villager to build!")
+		return
+
+	# Calculate total cost (all-or-nothing)
+	var sample_building = wall_scene_path.instantiate()
+	var costs: Dictionary = {}
+	if sample_building.wood_cost > 0:
+		costs["wood"] = sample_building.wood_cost * valid_positions.size()
+	if sample_building.stone_cost > 0:
+		costs["stone"] = sample_building.stone_cost * valid_positions.size()
+	sample_building.queue_free()
+
+	# Check affordability
+	for res_type in costs:
+		if not GameManager.can_afford(res_type, costs[res_type]):
+			hud._show_error("Not enough %s! Need %d" % [res_type, costs[res_type]])
+			return
+
+	# Spend all resources
+	for res_type in costs:
+		GameManager.spend_resource(res_type, costs[res_type])
+
+	# Place each segment
+	var first_building: Building = null
+	for pos in valid_positions:
+		var building = wall_scene_path.instantiate()
+		building.global_position = pos
+		building.team = 0
+		buildings_container.add_child(building)
+		building.start_construction()
+		if first_building == null:
+			first_building = building
+
+	# Assign builders to first segment
+	if first_building:
+		for villager in builder_villagers:
+			villager.command_build(first_building)
+
+	if _game_logger:
+		_game_logger.log_action("place_wall", {
+			"type": BuildingType.keys()[current_building_type].to_lower(),
+			"segments": valid_positions.size(),
+		})
+
+func _cancel_wall_placement() -> void:
+	_clear_wall_ghosts()
+	wall_drag_active = false
+	is_wall_placement = false
+	wall_scene_path = null
+	_wall_ghost_texture = null
+	GameManager.cancel_building_placement()
+	if building_ghost:
+		building_ghost.queue_free()
+		building_ghost = null
+	current_building_type = BuildingType.NONE
+
+func _clear_wall_ghosts() -> void:
+	for ghost in wall_ghosts:
+		if is_instance_valid(ghost):
+			ghost.queue_free()
+	wall_ghosts.clear()
 
 func _handle_building_placement_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
@@ -436,6 +859,9 @@ func _handle_building_placement_input(event: InputEvent) -> void:
 			_cancel_building_placement()
 
 func _cancel_building_placement() -> void:
+	if is_wall_placement:
+		_cancel_wall_placement()
+		return
 	GameManager.cancel_building_placement()
 	building_ghost = null
 	current_building_type = BuildingType.NONE
@@ -466,11 +892,20 @@ func _place_building() -> void:
 
 	# Instantiate to get cost from the building itself (avoid duplicate values)
 	var building = GameManager.building_to_place.instantiate()
-	var cost = building.wood_cost
+	var costs: Dictionary = {}
+	if building.wood_cost > 0: costs["wood"] = building.wood_cost
+	if building.food_cost > 0: costs["food"] = building.food_cost
+	if building.stone_cost > 0: costs["stone"] = building.stone_cost
+	if building.gold_cost > 0: costs["gold"] = building.gold_cost
 
-	if not GameManager.spend_resource("wood", cost):
-		building.queue_free()
-		return
+	# Check all resources affordable
+	for res_type in costs:
+		if not GameManager.can_afford(res_type, costs[res_type]):
+			building.queue_free()
+			return
+	# Spend all resources
+	for res_type in costs:
+		GameManager.spend_resource(res_type, costs[res_type])
 
 	building.global_position = pos
 	building.team = 0  # Player team
@@ -516,6 +951,22 @@ func _get_building_size(type: BuildingType) -> Vector2:
 		BuildingType.STABLE:
 			return Vector2(96, 96)
 		BuildingType.BLACKSMITH:
+			return Vector2(96, 96)
+		BuildingType.MONASTERY:
+			return Vector2(96, 96)
+		BuildingType.UNIVERSITY:
+			return Vector2(96, 96)
+		BuildingType.OUTPOST:
+			return Vector2(32, 32)
+		BuildingType.WATCH_TOWER:
+			return Vector2(32, 32)
+		BuildingType.PALISADE_WALL:
+			return Vector2(32, 32)
+		BuildingType.STONE_WALL:
+			return Vector2(32, 32)
+		BuildingType.GATE:
+			return Vector2(32, 32)
+		BuildingType.SIEGE_WORKSHOP:
 			return Vector2(96, 96)
 		_:
 			return Vector2(64, 64)

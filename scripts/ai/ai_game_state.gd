@@ -27,8 +27,16 @@ const MARKET_SCENE: PackedScene = preload("res://scenes/buildings/market.tscn")
 const ARCHERY_RANGE_SCENE: PackedScene = preload("res://scenes/buildings/archery_range.tscn")
 const STABLE_SCENE: PackedScene = preload("res://scenes/buildings/stable.tscn")
 const BLACKSMITH_SCENE: PackedScene = preload("res://scenes/buildings/blacksmith.tscn")
+const MONASTERY_SCENE: PackedScene = preload("res://scenes/buildings/monastery.tscn")
+const UNIVERSITY_SCENE: PackedScene = preload("res://scenes/buildings/university.tscn")
+const OUTPOST_SCENE: PackedScene = preload("res://scenes/buildings/outpost.tscn")
+const WATCH_TOWER_SCENE: PackedScene = preload("res://scenes/buildings/watch_tower.tscn")
+const PALISADE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/palisade_wall.tscn")
+const STONE_WALL_SCENE: PackedScene = preload("res://scenes/buildings/stone_wall.tscn")
+const GATE_SCENE: PackedScene = preload("res://scenes/buildings/gate.tscn")
+var SIEGE_WORKSHOP_SCENE: PackedScene = null  # Loaded at init (new scene)
 
-# Building costs (wood only for MVP)
+# Building costs
 const BUILDING_COSTS: Dictionary = {
 	"house": {"wood": 25},
 	"barracks": {"wood": 100},
@@ -39,7 +47,15 @@ const BUILDING_COSTS: Dictionary = {
 	"market": {"wood": 175},
 	"archery_range": {"wood": 175},
 	"stable": {"wood": 175},
-	"blacksmith": {"wood": 150}
+	"blacksmith": {"wood": 150},
+	"monastery": {"wood": 175},
+	"university": {"wood": 200},
+	"outpost": {"wood": 25, "stone": 25},
+	"watch_tower": {"wood": 25, "stone": 125},
+	"palisade_wall": {"wood": 2},
+	"stone_wall": {"stone": 5},
+	"gate": {"stone": 30},
+	"siege_workshop": {"wood": 200}
 }
 
 # Building sizes (in pixels)
@@ -53,7 +69,15 @@ const BUILDING_SIZES: Dictionary = {
 	"market": Vector2(96, 96),
 	"archery_range": Vector2(96, 96),
 	"stable": Vector2(96, 96),
-	"blacksmith": Vector2(96, 96)
+	"blacksmith": Vector2(96, 96),
+	"monastery": Vector2(96, 96),
+	"university": Vector2(96, 96),
+	"outpost": Vector2(32, 32),
+	"watch_tower": Vector2(32, 32),
+	"palisade_wall": Vector2(32, 32),
+	"stone_wall": Vector2(32, 32),
+	"gate": Vector2(32, 32),
+	"siege_workshop": Vector2(96, 96)
 }
 
 # Reference to controller (for accessing strategic numbers, timers, etc.)
@@ -80,6 +104,7 @@ var _pending_researches: Dictionary = {}  # tech_id -> building_type ("blacksmit
 func initialize(ai_controller: Node, tree: SceneTree) -> void:
 	controller = ai_controller
 	scene_tree = tree
+	SIEGE_WORKSHOP_SCENE = load("res://scenes/buildings/siege_workshop.tscn")
 
 
 func refresh() -> void:
@@ -112,7 +137,13 @@ func should_save_for_age() -> bool:
 		return false
 	var target_age = current_age + 1
 	# Check non-resource conditions
-	var min_vills = 10 if target_age == GameManager.AGE_FEUDAL else 15
+	var min_vills: int
+	if target_age == GameManager.AGE_FEUDAL:
+		min_vills = 10
+	elif target_age == GameManager.AGE_CASTLE:
+		min_vills = 15
+	else:
+		min_vills = 20  # Imperial
 	if get_civilian_population() < min_vills:
 		return false
 	if get_qualifying_building_count(target_age) < GameManager.AGE_REQUIRED_QUALIFYING_COUNT:
@@ -179,6 +210,24 @@ func get_can_research_reason(tech_id: String) -> String:
 			return "no_town_center"
 		if tc.is_researching_age or tc.is_researching:
 			return "building_busy"
+	elif building_type == "monastery":
+		var mon = _get_ai_monastery()
+		if not mon:
+			return "no_monastery"
+		if mon.is_researching:
+			return "building_busy"
+	elif building_type == "university":
+		var uni = _get_ai_university()
+		if not uni:
+			return "no_university"
+		if uni.is_researching:
+			return "building_busy"
+	elif building_type == "siege_workshop":
+		var sw = _get_ai_siege_workshop()
+		if not sw:
+			return "no_siege_workshop"
+		if sw.is_researching:
+			return "building_busy"
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if not bldg:
@@ -210,6 +259,30 @@ func _get_ai_blacksmith() -> Blacksmith:
 	for bs in scene_tree.get_nodes_in_group("blacksmiths"):
 		if bs.team == AI_TEAM and bs.is_functional():
 			return bs
+	return null
+
+
+func _get_ai_monastery() -> Monastery:
+	## Returns first functional AI monastery, or null
+	for mon in scene_tree.get_nodes_in_group("monasteries"):
+		if mon.team == AI_TEAM and mon.is_functional():
+			return mon
+	return null
+
+
+func _get_ai_university() -> University:
+	## Returns first functional AI university, or null
+	for uni in scene_tree.get_nodes_in_group("universities"):
+		if uni.team == AI_TEAM and uni.is_functional():
+			return uni
+	return null
+
+
+func _get_ai_siege_workshop() -> SiegeWorkshop:
+	## Returns first functional AI siege workshop, or null
+	for sw in scene_tree.get_nodes_in_group("siege_workshops"):
+		if sw.team == AI_TEAM and sw.is_functional():
+			return sw
 	return null
 
 
@@ -291,6 +364,32 @@ func get_unit_count(unit_type: String) -> int:
 			group_name = "cavalry_archers"
 		"knight":
 			group_name = "knights"
+		"cavalier":
+			group_name = "cavaliers"
+		"paladin":
+			group_name = "paladins"
+		"two_handed_swordsman":
+			group_name = "two_handed_swordsmen"
+		"champion":
+			group_name = "champions"
+		"arbalester":
+			group_name = "arbalesters"
+		"capped_ram":
+			group_name = "capped_rams"
+		"siege_ram":
+			group_name = "siege_rams"
+		"monk":
+			group_name = "monks"
+		"battering_ram":
+			group_name = "battering_rams"
+		"mangonel":
+			group_name = "mangonels"
+		"scorpion":
+			group_name = "scorpions"
+		"onager":
+			group_name = "onagers"
+		"heavy_scorpion":
+			group_name = "heavy_scorpions"
 		"infantry":
 			# Count all infantry: militia + spearmen
 			var count = 0
@@ -345,6 +444,22 @@ func get_building_count(building_type: String) -> int:
 			group_name = "stables"
 		"blacksmith":
 			group_name = "blacksmiths"
+		"monastery":
+			group_name = "monasteries"
+		"university":
+			group_name = "universities"
+		"outpost":
+			group_name = "outposts"
+		"watch_tower":
+			group_name = "watch_towers"
+		"palisade_wall":
+			group_name = "palisade_walls"
+		"stone_wall":
+			group_name = "stone_walls"
+		"gate":
+			group_name = "gates"
+		"siege_workshop":
+			group_name = "siege_workshops"
 		"town_center":
 			group_name = "town_centers"
 
@@ -550,6 +665,60 @@ func get_can_train_reason(unit_type: String) -> String:
 				return "insufficient_gold"
 			return "ok"
 
+		"monk":
+			var monastery = _get_ai_monastery()
+			if not monastery:
+				return "no_monastery"
+			if not monastery.is_functional():
+				return "monastery_not_functional"
+			if monastery.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("gold", monastery.MONK_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
+		"battering_ram":
+			var sw = _get_ai_siege_workshop()
+			if not sw:
+				return "no_siege_workshop"
+			if not sw.is_functional():
+				return "siege_workshop_not_functional"
+			if sw.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", SiegeWorkshop.BATTERING_RAM_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", SiegeWorkshop.BATTERING_RAM_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
+		"mangonel":
+			var sw = _get_ai_siege_workshop()
+			if not sw:
+				return "no_siege_workshop"
+			if not sw.is_functional():
+				return "siege_workshop_not_functional"
+			if sw.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", SiegeWorkshop.MANGONEL_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", SiegeWorkshop.MANGONEL_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
+		"scorpion":
+			var sw = _get_ai_siege_workshop()
+			if not sw:
+				return "no_siege_workshop"
+			if not sw.is_functional():
+				return "siege_workshop_not_functional"
+			if sw.get_queue_size() >= MAX_AI_QUEUE:
+				return "queue_full"
+			if not GameManager.can_afford("wood", SiegeWorkshop.SCORPION_WOOD_COST, AI_TEAM):
+				return "insufficient_wood"
+			if not GameManager.can_afford("gold", SiegeWorkshop.SCORPION_GOLD_COST, AI_TEAM):
+				return "insufficient_gold"
+			return "ok"
+
 	return "unknown_unit_type"
 
 
@@ -567,6 +736,11 @@ func get_can_build_reason(building_type: String) -> String:
 	if not GameManager.is_building_unlocked(building_type, AI_TEAM):
 		var required_age = GameManager.BUILDING_AGE_REQUIREMENTS.get(building_type, GameManager.AGE_DARK)
 		return "requires_%s" % GameManager.AGE_NAMES[required_age].to_lower().replace(" ", "_")
+
+	# Siege workshop requires a blacksmith
+	if building_type == "siege_workshop":
+		if get_building_count("blacksmith") == 0:
+			return "requires_blacksmith"
 
 	# Check resources
 	var costs = BUILDING_COSTS[building_type]
@@ -880,6 +1054,22 @@ func _do_train(unit_type: String) -> void:
 			var stable = _get_ai_building("stable")
 			if stable and stable.is_functional():
 				success = stable.train_knight()
+		"monk":
+			var monastery = _get_ai_monastery()
+			if monastery and monastery.is_functional():
+				success = monastery.train_monk()
+		"battering_ram":
+			var sw = _get_ai_siege_workshop()
+			if sw and sw.is_functional():
+				success = sw.train_battering_ram()
+		"mangonel":
+			var sw = _get_ai_siege_workshop()
+			if sw and sw.is_functional():
+				success = sw.train_mangonel()
+		"scorpion":
+			var sw = _get_ai_siege_workshop()
+			if sw and sw.is_functional():
+				success = sw.train_scorpion()
 
 	if success:
 		_log_action("train", {"unit": unit_type})
@@ -1014,6 +1204,21 @@ func _do_research(tech_id: String) -> void:
 		if tc and not tc.is_researching_age and not tc.is_researching:
 			if tc.start_research(tech_id):
 				_log_action("research", {"tech": tech_id})
+	elif building_type == "monastery":
+		var mon = _get_ai_monastery()
+		if mon and not mon.is_researching:
+			if mon.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
+	elif building_type == "university":
+		var uni = _get_ai_university()
+		if uni and not uni.is_researching:
+			if uni.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
+	elif building_type == "siege_workshop":
+		var sw = _get_ai_siege_workshop()
+		if sw and not sw.is_researching:
+			if sw.start_research(tech_id):
+				_log_action("research", {"tech": tech_id})
 	elif building_type in ["barracks", "archery_range", "stable"]:
 		var bldg = _get_ai_building(building_type)
 		if bldg and not bldg.is_researching:
@@ -1056,6 +1261,22 @@ func _get_ai_building(building_type: String) -> Node:
 			group_name = "lumber_camps"
 		"mining_camp":
 			group_name = "mining_camps"
+		"monastery":
+			group_name = "monasteries"
+		"university":
+			group_name = "universities"
+		"siege_workshop":
+			group_name = "siege_workshops"
+		"outpost":
+			group_name = "outposts"
+		"watch_tower":
+			group_name = "watch_towers"
+		"palisade_wall":
+			group_name = "palisade_walls"
+		"stone_wall":
+			group_name = "stone_walls"
+		"gate":
+			group_name = "gates"
 
 	for building in scene_tree.get_nodes_in_group(group_name):
 		if building.team == AI_TEAM and not building.is_destroyed:
@@ -1186,6 +1407,22 @@ func _get_building_scene(building_type: String) -> PackedScene:
 			return STABLE_SCENE
 		"blacksmith":
 			return BLACKSMITH_SCENE
+		"monastery":
+			return MONASTERY_SCENE
+		"university":
+			return UNIVERSITY_SCENE
+		"outpost":
+			return OUTPOST_SCENE
+		"watch_tower":
+			return WATCH_TOWER_SCENE
+		"palisade_wall":
+			return PALISADE_WALL_SCENE
+		"stone_wall":
+			return STONE_WALL_SCENE
+		"gate":
+			return GATE_SCENE
+		"siege_workshop":
+			return SIEGE_WORKSHOP_SCENE
 	return null
 
 
@@ -1962,3 +2199,170 @@ func get_villagers_per_target() -> Dictionary:
 		result[resource_type + "_max"] = max_count
 
 	return result
+
+
+# =============================================================================
+# RELIC HELPERS (Phase 6B)
+# =============================================================================
+
+func get_uncollected_relics() -> Array:
+	## Returns relics that are not carried, not garrisoned, and not already targeted by an AI monk
+	var targeted_relics: Dictionary = {}
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team == AI_TEAM and not unit.is_dead and is_instance_valid(unit.relic_target):
+			targeted_relics[unit.relic_target.get_instance_id()] = true
+	var result: Array = []
+	for relic in scene_tree.get_nodes_in_group("relics"):
+		if not relic.is_carried and not relic.is_garrisoned:
+			if relic.get_instance_id() not in targeted_relics:
+				result.append(relic)
+	return result
+
+
+func get_idle_monk() -> Node:
+	## Returns an AI monk that is IDLE, not rejuvenating, not carrying a relic
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+		if unit.carrying_relic:
+			continue
+		if unit.is_rejuvenating:
+			continue
+		if unit.current_state == Monk.State.IDLE:
+			return unit
+	return null
+
+
+func get_monk_carrying_relic() -> Node:
+	## Returns an AI monk that is carrying a relic
+	for unit in scene_tree.get_nodes_in_group("monks"):
+		if unit.team != AI_TEAM or unit.is_dead:
+			continue
+		if unit.carrying_relic:
+			return unit
+	return null
+
+
+func get_enemy_high_value_target(monk_position: Vector2) -> Node:
+	## Returns a nearby enemy unit worth converting (most expensive first)
+	var max_range: float = 576.0  # 2x conversion range
+	var best_target: Node = null
+	var best_value: int = 0
+
+	# Value table for conversion targeting
+	var unit_values: Dictionary = {
+		"knights": 135,  # 60F + 75G
+		"heavy_cavalry_archers": 110,  # 40W + 70G
+		"cavalry_archers": 110,
+		"light_cavalry": 80,
+		"scout_cavalry": 80,
+		"crossbowmen": 70,
+		"archers_line": 70,
+		"elite_skirmishers": 60,
+		"skirmishers": 60,
+		"long_swordsmen": 55,
+		"man_at_arms": 50,
+		"pikemen": 50,
+		"militia": 40,
+		"spearmen": 35,
+	}
+
+	for unit in scene_tree.get_nodes_in_group("units"):
+		if unit.team == AI_TEAM or unit.is_dead:
+			continue
+		if unit is Villager:
+			continue  # Don't prioritize villagers
+		if not unit.is_in_group("military"):
+			continue
+
+		var dist = monk_position.distance_to(unit.global_position)
+		if dist > max_range:
+			continue
+
+		# Get value from groups
+		var value: int = 30  # default
+		for group_name in unit_values:
+			if unit.is_in_group(group_name):
+				value = unit_values[group_name]
+				break
+
+		if value > best_value:
+			best_value = value
+			best_target = unit
+
+	return best_target
+
+
+func command_monk_pickup_relic(monk: Node, relic: Node) -> void:
+	## Direct command: send monk to pick up a relic
+	if is_instance_valid(monk) and is_instance_valid(relic):
+		monk.command_pickup_relic(relic)
+		_log_action("monk_pickup_relic", {})
+
+
+func command_monk_garrison_relic(monk: Node, monastery: Node) -> void:
+	## Direct command: send monk carrying relic to garrison at monastery
+	if is_instance_valid(monk) and is_instance_valid(monastery):
+		monk.command_garrison_relic(monastery)
+		_log_action("monk_garrison_relic", {})
+
+
+func command_monk_convert(monk: Node, target: Node) -> void:
+	## Direct command: send monk to convert an enemy
+	if is_instance_valid(monk) and is_instance_valid(target):
+		monk.command_convert(target)
+		_log_action("monk_convert", {})
+
+
+# =============================================================================
+# GARRISON HELPERS (Phase 7A)
+# =============================================================================
+
+func get_nearest_garrison_building(from_pos: Vector2) -> Building:
+	## Returns nearest AI building with garrison capacity that isn't full
+	var nearest: Building = null
+	var nearest_dist: float = INF
+
+	for building in scene_tree.get_nodes_in_group("buildings"):
+		if building.team != AI_TEAM or building.is_destroyed:
+			continue
+		if building.garrison_capacity <= 0 or not building.is_functional():
+			continue
+		if building.get_garrisoned_count() >= building.garrison_capacity:
+			continue
+		var dist = from_pos.distance_to(building.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = building
+	return nearest
+
+
+func garrison_villagers_under_attack() -> int:
+	## Garrison AI villagers that are near enemy threats into nearby buildings.
+	## Returns the number of villagers garrisoned.
+	const THREAT_DISTANCE: float = 250.0
+	var garrisoned_count: int = 0
+
+	for villager in scene_tree.get_nodes_in_group("villagers"):
+		if villager.team != AI_TEAM or villager.is_dead or villager.is_garrisoned():
+			continue
+
+		# Check if this villager is near an enemy threat
+		var is_threatened = false
+		for unit in scene_tree.get_nodes_in_group("military"):
+			if unit.team == AI_TEAM or unit.is_dead:
+				continue
+			if villager.global_position.distance_to(unit.global_position) < THREAT_DISTANCE:
+				is_threatened = true
+				break
+
+		if not is_threatened:
+			continue
+
+		# Find nearest building with garrison capacity
+		var building = get_nearest_garrison_building(villager.global_position)
+		if building and building.can_garrison(villager):
+			building.garrison_unit(villager)
+			garrisoned_count += 1
+
+	return garrisoned_count
